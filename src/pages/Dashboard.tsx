@@ -25,13 +25,26 @@ export default function Dashboard() {
     return null
   }
 
-  const upcomingBookings = bookings.filter(
-    b => b.status === 'confirmed' && new Date(b.scheduled_at) > new Date()
+const upcomingBookings = bookings.filter(b => {
+  const date = b.event_date || b.created_at
+  return (
+    (b.status === 'pending' || b.status === 'confirmed') &&
+    date &&
+    new Date(date).getTime() > Date.now()
   )
+})
 
-  const pastBookings = bookings.filter(
-    b => b.status === 'completed' || (b.status === 'confirmed' && new Date(b.scheduled_at) < new Date())
+const pastBookings = bookings.filter(b => {
+  const date = b.event_date || b.created_at
+  return (
+    date &&
+    (
+      b.status === 'completed' ||
+      ((b.status === 'pending' || b.status === 'confirmed') &&
+        new Date(date).getTime() <= Date.now())
+    )
   )
+})
 
   return (
     <div className="min-h-screen py-12 container mx-auto px-4">
@@ -51,7 +64,7 @@ export default function Dashboard() {
           </Button>
         )}
 
-        <Tabs defaultValue="upcoming" className="space-y-4">
+        <Tabs defaultValue="past" className="space-y-4">
           <TabsList>
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="past">Past</TabsTrigger>
@@ -76,21 +89,23 @@ export default function Dashboard() {
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle>
-                          {booking.expert_profiles?.profiles?.full_name || 'Expert'}
+                          {booking.speakers?.full_name || 'Expert'}
                         </CardTitle>
                         <Badge>{booking.status}</Badge>
                       </div>
-                      <CardDescription>{booking.expert_profiles?.title}</CardDescription>
+                      <CardDescription>{booking.speakers?.title}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="h-4 w-4" />
-                          {new Date(booking.scheduled_at).toLocaleString()}
-                        </div>
+                            {(booking.event_date || booking.created_at)
+                              ? new Date(booking.event_date || booking.created_at).toLocaleString()
+                              : 'Date not set'}                        
+                            </div>
                         <div className="flex items-center gap-2 text-sm">
                           <Clock className="h-4 w-4" />
-                          {booking.duration_minutes} minutes
+                          {booking.duration_hours} hours
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <DollarSign className="h-4 w-4" />
@@ -120,17 +135,17 @@ export default function Dashboard() {
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle>
-                          {booking.expert_profiles?.profiles?.full_name || 'Expert'}
+                          {booking.speakers?.full_name || 'Expert'}
                         </CardTitle>
                         <Badge>{booking.status}</Badge>
                       </div>
-                      <CardDescription>{booking.expert_profiles?.title}</CardDescription>
+                      <CardDescription>{booking.speakers?.title}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="h-4 w-4" />
-                          {new Date(booking.scheduled_at).toLocaleString()}
+                          {booking.event_date ? new Date(booking.event_date).toLocaleString() : 'Date not set'}
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <DollarSign className="h-4 w-4" />

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 interface ExpertOnboardingForm {
+  full_name: string
   title: string
   expertise_areas: string
   experience_years: number
@@ -46,36 +47,50 @@ export function ExpertOnboarding() {
         .map(s => s.trim())
         .filter(s => s.length > 0)
 
-      const { error: expertError } = await supabase
-        .from('expert_profiles')
-        .insert({
-          user_id: user.id,
-          title: data.title,
-          expertise_areas: expertiseAreas,
-          experience_years: data.experience_years,
-          hourly_rate: data.hourly_rate,
-          location: data.location || null,
-          languages: languages.length > 0 ? languages : null,
-          verification_status: 'pending'
-        })
+          const { error: expertError } = await supabase
+            .from('speakers')
+            .upsert({
+              user_id: user.id,
+              full_name: data.full_name.trim(),
+              title: data.title,
+              bio: data.bio || '',
+              expertise_areas: expertiseAreas,
+              experience_years: data.experience_years,
+              hourly_rate: Math.round(data.hourly_rate),
+              location: data.location || null,
+              languages: languages.length > 0 ? languages : null,
+              verification_status: 'pending'
+            },{
+              onConflict: 'user_id'
+            });
 
       if (expertError) throw expertError
 
       // Update user type
-      const { error: profileError } = await supabase
+
+        const { error: profileError } = await supabase
         .from('profiles')
-        .update({ user_type: 'expert' })
-        .eq('id', user.id)
+        .upsert({
+          id: user.id,
+          user_type: 'expert',
+          bio: data.bio || ''
+        });
 
-      if (profileError) throw profileError
+      if (profileError) throw profileError;
+      // const { error: profileError } = await supabase
+      //   .from('profiles')
+      //   .update({ user_type: 'expert' })
+      //   .eq('id', user.id)
 
-      // Update bio if provided
-      if (data.bio) {
-        await supabase
-          .from('profiles')
-          .update({ bio: data.bio })
-          .eq('id', user.id)
-      }
+      // if (profileError) throw profileError
+
+      // // Update bio if provided
+      // if (data.bio) {
+      //   await supabase
+      //     .from('profiles')
+      //     .update({ bio: data.bio })
+      //     .eq('id', user.id)
+      // }
 
       toast.success('Expert profile created! It will be reviewed before going live.')
       navigate('/expert/dashboard')
@@ -99,6 +114,20 @@ export function ExpertOnboarding() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div>
+              <Label htmlFor="full_name">Full Name *</Label>
+              <Input
+                id="full_name"
+                {...register('full_name', { required: 'Name is required' })}
+                placeholder="e.g., John Doe"
+                className="mt-1"
+              />
+              {errors.full_name && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.full_name.message}
+                </p>
+              )}
+            </div>
             <div>
               <Label htmlFor="title">Professional Title *</Label>
               <Input
