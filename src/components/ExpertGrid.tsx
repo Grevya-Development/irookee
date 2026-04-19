@@ -27,32 +27,38 @@ const ExpertGrid = memo(({ limit = 12, categoryId, searchQuery }: ExpertGridProp
       
       let query = supabase
         .from('speakers')
-        .select('*')
+        .select('id, full_name, name, title, bio, location, languages, hourly_rate, rating, expertise_areas, verification_status, total_reviews, created_at, updated_at')
         .limit(limit);
 
       if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,bio.ilike.%${searchQuery}%,title.ilike.%${searchQuery}%`);
+        query = query.or(`title.ilike.%${searchQuery}%,bio.ilike.%${searchQuery}%`);
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       // Transform speakers data to match ExpertProfile interface
       const transformedExperts: ExpertProfile[] = (data || []).map(speaker => ({
         id: speaker.id,
         user_id: speaker.user_id || '',
-        full_name: speaker.name,
+        full_name: speaker.full_name ?? speaker.name ?? "Expert",
+        title: speaker.title || "",
         bio: speaker.bio || '',
-        industry_expertise: speaker.expertise || [],
+        // industry_expertise: speaker.expertise || [],
+        industry_expertise: speaker.expertise_areas || [],
+        verification_level:
+          speaker.verification_status === 'verified'
+            ? 'verified'
+            : 'basic',
+        total_sessions: speaker.total_reviews || 0,
         years_experience: null,
         location: speaker.location,
         languages: speaker.languages || [],
         hourly_rate: speaker.hourly_rate,
         status: 'approved' as const,
-        verification_level: speaker.is_verified ? 'verified' as const : 'basic' as const,
+        // verification_level: speaker.is_verified ? 'verified' as const : 'basic' as const,
         rating: Number(speaker.rating) || 0,
-        total_sessions: speaker.past_events || 0,
+        // total_sessions: speaker.past_events || 0,
         intro_video_url: speaker.video_url,
         kyc_documents: null,
         availability_timezone: null,
@@ -60,10 +66,8 @@ const ExpertGrid = memo(({ limit = 12, categoryId, searchQuery }: ExpertGridProp
         created_at: speaker.created_at,
         updated_at: speaker.updated_at
       }));
-
       setExperts(transformedExperts);
     } catch (error) {
-      console.error('Error fetching experts:', error);
       toast({
         title: "Error",
         description: "Failed to load experts. Please try again.",

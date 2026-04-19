@@ -37,7 +37,6 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
         setIsLoading(true);
         setError(null);
         
-        console.log('Loading initial people...');
         
         let query = supabase
           .from('speakers')
@@ -59,7 +58,7 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
         // Transform speakers data to match the expected Person interface
         const transformedPeople: Person[] = (speakers || []).map(speaker => ({
           id: speaker.id,
-          name: speaker.name,
+          name: speaker.full_name ?? "Expert",
           title: speaker.title,
           bio: speaker.bio || '',
           expertise: speaker.expertise || [],
@@ -74,7 +73,6 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
           type: 'speaker'
         }));
 
-        console.log('Initial people loaded:', transformedPeople);
         setPeople(transformedPeople);
       } catch (err) {
         console.error('Error loading people:', err);

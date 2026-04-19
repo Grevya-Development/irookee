@@ -8,8 +8,10 @@ export function useBookings(userId?: string) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchBookings = async () => {
-    if (!userId) return
-
+    if (!userId) {
+      console.warn("useBookings: userId not available yet")
+      return
+    }
     setLoading(true)
     setError(null)
     
@@ -18,12 +20,12 @@ export function useBookings(userId?: string) {
         .from('expertise_bookings')
         .select(`
           *,
-          expert_profiles!expert_id (
-            *,
-            profiles!inner(full_name, avatar_url)
+          speakers!expertise_bookings_expert_id_fkey (
+            full_name,
+            title
           )
         `)
-        .or(`consumer_id.eq.${userId},expert_profiles.user_id.eq.${userId}`)
+        .eq('user_id',userId)
         .order('created_at', { ascending: false })
 
       if (fetchError) throw fetchError
@@ -37,10 +39,11 @@ export function useBookings(userId?: string) {
     }
   }
 
-  useEffect(() => {
-    fetchBookings()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+useEffect(() => {
+  if (userId !== undefined) {
+  fetchBookings()
+}
+}, [userId])
 
   return { bookings, loading, error, refetch: fetchBookings }
 }

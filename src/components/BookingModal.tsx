@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Expert } from "@/types/speaker";
+import { useNavigate } from "react-router-dom";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -37,53 +37,68 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
     }));
   };
 
+  const navigate = useNavigate();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to make a booking.",
-        variant: "destructive",
-      });
-      return;
-    }
+     if (!user) {
+    toast({
+      title: "Authentication Required",
+      description: "You need to authenticate to book experts.",
+      variant: "destructive",
+    });
+
+    // redirect with return path
+    navigate("/auth?redirect=/speakers");
+    return;
+  }
 
     setIsSubmitting(true);
 
-    try {
-      // Create booking in database
-      const { error } = await supabase.from('bookings').insert({
-        organizer_id: user.id,
-        event_name: formData.eventName,
-        event_date: new Date(formData.eventDate).toISOString(),
-        duration_hours: parseFloat(formData.duration) || 1,
-        total_amount: speaker.hourly_rate * (parseFloat(formData.duration) || 1),
-        customer_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Customer',
-        customer_email: formData.contactEmail,
-        customer_phone: formData.contactPhone,
-        notes: formData.notes,
-        currency: speaker.currency || 'USD',
-        status: 'pending'
-      });
+try {
+  // Insert booking
+  const { data, error } = await supabase
+    .from("expertise_bookings")
+    .insert({
+      user_id: user.id,
+      expert_id: speaker.id, 
+      event_name: formData.eventName,
+      event_date: new Date(formData.eventDate).toISOString(),
+      duration_hours: parseFloat(formData.duration) || 1,
+      total_amount:
+        speaker.hourly_rate * (parseFloat(formData.duration) || 1),
+      customer_name:
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Customer",
+      customer_email: formData.contactEmail,
+      customer_phone: formData.contactPhone,
+      notes: formData.notes,
+      currency: speaker.currency || "USD",
+      status: "pending",
+    })
+    .select();
 
-      if (error) throw error;
 
-      toast({
-        title: "Booking Request Sent!",
-        description: `Your booking request for ${speaker.name} has been submitted. We'll contact you shortly.`,
-      });
+  if (error) throw error;
 
-      onClose();
-      setFormData({
-        eventName: "",
-        eventDate: "",
-        duration: "",
-        notes: "",
-        contactEmail: user?.email || "",
-        contactPhone: ""
-      });
-    } catch (error) {
+    toast({
+      title: "Booking Request Sent!",
+      description: `Your booking for ${speaker.name} is submitted.`,
+    });
+
+    onClose();
+
+    setFormData({
+      eventName: "",
+      eventDate: "",
+      duration: "",
+      notes: "",
+      contactEmail: user.email || "",
+      contactPhone: "",
+    });
+    }
+  catch (error) {
       console.error('Booking error:', error);
       toast({
         title: "Booking Failed",

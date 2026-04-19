@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ExpertProfile } from "@/types/promptpeople";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,7 @@ interface ExpertCardProps {
   expert: ExpertProfile;
 }
 
-const ExpertCard = ({ expert }: ExpertCardProps) => {
+const ExpertCard = ({ expert }: ExpertCardProps) => {  
   const navigate = useNavigate();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
@@ -37,9 +36,9 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
   const expertForBooking: Expert = {
     id: expert.id,
     user_id: expert.user_id,
-    name: expert.full_name,
-    title: expert.bio.split('.')[0] || 'Expert', // Use first sentence as title
-    bio: expert.bio,
+    name: expert.full_name || "Expert",
+    title: expert.title || 'Expert',
+    bio: expert.bio || "",
     expertise: expert.industry_expertise,
     image_url: null,
     rating: expert.rating,
@@ -70,11 +69,17 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
             <div className="flex items-center gap-2">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-primary font-semibold text-lg">
-                  {expert.full_name.charAt(0)}
+                  {expert.full_name?.charAt(0) || "U"}
                 </span>
               </div>
-              <div>
-                <h3 className="font-semibold text-lg">{expert.full_name}</h3>
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {expert.full_name ? expert.full_name : "No Name"}
+                  </h3>
+
+                  <p className="text-sm text-primary">
+                    {expert.title ? expert.title : ""}
+                  </p>
                 <div className="flex items-center gap-1">
                   {getVerificationIcon(expert.verification_level)}
                   <span className="text-sm text-muted-foreground capitalize">
@@ -114,11 +119,11 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
             )}
 
             {/* Languages */}
-            {expert.languages.length > 0 && (
+            {expert.languages?.length > 0 && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Languages className="h-4 w-4" />
-                {expert.languages.slice(0, 2).join(", ")}
-                {expert.languages.length > 2 && ` +${expert.languages.length - 2}`}
+                {expert.languages?.slice(0, 2).join(", ")}
+                {expert.languages?.length > 2 && ` +${expert.languages.length - 2}`}
               </div>
             )}
 
@@ -133,14 +138,14 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
 
           {/* Expertise Tags */}
           <div className="flex flex-wrap gap-1 mb-4">
-            {expert.industry_expertise.slice(0, 3).map((skill, index) => (
+            {expert.industry_expertise?.slice(0, 3).map((skill, index) => (
               <Badge key={index} variant="outline" className="text-xs">
                 {skill}
               </Badge>
             ))}
-            {expert.industry_expertise.length > 3 && (
+            {expert.industry_expertise?.length > 3 && (
               <Badge variant="outline" className="text-xs">
-                +{expert.industry_expertise.length - 3} more
+                +{(expert.industry_expertise?.length || 0) - 3} more
               </Badge>
             )}
           </div>
