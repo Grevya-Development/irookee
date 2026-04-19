@@ -363,9 +363,12 @@ function BookingsList({ expertId }: { expertId: string }) {
                       </p>
                       {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
                       {booking.meeting_link && (
-                        <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">
-                          <ExternalLink className="h-3 w-3" /> Meeting Link
-                        </a>
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                          <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">
+                            <Video className="h-4 w-4" /> Join Meeting
+                          </a>
+                          <p className="text-xs text-blue-500 mt-0.5 break-all">{booking.meeting_link}</p>
+                        </div>
                       )}
                     </div>
                     <div className="flex flex-col gap-2">
