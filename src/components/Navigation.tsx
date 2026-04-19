@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, MessageCircle, User, LogOut, LogIn } from "lucide-react";
+import { Menu, X, MessageCircle, User, LogOut, LogIn, Settings } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 
@@ -12,8 +12,8 @@ const Navigation = () => {
   const navItems = [
     { name: "Home", href: "/" },
     { name: "Experts", href: "/speakers" },
+    { name: "Leaderboard", href: "/leaderboard" },
     { name: "About", href: "/about" },
-    { name: "Blog", href: "/blog" },
   ];
 
   const handleSignOut = async () => {
@@ -44,25 +44,32 @@ const Navigation = () => {
               </Link>
             ))}
             <Link
-              to="/guest-profile"
+              to="/expert/onboarding"
               className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
             >
-              Submit Profile
+              Become an Expert
             </Link>
             {user ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 <Link
                   to="/dashboard"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
                 >
                   <User className="h-4 w-4" />
                   Dashboard
+                </Link>
+                <Link
+                  to="/settings"
+                  className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
                 </Link>
                 <Button
                   onClick={handleSignOut}
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 ml-1"
                 >
                   <LogOut className="h-3 w-3" />
                   Sign Out
@@ -109,11 +116,11 @@ const Navigation = () => {
                 </Link>
               ))}
               <Link
-                to="/guest-profile"
+                to="/expert/onboarding"
                 className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
                 onClick={() => setIsOpen(false)}
               >
-                Submit Profile
+                Become an Expert
               </Link>
               {user ? (
                 <>
@@ -123,6 +130,13 @@ const Navigation = () => {
                     onClick={() => setIsOpen(false)}
                   >
                     Dashboard
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Settings
                   </Link>
                   <button
                     onClick={handleSignOut}

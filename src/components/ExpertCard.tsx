@@ -3,7 +3,7 @@ import { ExpertProfile } from "@/types/promptpeople";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { MapPin, Star, Clock, Shield, Languages, Calendar } from "lucide-react";
+import { MapPin, Star, Languages, Calendar, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BookingModal from "./BookingModal";
 import { Expert } from "@/types/speaker";
@@ -12,38 +12,40 @@ interface ExpertCardProps {
   expert: ExpertProfile;
 }
 
-const ExpertCard = ({ expert }: ExpertCardProps) => {  
+const TIER_LABELS: Record<number, { name: string; color: string }> = {
+  0: { name: "New", color: "bg-gray-100 text-gray-600" },
+  1: { name: "Rising", color: "bg-blue-100 text-blue-700" },
+  2: { name: "Established", color: "bg-green-100 text-green-700" },
+  3: { name: "Trusted", color: "bg-yellow-100 text-yellow-700" },
+  4: { name: "Elite", color: "bg-purple-100 text-purple-700" },
+  5: { name: "Legend", color: "bg-amber-100 text-amber-700" },
+};
+
+const getExpertTier = (level: string, sessions: number): number => {
+  if (level !== "verified") return 0;
+  if (sessions > 100) return 3;
+  if (sessions > 25) return 2;
+  if (sessions > 5) return 1;
+  return 0;
+};
+
+const ExpertCard = ({ expert }: ExpertCardProps) => {
   const navigate = useNavigate();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const tier = getExpertTier(expert.verification_level, expert.total_sessions);
+  const tierConfig = TIER_LABELS[tier] || TIER_LABELS[0];
 
-  const getVerificationIcon = (level: string) => {
-    switch (level) {
-      case 'verified':
-        return <Shield className="h-4 w-4 text-green-600" />;
-      case 'premium':
-        return <Shield className="h-4 w-4 text-blue-600" />;
-      default:
-        return <Shield className="h-4 w-4 text-gray-400" />;
-    }
-  };
-
-  const formatRate = (rate: number | null) => {
-    if (!rate) return "Contact for pricing";
-    return `₹${rate}/hr`;
-  };
-
-  // Convert ExpertProfile to Expert for the booking modal
   const expertForBooking: Expert = {
     id: expert.id,
     user_id: expert.user_id,
     name: expert.full_name || "Expert",
-    title: expert.title || 'Expert',
+    title: expert.title || "Expert",
     bio: expert.bio || "",
     expertise: expert.industry_expertise,
     image_url: null,
     rating: expert.rating,
-    hourly_rate: expert.hourly_rate || 0,
-    currency: 'INR',
+    hourly_rate: 0,
+    currency: "INR",
     availability_start: null,
     availability_end: null,
     location: expert.location,
@@ -51,127 +53,103 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
     past_events: expert.total_sessions,
     created_at: expert.created_at,
     updated_at: expert.updated_at,
-    is_verified: expert.verification_level === 'verified',
-    badges: [expert.verification_level],
+    is_verified: expert.verification_level === "verified",
+    badges: [],
     social_links: {},
     video_url: expert.intro_video_url,
     topics: [],
     preferred_audience: [],
-    speaking_fees: { virtual: expert.hourly_rate || 0, in_person: (expert.hourly_rate || 0) * 1.5 },
-    travel_preferences: {}
+    speaking_fees: { virtual: 0, in_person: 0 },
+    travel_preferences: {},
   };
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-primary font-semibold text-lg">
-                  {expert.full_name?.charAt(0) || "U"}
-                </span>
-              </div>
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    {expert.full_name ? expert.full_name : "No Name"}
-                  </h3>
-
-                  <p className="text-sm text-primary">
-                    {expert.title ? expert.title : ""}
-                  </p>
-                <div className="flex items-center gap-1">
-                  {getVerificationIcon(expert.verification_level)}
-                  <span className="text-sm text-muted-foreground capitalize">
-                    {expert.verification_level}
-                  </span>
-                </div>
-              </div>
+      <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full">
+        <CardContent className="p-5 flex-1">
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <span className="text-primary font-bold text-base">
+                {expert.full_name?.charAt(0) || "U"}
+              </span>
             </div>
-            {expert.is_instant_available && (
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                <Clock className="h-3 w-3 mr-1" />
-                Available Now
-              </Badge>
-            )}
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-base leading-tight truncate">
+                {expert.full_name || "Expert"}
+              </h3>
+              <p className="text-sm text-muted-foreground truncate">{expert.title}</p>
+            </div>
           </div>
 
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+          {/* Badges row */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {expert.verification_level === "verified" && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2 py-0.5 border border-green-200">
+                <Shield className="h-3 w-3" /> Verified
+              </span>
+            )}
+            <span className={`inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 ${tierConfig.color}`}>
+              {tierConfig.name}
+            </span>
+            <span className="inline-flex items-center text-xs font-semibold text-green-700 bg-green-50 rounded-full px-2 py-0.5 border border-green-200">
+              Free
+            </span>
+          </div>
+
+          {/* Bio */}
+          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
             {expert.bio}
           </p>
 
-          <div className="space-y-2 mb-4">
-            {/* Rating */}
-            <div className="flex items-center gap-1">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-medium">{expert.rating}</span>
-              <span className="text-xs text-muted-foreground">
-                ({expert.total_sessions} sessions)
-              </span>
+          {/* Stats */}
+          <div className="space-y-1.5 mb-3 text-sm">
+            <div className="flex items-center gap-1.5">
+              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
+              <span className="font-medium">{expert.rating}</span>
+              <span className="text-muted-foreground">({expert.total_sessions} sessions)</span>
             </div>
-
-            {/* Location */}
             {expert.location && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {expert.location}
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{expert.location}</span>
               </div>
             )}
-
-            {/* Languages */}
             {expert.languages?.length > 0 && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Languages className="h-4 w-4" />
-                {expert.languages?.slice(0, 2).join(", ")}
-                {expert.languages?.length > 2 && ` +${expert.languages.length - 2}`}
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Languages className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{expert.languages.slice(0, 3).join(", ")}</span>
               </div>
             )}
-
-            {/* Experience */}
             {expert.years_experience && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                {expert.years_experience} years experience
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                {expert.years_experience} yrs exp.
               </div>
             )}
           </div>
 
-          {/* Expertise Tags */}
-          <div className="flex flex-wrap gap-1 mb-4">
-            {expert.industry_expertise?.slice(0, 3).map((skill, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
+          {/* Expertise tags */}
+          <div className="flex flex-wrap gap-1">
+            {expert.industry_expertise?.slice(0, 2).map((skill, i) => (
+              <Badge key={i} variant="outline" className="text-xs py-0 px-1.5 font-normal">
                 {skill}
               </Badge>
             ))}
-            {expert.industry_expertise?.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{(expert.industry_expertise?.length || 0) - 3} more
+            {(expert.industry_expertise?.length || 0) > 2 && (
+              <Badge variant="outline" className="text-xs py-0 px-1.5 font-normal">
+                +{expert.industry_expertise.length - 2}
               </Badge>
             )}
           </div>
-
-          <div className="text-lg font-semibold text-primary">
-            {formatRate(expert.hourly_rate)}
-          </div>
         </CardContent>
 
-        <CardFooter className="p-6 pt-0">
+        <CardFooter className="p-5 pt-0">
           <div className="flex gap-2 w-full">
-            {expert.is_instant_available && (
-              <Button 
-                size="sm" 
-                className="flex-1"
-                onClick={() => setIsBookingModalOpen(true)}
-              >
-                Book Now
-              </Button>
-            )}
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => navigate(`/speakers?expert=${expert.id}`)}
-            >
+            <Button size="sm" className="flex-1" onClick={() => setIsBookingModalOpen(true)}>
+              Book Now
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/expert/${expert.id}`)}>
               View Profile
             </Button>
           </div>

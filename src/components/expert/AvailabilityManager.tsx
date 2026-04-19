@@ -6,10 +6,18 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
-import type { AvailabilitySlot } from '@/lib/supabase'
+
+interface AvailabilitySlot {
+  id: string
+  expert_id: string
+  day_of_week: number | null
+  start_time: string
+  end_time: string
+  is_recurring: boolean
+}
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday' },

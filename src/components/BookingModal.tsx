@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +8,9 @@ import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Expert } from "@/types/speaker";
 import { useNavigate } from "react-router-dom";
+import { BookingCalendar } from "@/components/booking/BookingCalendar";
+import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
+import { CheckCircle2, Copy, ExternalLink } from "lucide-react";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -18,91 +20,82 @@ interface BookingModalProps {
 
 const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    eventName: "",
-    eventDate: "",
-    duration: "",
-    notes: "",
-    contactEmail: user?.email || "",
-    contactPhone: ""
-  });
+  const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [selectedDateTime, setSelectedDateTime] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
+  const [sessionFormat, setSessionFormat] = useState("video");
+  const [meetingLink, setMeetingLink] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleDateTimeSelect = (dateTime: string, duration: number) => {
+    setSelectedDateTime(dateTime);
+    setSelectedDuration(duration);
   };
 
-  const navigate = useNavigate();
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-     if (!user) {
-    toast({
-      title: "Authentication Required",
-      description: "You need to authenticate to book experts.",
-      variant: "destructive",
-    });
+  const handleSubmit = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You need to log in to book a session.",
+        variant: "destructive",
+      });
+      navigate("/auth?redirect=/speakers");
+      return;
+    }
 
-    // redirect with return path
-    navigate("/auth?redirect=/speakers");
-    return;
-  }
+    if (!selectedDateTime) {
+      toast({
+        title: "Select a time",
+        description: "Please select a date and time for your session.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
+    try {
+      // Generate a UUID-based meeting link
+      const randomId = crypto.randomUUID();
+      const generatedMeetingLink = `https://meet.irookee.com/${randomId}`;
 
-try {
-  // Insert booking
-  const { data, error } = await supabase
-    .from("expertise_bookings")
-    .insert({
-      user_id: user.id,
-      expert_id: speaker.id, 
-      event_name: formData.eventName,
-      event_date: new Date(formData.eventDate).toISOString(),
-      duration_hours: parseFloat(formData.duration) || 1,
-      total_amount:
-        speaker.hourly_rate * (parseFloat(formData.duration) || 1),
-      customer_name:
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "Customer",
-      customer_email: formData.contactEmail,
-      customer_phone: formData.contactPhone,
-      notes: formData.notes,
-      currency: speaker.currency || "USD",
-      status: "pending",
-    })
-    .select();
+      // Prepend session format to notes
+      const formattedNotes = notes
+        ? `[Format: ${sessionFormat}] ${notes}`
+        : `[Format: ${sessionFormat}]`;
 
+      const { error } = await supabase
+        .from("expertise_bookings")
+        .insert({
+          expert_id: speaker.id,
+          user_id: user.id,
+          event_name: `Session with ${speaker.name}`,
+          event_date: selectedDateTime,
+          duration_hours: selectedDuration / 60,
+          total_amount: 0, // Free platform
+          customer_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+          customer_email: user.email,
+          notes: formattedNotes,
+          currency: "INR",
+          status: "confirmed",
+          meeting_link: generatedMeetingLink,
+        });
 
-  if (error) throw error;
+      if (error) throw error;
 
-    toast({
-      title: "Booking Request Sent!",
-      description: `Your booking for ${speaker.name} is submitted.`,
-    });
-
-    onClose();
-
-    setFormData({
-      eventName: "",
-      eventDate: "",
-      duration: "",
-      notes: "",
-      contactEmail: user.email || "",
-      contactPhone: "",
-    });
-    }
-  catch (error) {
-      console.error('Booking error:', error);
+      setMeetingLink(generatedMeetingLink);
+      setBookingSuccess(true);
+      toast({
+        title: "Session Booked!",
+        description: `Your session with ${speaker.name} has been confirmed.`,
+      });
+    } catch (error) {
+      console.error("Booking error:", error);
       toast({
         title: "Booking Failed",
-        description: "Failed to submit booking request. Please try again.",
+        description: "Failed to book session. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -110,18 +103,25 @@ try {
     }
   };
 
+  const handleClose = () => {
+    setBookingSuccess(false);
+    setSelectedDateTime(null);
+    setNotes("");
+    setSessionFormat("video");
+    setMeetingLink(null);
+    onClose();
+  };
+
   if (!user) {
     return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Authentication Required</DialogTitle>
+            <DialogTitle>Sign in to Book</DialogTitle>
           </DialogHeader>
           <div className="text-center py-6">
-            <p className="text-muted-foreground mb-4">
-              Please log in to make a booking request.
-            </p>
-            <Button onClick={onClose}>Close</Button>
+            <p className="text-muted-foreground mb-4">Please log in to book a session.</p>
+            <Button onClick={() => navigate("/auth?redirect=/speakers")}>Sign In</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -129,110 +129,103 @@ try {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Book {speaker.name}</DialogTitle>
+          <DialogTitle>
+            {bookingSuccess ? "Session Booked!" : `Book a Session with ${speaker.name}`}
+          </DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="eventName">Event Name *</Label>
-            <Input
-              id="eventName"
-              name="eventName"
-              value={formData.eventName}
-              onChange={handleInputChange}
-              required
-              placeholder="e.g., Tech Conference 2024"
-            />
-          </div>
 
-          <div>
-            <Label htmlFor="eventDate">Event Date *</Label>
-            <Input
-              id="eventDate"
-              name="eventDate"
-              type="datetime-local"
-              value={formData.eventDate}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="duration">Duration (hours) *</Label>
-            <Input
-              id="duration"
-              name="duration"
-              type="number"
-              min="0.5"
-              step="0.5"
-              value={formData.duration}
-              onChange={handleInputChange}
-              required
-              placeholder="e.g., 2"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="contactEmail">Your Email *</Label>
-            <Input
-              id="contactEmail"
-              name="contactEmail"
-              type="email"
-              value={formData.contactEmail}
-              onChange={handleInputChange}
-              required
-              placeholder="your@email.com"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="contactPhone">Phone Number</Label>
-            <Input
-              id="contactPhone"
-              name="contactPhone"
-              type="tel"
-              value={formData.contactPhone}
-              onChange={handleInputChange}
-              placeholder="+1 (555) 123-4567"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="notes">Additional Notes</Label>
-            <Textarea
-              id="notes"
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Any special requirements or additional information..."
-              rows={3}
-            />
-          </div>
-
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Estimated Cost:</span>
-              <span className="font-semibold">
-                ${(speaker.hourly_rate * (parseFloat(formData.duration) || 1)).toFixed(2)} {speaker.currency}
-              </span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              ${speaker.hourly_rate}/hour × {formData.duration || 1} hours
+        {bookingSuccess ? (
+          <div className="text-center py-8 space-y-4">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+            <h3 className="text-xl font-semibold">You're all set!</h3>
+            <p className="text-muted-foreground">
+              Your free session with {speaker.name} is confirmed for{" "}
+              {selectedDateTime && new Date(selectedDateTime).toLocaleString('en-IN', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+              })}
+            </p>
+            {meetingLink && (
+              <div className="bg-gray-50 border rounded-lg p-3 text-left space-y-1">
+                <p className="text-sm font-medium">Meeting Link:</p>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary underline break-all flex-1"
+                  >
+                    {meetingLink}
+                  </a>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(meetingLink);
+                      toast({ title: "Copied!", description: "Meeting link copied to clipboard." });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Save this meeting link. If you or the expert don't show up, it will be marked as a no-show.
+            </p>
+            <div className="flex gap-3 justify-center pt-4">
+              <Button variant="outline" onClick={handleClose}>Close</Button>
+              <Button onClick={() => { handleClose(); navigate('/dashboard'); }}>Go to Dashboard</Button>
             </div>
           </div>
+        ) : (
+          <div className="space-y-4">
+            <BookingCalendar
+              expertId={speaker.id}
+              onDateTimeSelect={handleDateTimeSelect}
+            />
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? "Submitting..." : "Submit Request"}
-            </Button>
+            {selectedDateTime && (
+              <>
+                <SessionFormatSelector
+                  value={sessionFormat}
+                  onChange={setSessionFormat}
+                />
+
+                <div>
+                  <Label htmlFor="notes">Additional Notes (optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="What would you like to discuss? Any specific questions?"
+                    rows={3}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Free session</strong> - irookee is currently free for everyone!
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isSubmitting ? "Booking..." : "Confirm Booking"}
+                </Button>
+              </>
+            )}
           </div>
-        </form>
+        )}
       </DialogContent>
     </Dialog>
   );

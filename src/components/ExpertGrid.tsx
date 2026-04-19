@@ -4,6 +4,7 @@ import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "./ExpertCard";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { searchExperts } from "@/lib/searchExperts";
 
 interface ExpertGridProps {
   limit?: number;
@@ -11,74 +12,69 @@ interface ExpertGridProps {
   searchQuery?: string;
 }
 
-const ExpertGrid = memo(({ limit = 12, categoryId, searchQuery }: ExpertGridProps) => {
+const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery }: ExpertGridProps) => {
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchExperts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId, searchQuery, limit]);
 
   const fetchExperts = async () => {
     try {
       setLoading(true);
-      
-      let query = supabase
-        .from('speakers')
-        .select('id, full_name, name, title, bio, location, languages, hourly_rate, rating, expertise_areas, verification_status, total_reviews, created_at, updated_at')
-        .limit(limit);
 
-      if (searchQuery) {
-        query = query.or(`title.ilike.%${searchQuery}%,bio.ilike.%${searchQuery}%`);
+      // If there's a search query, use the comprehensive search engine
+      if (searchQuery && searchQuery.trim()) {
+        const results = await searchExperts(searchQuery);
+        setExperts(results.slice(0, limit));
+        return;
       }
 
-      const { data, error } = await query;
+      // Otherwise, fetch browse listing with optional category filter
+      const { data, error } = await supabase
+        .from('speakers')
+        .select('*')
+        .eq('verification_status', 'verified')
+        .order('rating', { ascending: false })
+        .limit(limit);
+
       if (error) throw error;
 
-      // Transform speakers data to match ExpertProfile interface
-      const transformedExperts: ExpertProfile[] = (data || []).map(speaker => ({
+      const transformed: ExpertProfile[] = (data || []).map(speaker => ({
         id: speaker.id,
         user_id: speaker.user_id || '',
-        full_name: speaker.full_name ?? speaker.name ?? "Expert",
+        full_name: speaker.name || "Expert",
         title: speaker.title || "",
         bio: speaker.bio || '',
-        // industry_expertise: speaker.expertise || [],
-        industry_expertise: speaker.expertise_areas || [],
-        verification_level:
-          speaker.verification_status === 'verified'
-            ? 'verified'
-            : 'basic',
-        total_sessions: speaker.total_reviews || 0,
-        years_experience: null,
+        industry_expertise: speaker.expertise || [],
+        years_experience: speaker.experience_years,
         location: speaker.location,
         languages: speaker.languages || [],
         hourly_rate: speaker.hourly_rate,
         status: 'approved' as const,
-        // verification_level: speaker.is_verified ? 'verified' as const : 'basic' as const,
+        verification_level: 'verified' as const,
         rating: Number(speaker.rating) || 0,
-        // total_sessions: speaker.past_events || 0,
+        total_sessions: speaker.past_events || 0,
         intro_video_url: speaker.video_url,
         kyc_documents: null,
         availability_timezone: null,
         is_instant_available: true,
         created_at: speaker.created_at,
-        updated_at: speaker.updated_at
+        updated_at: speaker.updated_at,
       }));
-      setExperts(transformedExperts);
+
+      setExperts(transformed);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load experts. Please try again.",
-        variant: "destructive",
-      });
+      console.error('Error fetching experts:', error);
+      toast({ title: "Error", description: "Failed to load experts.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const expertCards = useMemo(() => 
+  const expertCards = useMemo(() =>
     experts.map((expert) => (
       <ExpertCard key={expert.id} expert={expert} />
     )),
@@ -97,7 +93,7 @@ const ExpertGrid = memo(({ limit = 12, categoryId, searchQuery }: ExpertGridProp
     return (
       <div className="text-center py-12">
         <p className="text-lg text-muted-foreground">
-          No experts found. Try adjusting your search criteria.
+          No experts found. Try a different search.
         </p>
       </div>
     );

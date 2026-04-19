@@ -3,7 +3,7 @@ import { Search, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useAISearch } from '@/hooks/useAISearch'
-import { ExpertCard } from '@/components/expert/ExpertCard'
+import ExpertCard from '@/components/ExpertCard'
 
 interface SearchBarProps {
   initialQuery?: string
@@ -15,21 +15,15 @@ export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarP
   const { search, results, loading } = useAISearch()
   const prevInitialQuery = useRef<string | null>(null)
 
-  // Only auto-search when initialQuery prop changes from outside (e.g., URL parameter)
-  // This will NOT trigger when user manually types and searches
   useEffect(() => {
-    // Skip on first render if no initialQuery
     if (prevInitialQuery.current === null) {
       prevInitialQuery.current = initialQuery
-      // Auto-search only on mount if initialQuery is provided
       if (initialQuery.trim()) {
         search(initialQuery)
         onSearchStateChange?.(true)
       }
       return
     }
-
-    // Only search if initialQuery actually changed from outside
     if (initialQuery !== prevInitialQuery.current) {
       prevInitialQuery.current = initialQuery
       setQuery(initialQuery)
@@ -40,7 +34,6 @@ export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarP
         onSearchStateChange?.(false)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery])
 
   const handleSearch = () => {
@@ -58,15 +51,15 @@ export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarP
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder="Describe what you need help with... (e.g., 'I need a mentor for my SaaS startup')"
+            placeholder="Search by name, expertise, category, location... (e.g., 'startup mentor bangalore')"
             className="pl-10 pr-4 py-6 text-lg"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
         </div>
-        <Button 
-          size="lg" 
+        <Button
+          size="lg"
           onClick={handleSearch}
           disabled={loading}
           className="gap-2"
@@ -78,7 +71,9 @@ export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarP
 
       {results.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Matching Experts</h2>
+          <h2 className="text-xl font-semibold">
+            Found {results.length} matching expert{results.length !== 1 ? 's' : ''}
+          </h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {results.map((expert) => (
               <ExpertCard key={expert.id} expert={expert} />
@@ -89,4 +84,3 @@ export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarP
     </div>
   )
 }
-
