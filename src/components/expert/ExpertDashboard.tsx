@@ -39,16 +39,16 @@ export function ExpertDashboard() {
 
   const loadExpertProfile = async () => {
     if (!user) return
-
+    
     try {
       const { data, error } = await supabase
-        .from('expert_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
+      .from('speakers')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      
       if (error && error.code !== 'PGRST116') throw error
-
+      
       if (!data) {
         // No expert profile, redirect to onboarding
         navigate('/expert/onboarding')
@@ -66,10 +66,10 @@ export function ExpertDashboard() {
 
     try {
       const { data: expertData } = await supabase
-        .from('expert_profiles')
+        .from('speakers')
         .select('id, rating')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (!expertData) return
 
@@ -84,11 +84,12 @@ export function ExpertDashboard() {
       const totalBookings = bookings?.length || 0
       const totalEarnings = bookings
         ?.filter(b => b.status === 'completed')
-        .reduce((sum, b) => sum + Number(b.expert_payout), 0) || 0
-      
-      const upcomingSessions = bookings?.filter(
-        b => b.status === 'confirmed' && new Date(b.scheduled_at) > new Date()
-      ).length || 0
+        .reduce((sum, b) => sum + Number(b.total_amount), 0) || 0
+
+      const upcomingSessions = bookings?.filter(b => {
+        const date = b.event_date || b.created_at
+        return b.status === 'confirmed' && date && new Date(date) > new Date()
+      }).length || 0
 
       setStats({
         totalBookings,
@@ -224,8 +225,35 @@ export function ExpertDashboard() {
 }
 
 function BookingsList({ expertId }: { expertId: string }) {
-  const { bookings, loading } = useBookings()
-  const expertBookings = bookings.filter(b => b.expert_id === expertId)
+
+  const [bookings, setBookings] = useState<Booking[]>([])
+const [loading, setLoading] = useState(false)
+
+useEffect(() => {
+  const fetchExpertBookings = async () => {
+    if (!expertId) return
+
+    setLoading(true)
+
+    const { data, error } = await supabase
+      .from('expertise_bookings')
+      .select('*')
+      .eq('expert_id', expertId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error("Error fetching expert bookings:", error)
+    } else {
+      setBookings(data || [])
+    }
+
+    setLoading(false)
+  }
+
+  fetchExpertBookings()
+}, [expertId])
+
+  const expertBookings = bookings
 
   if (loading) {
     return <div>Loading bookings...</div>
@@ -249,10 +277,10 @@ function BookingsList({ expertId }: { expertId: string }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">
-                  {new Date(booking.scheduled_at).toLocaleDateString()}
+                  {new Date(booking.event_date || booking.created_at).toLocaleDateString()}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {new Date(booking.scheduled_at).toLocaleTimeString()} ({booking.duration_minutes} min)
+                  {new Date(booking.event_date || booking.created_at).toLocaleTimeString()} ({booking.duration_hours} min)
                 </p>
               </div>
               <Badge>{booking.status}</Badge>
@@ -260,7 +288,7 @@ function BookingsList({ expertId }: { expertId: string }) {
             <div className="mt-2">
               <p className="text-sm">Amount: ${booking.total_amount}</p>
               <p className="text-sm text-muted-foreground">
-                Your payout: ${booking.expert_payout}
+                Your payout: ${booking.total_amount}
               </p>
             </div>
           </CardContent>
