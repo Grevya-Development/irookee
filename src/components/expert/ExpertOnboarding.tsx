@@ -11,6 +11,15 @@ import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { Upload, X, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles, Shield, Users, Rocket } from 'lucide-react'
 import Navigation from '@/components/Navigation'
+import { MultiSelect } from '@/components/ui/multi-select'
+import { LocationInput } from '@/components/ui/location-input'
+
+const LANGUAGE_OPTIONS = [
+  'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali',
+  'Gujarati', 'Punjabi', 'Odia', 'Assamese', 'Urdu', 'Sanskrit', 'Konkani',
+  'Maithili', 'Sindhi', 'Nepali', 'French', 'German', 'Spanish', 'Mandarin',
+  'Japanese', 'Korean', 'Arabic', 'Portuguese', 'Russian', 'Italian',
+]
 
 interface ExpertOnboardingForm {
   full_name: string
@@ -50,6 +59,8 @@ export function ExpertOnboarding() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
   const [uploading, setUploading] = useState(false)
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
+  const [locationValue, setLocationValue] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -127,6 +138,8 @@ export function ExpertOnboarding() {
   }
 
   const onSubmit = async (data: ExpertOnboardingForm) => {
+    if (selectedLanguages.length === 0) { toast.error('Select at least one language'); return }
+    if (!locationValue.trim()) { toast.error('Please enter your location'); return }
     if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
     if (uploadedDocs.length === 0) { toast.error('Upload at least one verification document'); return }
     setLoading(true)
@@ -136,9 +149,7 @@ export function ExpertOnboarding() {
       if (!user) { toast.error('Please log in'); navigate('/auth'); return }
 
       const expertiseAreas = data.expertise_areas.split(',').map(s => s.trim()).filter(Boolean)
-      const languages = data.languages.split(',').map(s => s.trim()).filter(Boolean)
-      const topics = data.topics ? data.topics.split(',').map(s => s.trim()).filter(Boolean) : []
-      const preferredAudience = data.preferred_audience ? data.preferred_audience.split(',').map(s => s.trim()).filter(Boolean) : []
+      const languages = selectedLanguages
       const verificationDocuments = {
         documents: uploadedDocs.map(doc => ({ name: doc.name, url: doc.url, type: doc.type, uploaded_at: new Date().toISOString() })),
         submitted_at: new Date().toISOString()
@@ -149,7 +160,7 @@ export function ExpertOnboarding() {
         .upsert({
           user_id: user.id, name: data.full_name.trim(), title: data.title,
           bio: data.bio || '', expertise: expertiseAreas, experience_years: data.experience_years,
-          hourly_rate: 0, currency: 'INR', location: data.location || null,
+          hourly_rate: 0, currency: 'INR', location: locationValue || null,
           languages: languages.length > 0 ? languages : null,
           verification_status: 'pending', is_verified: false, company: data.company || null,
           phone: data.phone || null, email: data.email || user.email,
@@ -252,7 +263,7 @@ export function ExpertOnboarding() {
                   </div>
                   <div>
                     <Label>Location *</Label>
-                    <Input {...register('location', { required: 'Required' })} placeholder="Bangalore, India" className="mt-1" />
+                    <LocationInput value={locationValue} onChange={(v) => { setLocationValue(v); setValue('location', v); }} className="mt-1" />
                     {errors.location && <p className="text-sm text-destructive mt-1">{errors.location.message}</p>}
                   </div>
                   <div>
@@ -260,9 +271,18 @@ export function ExpertOnboarding() {
                     <Input {...register('company')} placeholder="Your company" className="mt-1" />
                   </div>
                   <div>
-                    <Label>Languages (comma-separated) *</Label>
-                    <Input {...register('languages', { required: 'Required' })} placeholder="English, Hindi, Tamil" className="mt-1" />
-                    {errors.languages && <p className="text-sm text-destructive mt-1">{errors.languages.message}</p>}
+                    <Label>Languages *</Label>
+                    <div className="mt-1">
+                      <MultiSelect
+                        options={LANGUAGE_OPTIONS}
+                        selected={selectedLanguages}
+                        onChange={(langs) => { setSelectedLanguages(langs); setValue('languages', langs.join(', ')); }}
+                        placeholder="Select languages..."
+                      />
+                    </div>
+                    {selectedLanguages.length === 0 && errors.languages && (
+                      <p className="text-sm text-destructive mt-1">Select at least one language</p>
+                    )}
                   </div>
                 </div>
                 <div>
