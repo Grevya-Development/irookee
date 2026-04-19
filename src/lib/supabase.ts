@@ -36,21 +36,24 @@ export type ExpertProfile = {
 
 export type Booking = {
   id: string
-  consumer_id: string
+  user_id: string
   expert_id: string
-  scheduled_at: string
-  duration_minutes: number
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'refunded'
-  meeting_link: string | null
+  event_name: string
+  event_date: string
+  duration_hours: number
   total_amount: number
-  platform_fee: number
-  expert_payout: number
-  payment_intent_id: string | null
-  consumer_notes: string | null
-  expert_notes: string | null
+  customer_name: string
+  customer_email: string
+  customer_phone: string
+  notes: string | null
+  currency: string
+  status: string
   created_at: string
-  updated_at: string
-  expert_profiles?: ExpertProfile
+
+  speakers?: {
+    full_name: string
+    title: string
+  }
 }
 
 export type AvailabilitySlot = {
