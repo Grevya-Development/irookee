@@ -37,6 +37,9 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
         .eq('id', expertId)
         .single()
 
+      const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
+      const meetingLink = `https://meet.jit.si/${roomId}`;
+
       const { error } = await supabase
         .from('expertise_bookings')
         .insert({
@@ -51,6 +54,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
           notes: consumerNotes || null,
           currency: 'INR',
           status: 'confirmed',
+          meeting_link: meetingLink,
         })
 
       if (error) throw error
