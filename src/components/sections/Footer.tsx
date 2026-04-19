@@ -70,16 +70,9 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-gray-800 pt-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-gray-500 text-sm">
-              &copy; 2026 irookee. All rights reserved.
-            </p>
-            <div className="flex space-x-6 text-sm text-gray-500">
-              <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-              <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
-              <Link to="/cookies" className="hover:text-white transition-colors">Cookies</Link>
-            </div>
-          </div>
+          <p className="text-gray-500 text-sm text-center">
+            &copy; 2026 irookee. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
