@@ -57,9 +57,9 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
     setIsSubmitting(true);
     try {
-      // Generate a UUID-based meeting link
-      const randomId = crypto.randomUUID();
-      const generatedMeetingLink = `https://meet.irookee.com/${randomId}`;
+      // Generate a real Jitsi Meet link (free, no signup, works instantly)
+      const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
+      const generatedMeetingLink = `https://meet.jit.si/${roomId}`;
 
       // Prepend session format to notes
       const formattedNotes = notes
