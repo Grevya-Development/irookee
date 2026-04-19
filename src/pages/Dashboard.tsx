@@ -168,6 +168,27 @@ export default function Dashboard() {
                         )}
                         <Badge variant="outline" className="text-green-600">Free</Badge>
                       </div>
+                      {booking.meeting_link && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm font-medium text-blue-800 mb-1">Meeting Link</p>
+                          <a
+                            href={booking.meeting_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline break-all"
+                          >
+                            {booking.meeting_link}
+                          </a>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => { navigator.clipboard.writeText(booking.meeting_link!); }}
+                          >
+                            Copy Link
+                          </Button>
+                        </div>
+                      )}
                       {booking.notes && (
                         <p className="text-sm text-muted-foreground mt-2">{booking.notes}</p>
                       )}
