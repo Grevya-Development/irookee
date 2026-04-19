@@ -7,9 +7,9 @@ import Navigation from "@/components/Navigation";
 import ExpertGrid from "@/components/ExpertGrid";
 import CategoryGrid from "@/components/CategoryGrid";
 import Footer from "@/components/sections/Footer";
-import { supabase } from "@/integrations/supabase/client";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "@/components/ExpertCard";
+import { searchExperts } from "@/lib/searchExperts";
 
 const PromptPeople = memo(() => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,90 +24,10 @@ const PromptPeople = memo(() => {
 
     setIsSearching(true);
     setHasSearched(true);
-    
+
     try {
-      // Try AI-powered search first (search-experts)
-      try {
-        const { data: aiData, error: aiError } = await supabase.functions.invoke('search-experts', {
-          body: { query: searchQuery }
-        });
-
-        if (!aiError && aiData && aiData.experts && Array.isArray(aiData.experts) && aiData.experts.length > 0) {
-          // Transform expert_profiles format to ExpertProfile
-          const transformed: ExpertProfile[] = aiData.experts.map((expert: any) => ({
-            id: expert.id,
-            user_id: expert.user_id || '',
-            full_name: expert.profiles?.full_name || expert.title || 'Expert',
-            bio: expert.profiles?.bio || '',
-            industry_expertise: expert.expertise_areas || [],
-            years_experience: expert.experience_years,
-            location: expert.location,
-            languages: expert.languages || [],
-            hourly_rate: expert.hourly_rate || 0,
-            status: expert.verification_status === 'verified' ? 'approved' as const : 'pending' as const,
-            verification_level: expert.verification_status === 'verified' ? 'verified' as const : 'basic' as const,
-            rating: Number(expert.rating) || 0,
-            total_sessions: expert.total_sessions || 0,
-            intro_video_url: null,
-            kyc_documents: null,
-            availability_timezone: null,
-            is_instant_available: expert.is_active || false,
-            created_at: expert.created_at || new Date().toISOString(),
-            updated_at: expert.created_at || new Date().toISOString()
-          }));
-          setSearchResults(transformed);
-          setIsSearching(false);
-          return;
-        }
-      } catch (aiErr) {
-        console.log('AI search failed, falling back to database search:', aiErr);
-      }
-
-      // Fallback to direct database search on speakers table
-      const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
-      let query = supabase.from('speakers').select('*');
-
-      if (searchTerms.length > 0) {
-        const searchConditions: string[] = [];
-        searchTerms.forEach(term => {
-          searchConditions.push(
-            `name.ilike.%${term}%`,
-            `title.ilike.%${term}%`,
-            `bio.ilike.%${term}%`,
-            `location.ilike.%${term}%`
-          );
-        });
-        query = query.or(searchConditions.join(','));
-      }
-
-      const { data: speakers, error } = await query.limit(20);
-
-      if (error) throw error;
-
-      // Transform speakers data to match ExpertProfile interface
-      const transformedExperts: ExpertProfile[] = (speakers || []).map(speaker => ({
-        id: speaker.id,
-        user_id: speaker.user_id || '',
-        full_name: speaker.name,
-        bio: speaker.bio || '',
-        industry_expertise: speaker.expertise || [],
-        years_experience: null,
-        location: speaker.location,
-        languages: speaker.languages || [],
-        hourly_rate: speaker.hourly_rate,
-        status: 'approved' as const,
-        verification_level: speaker.is_verified ? 'verified' as const : 'basic' as const,
-        rating: Number(speaker.rating) || 0,
-        total_sessions: speaker.past_events || 0,
-        intro_video_url: speaker.video_url,
-        kyc_documents: null,
-        availability_timezone: null,
-        is_instant_available: true,
-        created_at: speaker.created_at,
-        updated_at: speaker.updated_at
-      }));
-
-      setSearchResults(transformedExperts);
+      const results = await searchExperts(searchQuery);
+      setSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -123,10 +43,10 @@ const PromptPeople = memo(() => {
   }, []);
 
   const stats = [
-    { number: "5,000+", label: "Verified Experts", icon: Users },
-    { number: "50+", label: "Categories", icon: Globe },
-    { number: "4.9", label: "Average Rating", icon: Star },
-    { number: "24/7", label: "Instant Support", icon: Clock },
+    { number: "20+", label: "Verified Experts", icon: Users },
+    { number: "40+", label: "Categories", icon: Globe },
+    { number: "4.8", label: "Average Rating", icon: Star },
+    { number: "100%", label: "Free Platform", icon: Shield },
   ];
 
   const features = [
@@ -346,7 +266,7 @@ const PromptPeople = memo(() => {
               size="lg" 
               variant="secondary" 
               className="bg-white/90 text-primary hover:bg-white"
-              onClick={() => navigate("/profile-setup")}
+              onClick={() => navigate("/expert/onboarding")}
             >
               Become an Expert
             </Button>

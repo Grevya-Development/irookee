@@ -8,7 +8,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 
 // Lazy load pages for better performance
 const PromptPeople = lazy(() => import("./pages/PromptPeople"));
-const Home = lazy(() => import("./pages/Home"));
+// Home redirects to PromptPeople (main landing)
 const Search = lazy(() => import("./pages/Search"));
 const ExpertProfile = lazy(() => import("./pages/ExpertProfile"));
 const Booking = lazy(() => import("./pages/Booking"));
@@ -23,6 +23,12 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const ExpertOnboarding = lazy(() => import("./components/expert/ExpertOnboarding").then(m => ({ default: m.ExpertOnboarding })));
 const ExpertDashboard = lazy(() => import("./components/expert/ExpertDashboard").then(m => ({ default: m.ExpertDashboard })));
 const Speakers = lazy(() => import("./pages/Speakers"));
+const GuestProfile = lazy(() => import("./pages/GuestProfile"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const Settings = lazy(() => import("./pages/Settings"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -53,7 +59,7 @@ const App = () => (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<PromptPeople />} />
-              <Route path="/home" element={<Home />} />
+              <Route path="/home" element={<PromptPeople />} />
               <Route path="/search" element={<Search />} />
               <Route path="/expert/:id" element={<ExpertProfile />} />
               <Route path="/booking" element={<Booking />} />
@@ -67,6 +73,12 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/user-dashboard" element={<UserDashboard />} />
               <Route path="/profile-setup" element={<ProfileSetup />} />
+              <Route path="/guest-profile" element={<GuestProfile />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/cookies" element={<CookiePolicy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

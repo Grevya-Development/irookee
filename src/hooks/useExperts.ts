@@ -1,61 +1,76 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { ExpertProfile } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
+
+export interface SpeakerProfile {
+  id: string
+  user_id: string | null
+  name: string
+  title: string
+  bio: string | null
+  expertise: string[] | null
+  image_url: string | null
+  rating: number | null
+  hourly_rate: number | null
+  currency: string | null
+  location: string | null
+  languages: string[] | null
+  past_events: number | null
+  is_verified: boolean | null
+  verification_status: string | null
+  badges: string[] | null
+  topics: string[] | null
+  experience_years: number | null
+  company: string | null
+  linkedin_url: string | null
+  website_url: string | null
+  created_at: string
+  updated_at: string
+}
 
 export function useExperts(expertId?: string) {
-  const [expert, setExpert] = useState<ExpertProfile | null>(null)
-  const [experts, setExperts] = useState<ExpertProfile[]>([])
+  const [expert, setExpert] = useState<SpeakerProfile | null>(null)
+  const [experts, setExperts] = useState<SpeakerProfile[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchExpert = async (id: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const { data, error: fetchError } = await supabase
-        .from('expert_profiles')
-        .select(`
-          *,
-          profiles!inner(full_name, avatar_url, bio, email)
-        `)
+        .from('speakers')
+        .select('*')
         .eq('id', id)
-        .eq('is_active', true)
         .single()
 
       if (fetchError) throw fetchError
-      setExpert(data)
+      setExpert(data as SpeakerProfile)
     } catch (err) {
       console.error('Error fetching expert:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch expert'
-      setError(errorMessage)
+      setError(err instanceof Error ? err.message : 'Failed to fetch expert')
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchExperts = async (limit = 20) => {
+  const fetchExperts = async (limit = 50) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const { data, error: fetchError } = await supabase
-        .from('expert_profiles')
-        .select(`
-          *,
-          profiles!inner(full_name, avatar_url, bio)
-        `)
-        .eq('is_active', true)
+        .from('speakers')
+        .select('*')
         .eq('verification_status', 'verified')
         .order('rating', { ascending: false })
         .limit(limit)
 
       if (fetchError) throw fetchError
-      setExperts(data || [])
+      setExperts((data || []) as SpeakerProfile[])
     } catch (err) {
       console.error('Error fetching experts:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch experts'
-      setError(errorMessage)
+      setError(err instanceof Error ? err.message : 'Failed to fetch experts')
     } finally {
       setLoading(false)
     }
@@ -71,4 +86,3 @@ export function useExperts(expertId?: string) {
 
   return { expert, experts, loading, error, refetch: expertId ? () => fetchExpert(expertId) : fetchExperts }
 }
-

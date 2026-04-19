@@ -64,6 +64,7 @@ export type Database = {
           event_name: string
           expert_profile_id: string | null
           id: string
+          meeting_link: string | null
           notes: string | null
           organizer_id: string | null
           speaker_id: string | null
@@ -82,6 +83,7 @@ export type Database = {
           event_name: string
           expert_profile_id?: string | null
           id?: string
+          meeting_link?: string | null
           notes?: string | null
           organizer_id?: string | null
           speaker_id?: string | null
@@ -100,6 +102,7 @@ export type Database = {
           event_name?: string
           expert_profile_id?: string | null
           id?: string
+          meeting_link?: string | null
           notes?: string | null
           organizer_id?: string | null
           speaker_id?: string | null
@@ -148,6 +151,75 @@ export type Database = {
         }
         Relationships: []
       }
+      expertise_bookings: {
+        Row: {
+          id: string
+          user_id: string
+          expert_id: string
+          status: string | null
+          created_at: string
+          event_name: string
+          event_date: string | null
+          duration_hours: number | null
+          customer_name: string | null
+          customer_email: string | null
+          customer_phone: string | null
+          notes: string | null
+          currency: string | null
+          total_amount: number | null
+          meeting_link: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          expert_id: string
+          status?: string | null
+          created_at?: string
+          event_name: string
+          event_date?: string | null
+          duration_hours?: number | null
+          customer_name?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          notes?: string | null
+          currency?: string | null
+          total_amount?: number | null
+          meeting_link?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          expert_id?: string
+          status?: string | null
+          created_at?: string
+          event_name?: string
+          event_date?: string | null
+          duration_hours?: number | null
+          customer_name?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          notes?: string | null
+          currency?: string | null
+          total_amount?: number | null
+          meeting_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expertise_bookings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expertise_bookings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_profiles: {
         Row: {
           approved_at: string | null
@@ -186,28 +258,43 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
+          bio: string | null
           created_at: string
           email: string | null
           first_name: string | null
+          full_name: string | null
           id: string
           last_name: string | null
+          phone: string | null
           updated_at: string
+          user_type: string | null
         }
         Insert: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
+          full_name?: string | null
           id: string
           last_name?: string | null
+          phone?: string | null
           updated_at?: string
+          user_type?: string | null
         }
         Update: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
+          full_name?: string | null
           id?: string
           last_name?: string | null
+          phone?: string | null
           updated_at?: string
+          user_type?: string | null
         }
         Relationships: []
       }
@@ -330,18 +417,24 @@ export type Database = {
           availability_start: string | null
           badges: string[] | null
           bio: string | null
+          company: string | null
           created_at: string
           currency: string | null
+          email: string | null
+          experience_years: number | null
           expertise: string[] | null
           hourly_rate: number | null
           id: string
           image_url: string | null
           is_verified: boolean | null
           languages: string[] | null
+          linkedin_url: string | null
           location: string | null
           name: string
           past_events: number | null
+          phone: string | null
           preferred_audience: string[] | null
+          profile_photo_url: string | null
           rating: number | null
           social_links: Json | null
           speaking_fees: Json | null
@@ -350,25 +443,34 @@ export type Database = {
           travel_preferences: Json | null
           updated_at: string
           user_id: string | null
+          verification_documents: Json | null
+          verification_status: string | null
           video_url: string | null
+          website_url: string | null
         }
         Insert: {
           availability_end?: string | null
           availability_start?: string | null
           badges?: string[] | null
           bio?: string | null
+          company?: string | null
           created_at?: string
           currency?: string | null
+          email?: string | null
+          experience_years?: number | null
           expertise?: string[] | null
           hourly_rate?: number | null
           id?: string
           image_url?: string | null
           is_verified?: boolean | null
           languages?: string[] | null
+          linkedin_url?: string | null
           location?: string | null
           name: string
           past_events?: number | null
+          phone?: string | null
           preferred_audience?: string[] | null
+          profile_photo_url?: string | null
           rating?: number | null
           social_links?: Json | null
           speaking_fees?: Json | null
@@ -377,25 +479,34 @@ export type Database = {
           travel_preferences?: Json | null
           updated_at?: string
           user_id?: string | null
+          verification_documents?: Json | null
+          verification_status?: string | null
           video_url?: string | null
+          website_url?: string | null
         }
         Update: {
           availability_end?: string | null
           availability_start?: string | null
           badges?: string[] | null
           bio?: string | null
+          company?: string | null
           created_at?: string
           currency?: string | null
+          email?: string | null
+          experience_years?: number | null
           expertise?: string[] | null
           hourly_rate?: number | null
           id?: string
           image_url?: string | null
           is_verified?: boolean | null
           languages?: string[] | null
+          linkedin_url?: string | null
           location?: string | null
           name?: string
           past_events?: number | null
+          phone?: string | null
           preferred_audience?: string[] | null
+          profile_photo_url?: string | null
           rating?: number | null
           social_links?: Json | null
           speaking_fees?: Json | null
@@ -404,7 +515,10 @@ export type Database = {
           travel_preferences?: Json | null
           updated_at?: string
           user_id?: string | null
+          verification_documents?: Json | null
+          verification_status?: string | null
           video_url?: string | null
+          website_url?: string | null
         }
         Relationships: []
       }
@@ -532,6 +646,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      availability_slots: {
+        Row: {
+          id: string
+          expert_id: string | null
+          day_of_week: number | null
+          start_time: string
+          end_time: string
+          is_recurring: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          expert_id?: string | null
+          day_of_week?: number | null
+          start_time: string
+          end_time: string
+          is_recurring?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          expert_id?: string | null
+          day_of_week?: number | null
+          start_time?: string
+          end_time?: string
+          is_recurring?: boolean | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_slots_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       verification_requests: {
         Row: {

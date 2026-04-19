@@ -1,62 +1,111 @@
-
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/sections/Footer";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Target, Users, Award, Globe } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Shield, Users, Sparkles, Globe, Heart, Target } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const About = () => {
-  const values = [
-    {
-      icon: Target,
-      title: "Mission",
-      description: "To revolutionize how organizations connect with impactful experts, making knowledge sharing more accessible and engaging."
-    },
-    {
-      icon: Users,
-      title: "Community",
-      description: "Building a vibrant community of experts and organizations who believe in the power of shared knowledge."
-    },
-    {
-      icon: Award,
-      title: "Excellence",
-      description: "Committed to maintaining the highest standards in expert selection and event matching."
-    },
-    {
-      icon: Globe,
-      title: "Global Reach",
-      description: "Connecting experts and audiences across borders, cultures, and industries."
-    }
-  ];
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-background">
       <Navigation />
-      
-      <div className="container mx-auto px-4 pt-32">
-        <div className="flex items-center gap-3 mb-8">
-          <Info className="w-8 h-8 text-primary-600" />
-          <h1 className="text-4xl font-bold text-gray-900">About Us</h1>
-        </div>
 
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xl text-gray-600 mb-12">
-            irookee is more than just an expert booking platform - we're a community dedicated to 
-            making knowledge sharing accessible, engaging, and impactful.
+      {/* Hero */}
+      <section className="pt-24 pb-16 bg-gradient-to-b from-primary/5 to-background">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center max-w-4xl">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">About irookee</h1>
+          <p className="text-xl text-muted-foreground mb-6">
+            A world where every person — regardless of geography, income, language, or background —
+            can access the right human expertise for any situation in their life, instantly.
           </p>
+          <p className="text-lg text-muted-foreground italic">
+            "The right person, for any situation, available to everyone — not just the privileged few."
+          </p>
+        </div>
+      </section>
 
-          <h2 className="text-2xl font-bold mb-8">Our Values</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {values.map((value) => (
-              <Card key={value.title} className="hover:shadow-lg transition-shadow">
+      {/* Mission & Vision */}
+      <section className="py-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-8">
+                <Target className="h-10 w-10 text-primary mb-4" />
+                <h2 className="text-2xl font-bold mb-3">Our Mission</h2>
+                <p className="text-muted-foreground">
+                  To build the world's most trusted, accessible, and comprehensive human expertise
+                  marketplace that connects people to verified professionals across every domain of human life.
+                  From a cardiologist at midnight to a startup mentor before your investor pitch — irookee
+                  makes it possible.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-8">
+                <Globe className="h-10 w-10 text-primary mb-4" />
+                <h2 className="text-2xl font-bold mb-3">Our Vision</h2>
+                <p className="text-muted-foreground">
+                  A first-generation entrepreneur in Tier 2 India deserves the same quality of startup
+                  mentorship as someone in Silicon Valley. A mother in rural Tamil Nadu deserves the same
+                  access to a child psychologist as someone in South Mumbai. irookee is building that future.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Core Values */}
+          <h2 className="text-3xl font-bold text-center mb-8">Our Core Values</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: Heart, title: "Democratisation", desc: "Breaking down barriers to quality expertise. 207+ categories, from healthcare to dating coaching." },
+              { icon: Shield, title: "Trust & Safety", desc: "Every expert goes through rigorous KYC and document verification. No shortcuts on trust." },
+              { icon: Users, title: "Inclusivity", desc: "Built for Bharat and beyond. Multilingual support, accessible design, and fair platform for all." },
+              { icon: Sparkles, title: "AI-Powered", desc: "Our Prompt Engine matches you with the perfect expert using natural language — describe your problem, we find the person." },
+              { icon: Target, title: "Impact", desc: "Every successful connection improves someone's life. We measure success in lives changed, not just sessions booked." },
+              { icon: Globe, title: "Global Reach", desc: "Connecting experts and users across borders, cultures, and industries — starting from India, expanding worldwide." },
+            ].map(v => (
+              <Card key={v.title} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
-                  <value.icon className="w-8 h-8 text-primary-600 mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">{value.title}</h3>
-                  <p className="text-gray-600">{value.description}</p>
+                  <v.icon className="h-8 w-8 text-primary mb-3" />
+                  <h3 className="text-lg font-semibold mb-2">{v.title}</h3>
+                  <p className="text-sm text-muted-foreground">{v.desc}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Stats */}
+      <section className="py-16 bg-primary text-primary-foreground">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div><div className="text-4xl font-bold">207+</div><div className="text-sm opacity-80">Expert Categories</div></div>
+            <div><div className="text-4xl font-bold">17</div><div className="text-sm opacity-80">Life Domains</div></div>
+            <div><div className="text-4xl font-bold">100%</div><div className="text-sm opacity-80">Free Platform</div></div>
+            <div><div className="text-4xl font-bold">24/7</div><div className="text-sm opacity-80">Available</div></div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
+          <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
+            Whether you need expert guidance or want to share your expertise with the world —
+            irookee is the place for you.
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Button size="lg" onClick={() => navigate('/speakers')}>Find an Expert</Button>
+            <Button size="lg" variant="outline" onClick={() => navigate('/expert/onboarding')}>Become an Expert</Button>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 };

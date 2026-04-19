@@ -193,7 +193,7 @@ export const getTopics = async () => {
 // Bookings API
 export const createBooking = async (booking: Omit<Booking, 'id' | 'created_at' | 'updated_at'>) => {
   const { data, error } = await supabase
-    .from('bookings')
+    .from('expertise_bookings')
     .insert(booking)
     .select()
     .single();
@@ -212,7 +212,7 @@ export const getUserBookings = async () => {
   if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await supabase
-    .from('bookings')
+    .from('expertise_bookings')
     .select(`
       *,
       speakers (
@@ -221,7 +221,7 @@ export const getUserBookings = async () => {
         image_url
       )
     `)
-    .or(`organizer_id.eq.${user.id},speaker_id.in.(select id from speakers where user_id=${user.id})`)
+    .or(`user_id.eq.${user.id},expert_id.in.(select id from speakers where user_id=${user.id})`)
     .order('created_at', { ascending: false });
 
   if (error) {
