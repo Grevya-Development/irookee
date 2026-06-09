@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LogIn, UserPlus, ArrowLeft, MessageCircle, Mail } from "lucide-react";
+import { getSiteUrl } from "@/lib/siteUrl";
+import { LogIn, UserPlus, ArrowLeft, Mail } from "lucide-react";
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string; tips: string[] } {
   let score = 0
@@ -64,7 +65,7 @@ const Auth = () => {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: getSiteUrl() },
         });
         if (error) throw error;
         toast({ title: "Account Created!", description: "Check your email to verify, then log in." });
@@ -91,7 +92,7 @@ const Auth = () => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${getSiteUrl()}/auth`,
       });
       if (error) throw error;
       setResetSent(true);
@@ -117,7 +118,7 @@ const Auth = () => {
           {/* Logo */}
           <div className="text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-2">
-              <MessageCircle className="h-10 w-10 text-primary" />
+              <img src="/irookee-mark.svg" alt="irookee" className="h-11 w-11 object-contain" />
               <span className="text-3xl font-bold">irookee</span>
             </Link>
             <p className="text-muted-foreground mt-2">People for People</p>
