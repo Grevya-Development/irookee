@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
+import { getSiteUrl } from '@/lib/siteUrl'
 import { toast } from 'sonner'
 import { UserPlus } from 'lucide-react'
 
@@ -30,7 +31,7 @@ export function SignupForm() {
         email: data.email,
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${getSiteUrl()}/auth/callback`,
           data: {
             full_name: data.fullName
           }

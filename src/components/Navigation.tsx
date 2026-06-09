@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, MessageCircle, User, LogOut, LogIn, Settings } from "lucide-react";
+import { Menu, X, User, LogOut, LogIn, Settings } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 
@@ -27,7 +27,7 @@ const Navigation = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <MessageCircle className="h-8 w-8 text-blue-600" />
+              <img src="/irookee-mark.svg" alt="irookee" className="h-9 w-9 object-contain" />
               <span className="text-xl font-bold text-gray-900">irookee</span>
             </Link>
           </div>

@@ -8,7 +8,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div>
-            <h3 className="text-2xl font-bold mb-2">irookee</h3>
+            <div className="bg-white rounded-xl p-4 mb-4 inline-block">
+              <img src="/irookee.svg" alt="irookee — Find people, get connected." className="h-28 w-auto object-contain" />
+            </div>
             <p className="text-lg font-semibold text-purple-400 mb-3">People for People</p>
             <p className="text-gray-400 text-sm mb-4">
               Democratizing the way people connect with each other. The right person, for any situation, available to everyone.

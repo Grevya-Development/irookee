@@ -4,6 +4,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { getSiteUrl } from '@/lib/siteUrl'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
 
@@ -29,7 +30,7 @@ function PaymentFormInner({ amount, bookingId, onSuccess }: Omit<PaymentFormProp
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/booking/${bookingId}/success`,
+          return_url: `${getSiteUrl()}/booking/${bookingId}/success`,
         },
       })
 
