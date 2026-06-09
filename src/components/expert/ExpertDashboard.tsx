@@ -27,7 +27,7 @@ interface BookingRow {
 }
 
 export function ExpertDashboard() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
   const [expertProfile, setExpertProfile] = useState<Record<string, unknown> | null>(null)
@@ -40,10 +40,14 @@ export function ExpertDashboard() {
   })
 
   useEffect(() => {
-    if (user) {
-      loadExpertProfile()
+    if (authLoading) return
+    if (!user) {
+      navigate('/auth?redirect=/expert/dashboard')
+      return
     }
-  }, [user])
+    loadExpertProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading])
 
   const loadExpertProfile = async () => {
     if (!user) return

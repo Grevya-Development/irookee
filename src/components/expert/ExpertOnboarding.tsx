@@ -52,9 +52,10 @@ const STEP_INFO = [
 ]
 
 export function ExpertOnboarding() {
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ExpertOnboardingForm>()
+  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger } = useForm<ExpertOnboardingForm>()
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
+  const [showStep1Errors, setShowStep1Errors] = useState(false)
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
@@ -132,6 +133,27 @@ export function ExpertOnboarding() {
   }
 
   const removeDoc = (index: number) => setUploadedDocs(prev => prev.filter((_, i) => i !== index))
+
+  const goToStep2 = async () => {
+    setShowStep1Errors(true)
+    const fieldsValid = await trigger(['full_name', 'email', 'phone', 'bio'])
+    const locationValid = locationValue.trim().length > 0
+    const languagesValid = selectedLanguages.length > 0
+    if (!fieldsValid || !locationValid || !languagesValid) {
+      toast.error('Please complete all required fields before continuing')
+      return
+    }
+    setStep(2)
+  }
+
+  const goToStep3 = async () => {
+    const fieldsValid = await trigger(['title', 'expertise_areas', 'experience_years'])
+    if (!fieldsValid) {
+      toast.error('Please complete all required fields before continuing')
+      return
+    }
+    setStep(3)
+  }
 
   const toggleCategory = (id: string) => {
     setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])
@@ -264,7 +286,7 @@ export function ExpertOnboarding() {
                   <div>
                     <Label>Location *</Label>
                     <LocationInput value={locationValue} onChange={(v) => { setLocationValue(v); setValue('location', v); }} className="mt-1" />
-                    {errors.location && <p className="text-sm text-destructive mt-1">{errors.location.message}</p>}
+                    {showStep1Errors && !locationValue.trim() && <p className="text-sm text-destructive mt-1">Please enter your location</p>}
                   </div>
                   <div>
                     <Label>Company / Organization</Label>
@@ -280,7 +302,7 @@ export function ExpertOnboarding() {
                         placeholder="Select languages..."
                       />
                     </div>
-                    {selectedLanguages.length === 0 && errors.languages && (
+                    {showStep1Errors && selectedLanguages.length === 0 && (
                       <p className="text-sm text-destructive mt-1">Select at least one language</p>
                     )}
                   </div>
@@ -293,7 +315,7 @@ export function ExpertOnboarding() {
                   {errors.bio && <p className="text-sm text-destructive mt-1">{errors.bio.message}</p>}
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" onClick={() => setStep(2)} size="lg">
+                  <Button type="button" onClick={goToStep2} size="lg">
                     Next <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
@@ -344,7 +366,7 @@ export function ExpertOnboarding() {
                   <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                     <ArrowLeft className="h-4 w-4 mr-1" /> Back
                   </Button>
-                  <Button type="button" onClick={() => setStep(3)} size="lg">
+                  <Button type="button" onClick={goToStep3} size="lg">
                     Next <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>

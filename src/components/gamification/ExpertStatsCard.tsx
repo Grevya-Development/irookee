@@ -234,16 +234,22 @@ const ExpertStatsCard = ({ expertId }: ExpertStatsCardProps) => {
           </div>
         )}
 
-        {/* Member since */}
-        <div className="pt-2 border-t">
-          <p className="text-xs text-muted-foreground text-center">
-            Member since{" "}
-            {new Date(stats.created_at).toLocaleDateString(undefined, {
-              year: "numeric",
-              month: "long",
-            })}
-          </p>
-        </div>
+        {/* Member since — only render when we have a valid date */}
+        {(() => {
+          const memberSince = stats.created_at ? new Date(stats.created_at) : null;
+          if (!memberSince || isNaN(memberSince.getTime())) return null;
+          return (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground text-center">
+                Member since{" "}
+                {memberSince.toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "long",
+                })}
+              </p>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );

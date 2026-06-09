@@ -36,15 +36,15 @@ const BadgeGrid = ({ badges }: BadgeGridProps) => {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
         {badges.map((badge) => (
           <Tooltip key={badge.badge_key}>
             <TooltipTrigger asChild>
-              <div className="flex flex-col items-center gap-1 p-2 rounded-lg border bg-muted/40 hover:bg-muted transition-colors cursor-default">
+              <div className="flex flex-col items-center gap-1 p-2.5 rounded-lg border bg-muted/40 hover:bg-muted transition-colors cursor-default">
                 <span className="text-2xl" role="img" aria-label={badge.badge_name}>
                   {badge.badge_icon}
                 </span>
-                <span className="text-[10px] text-muted-foreground text-center leading-tight line-clamp-1">
+                <span className="text-[11px] font-medium text-foreground text-center leading-tight line-clamp-2">
                   {badge.badge_name}
                 </span>
               </div>
