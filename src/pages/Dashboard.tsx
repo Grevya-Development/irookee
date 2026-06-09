@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useBookings } from '@/hooks/useBookings'
+import { supabase } from '@/integrations/supabase/client'
+import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, CheckCircle, UserX, Star, MessageSquare, ArrowLeft } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, UserX, Star, MessageSquare, ArrowLeft, CalendarClock, XCircle } from 'lucide-react'
 import Navigation from '@/components/Navigation'
 import UserLoyaltyCard from '@/components/gamification/UserLoyaltyCard'
 import ReviewForm from '@/components/ReviewForm'
@@ -15,7 +21,27 @@ export default function Dashboard() {
   const { user, profile, loading: authLoading } = useAuth()
   const { bookings, loading: bookingsLoading, refetch } = useBookings(user?.id)
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [reviewBooking, setReviewBooking] = useState<{ id: string; expertId: string; expertName: string } | null>(null)
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+
+  const handleCancelBooking = async () => {
+    if (!cancelBookingId) return
+    setCancelling(true)
+    const { error } = await supabase
+      .from('expertise_bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', cancelBookingId)
+    setCancelling(false)
+    setCancelBookingId(null)
+    if (error) {
+      toast({ title: 'Could not cancel', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Booking cancelled', description: 'Your session has been cancelled.' })
+      refetch()
+    }
+  }
 
   if (authLoading) {
     return (
@@ -192,6 +218,25 @@ export default function Dashboard() {
                       {booking.notes && (
                         <p className="text-sm text-muted-foreground mt-2">{booking.notes}</p>
                       )}
+                      {booking.status !== 'cancelled' && (
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/booking?expertId=${booking.expert_id}`)}
+                          >
+                            <CalendarClock className="h-4 w-4 mr-1" /> Reschedule
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => setCancelBookingId(booking.id)}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" /> Cancel
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -252,6 +297,28 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Cancel confirmation */}
+      <AlertDialog open={!!cancelBookingId} onOpenChange={(open) => { if (!open) setCancelBookingId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel your booking and notify the expert. You can always book a new session later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep session</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleCancelBooking(); }}
+              disabled={cancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {cancelling ? 'Cancelling...' : 'Cancel session'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Review Form Dialog */}
       {reviewBooking && (

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteUrl } from "@/lib/siteUrl";
-import { LogIn, UserPlus, ArrowLeft, Mail } from "lucide-react";
+import { LogIn, UserPlus, ArrowLeft, Mail, Eye, EyeOff } from "lucide-react";
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string; tips: string[] } {
   let score = 0
@@ -49,6 +49,7 @@ function PasswordStrength({ password }: { password: string }) {
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -61,6 +62,18 @@ const Auth = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (isSignUp) {
+        // Enforce a minimum password strength on account creation.
+        const { score } = getPasswordStrength(password);
+        if (password.length < 8 || score < 3) {
+          toast({
+            title: "Choose a stronger password",
+            description: "Use at least 8 characters with a mix of uppercase, numbers, and a symbol.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
       setLoading(true);
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
@@ -100,6 +113,25 @@ const Auth = () => {
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : 'Failed to send reset email', variant: "destructive" });
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider: 'google' | 'apple') => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${getSiteUrl()}${redirect}` },
+      });
+      if (error) throw error;
+      // On success the browser redirects to the provider; nothing else to do here.
+    } catch (error) {
+      toast({
+        title: "Sign-in failed",
+        description: error instanceof Error ? error.message : `Could not sign in with ${provider}.`,
+        variant: "destructive",
+      });
       setLoading(false);
     }
   };
@@ -182,11 +214,22 @@ const Auth = () => {
                     </div>
                     <div>
                       <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password" type="password" placeholder="Min. 6 characters"
-                        value={password} onChange={(e) => setPassword(e.target.value)}
-                        required minLength={6} className="mt-1"
-                      />
+                      <div className="relative mt-1">
+                        <Input
+                          id="password" type={showPassword ? "text" : "password"}
+                          placeholder={isSignUp ? "Min. 8 characters" : "Your password"}
+                          value={password} onChange={(e) => setPassword(e.target.value)}
+                          required minLength={isSignUp ? 8 : 6} className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                       {isSignUp && password.length > 0 && <PasswordStrength password={password} />}
                     </div>
                     {!isSignUp && (
@@ -216,9 +259,26 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <Button variant="outline" className="w-full" onClick={() => navigate('/')}>
-                    Continue as Guest
-                  </Button>
+                  <div className="space-y-2">
+                    <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={() => handleOAuth('google')}>
+                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+                      </svg>
+                      Continue with Google
+                    </Button>
+                    <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={() => handleOAuth('apple')}>
+                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M16.37 1.43c.06.86-.27 1.7-.83 2.32-.58.65-1.53 1.15-2.46 1.08-.08-.83.3-1.7.84-2.27.6-.65 1.62-1.12 2.45-1.13zM19.6 17.2c-.5 1.16-.74 1.67-1.39 2.7-.9 1.42-2.18 3.19-3.76 3.2-1.4.02-1.76-.91-3.67-.9-1.9.01-2.3.92-3.7.9-1.58-.01-2.79-1.6-3.7-3.02C.97 16.16.71 11.5 2.3 9.02c1.13-1.78 2.92-2.82 4.6-2.82 1.7 0 2.78.93 4.18.93 1.36 0 2.19-.94 4.16-.94 1.5 0 3.08.81 4.21 2.22-3.7 2.02-3.1 7.3.05 8.79z"/>
+                      </svg>
+                      Continue with Apple
+                    </Button>
+                    <Button type="button" variant="ghost" className="w-full" onClick={() => navigate('/')}>
+                      Continue as Guest
+                    </Button>
+                  </div>
 
                   <p className="text-center text-sm text-muted-foreground mt-6">
                     {isSignUp ? (

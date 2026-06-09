@@ -5,15 +5,27 @@ import { ExpertProfile } from '@/types/promptpeople'
  * Comprehensive expert search that queries across ALL relevant fields.
  * No AI dependency - pure database search with relevance scoring.
  */
+// Common words that carry no search intent. Without filtering these, a phrase
+// like "I'm in Coimbatore need a software developer" matches almost every
+// expert because short words such as "in"/"an" are substrings of many fields.
+const STOPWORDS = new Set([
+  'i', "i'm", 'im', 'a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'and',
+  'or', 'is', 'are', 'am', 'be', 'me', 'my', 'we', 'us', 'you', 'your', 'need',
+  'needs', 'want', 'wants', 'looking', 'look', 'find', 'get', 'with', 'who', 'can',
+  'help', 'someone', 'some', 'any', 'please', 'would', 'like', 'near', 'around',
+  'from', 'this', 'that', 'have', 'has', 'about',
+])
+
 export async function searchExperts(rawQuery: string): Promise<ExpertProfile[]> {
   const query = rawQuery.trim().toLowerCase()
   if (!query) return []
 
-  // Split into individual terms for multi-word matching
+  // Split into individual terms, dropping stopwords and noise. Keep meaningful
+  // short terms (ai, hr, qa, ux) but require length >= 2.
   const terms = query
     .split(/[\s,]+/)
-    .map(t => t.trim())
-    .filter(t => t.length >= 2)
+    .map(t => t.trim().replace(/[^a-z0-9'+#.]/g, ''))
+    .filter(t => t.length >= 2 && !STOPWORDS.has(t))
 
   if (terms.length === 0) return []
 
@@ -33,7 +45,9 @@ export async function searchExperts(rawQuery: string): Promise<ExpertProfile[]> 
     return []
   }
 
-  // Score each expert against the query
+  // Score each expert against the query.
+  // `relevance` reflects ACTUAL keyword matches only. The rating/session bonus
+  // is kept separate so it can never, on its own, make an expert "match".
   const scored = allExperts.map(expert => {
     let score = 0
     const matchedFields: string[] = []
@@ -87,17 +101,20 @@ export async function searchExperts(rawQuery: string): Promise<ExpertProfile[]> 
       if (languagesArr.some(l => l.includes(term))) { score += 10; matchedFields.push(`language:${term}`) }
     }
 
-    // Bonus for rating and sessions
-    score += (Number(expert.rating) || 0) * 2
-    score += Math.min((expert.past_events || 0) / 10, 10)
+    // `score` so far is pure keyword relevance.
+    const relevance = score
 
-    return { expert, score, matchedFields }
+    // Tie-breaker bonus for rating and sessions — added ONLY for ranking,
+    // never used to decide whether an expert matches.
+    const ratingBonus = (Number(expert.rating) || 0) * 2 + Math.min((expert.past_events || 0) / 10, 10)
+
+    return { expert, relevance, score: relevance + ratingBonus, matchedFields }
   })
 
-  // Filter out zero-score (no match at all)
-  const matched = scored.filter(s => s.score > 0)
+  // Only keep experts with a real keyword match.
+  const matched = scored.filter(s => s.relevance > 0)
 
-  // Sort by score descending, then by rating
+  // Sort by total score (relevance + rating bonus), then by rating
   matched.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     return (Number(b.expert.rating) || 0) - (Number(a.expert.rating) || 0)
