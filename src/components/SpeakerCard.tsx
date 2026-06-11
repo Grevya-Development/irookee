@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Expert } from "@/types/speaker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Star, DollarSign, Calendar } from "lucide-react";
+import { Award, MapPin, Star, DollarSign, Calendar } from "lucide-react";
 import BookingModal from "./BookingModal";
 
 interface ExpertCardProps {
@@ -77,8 +77,22 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
             {expert.is_verified && (
               <div className="flex justify-center">
                 <Badge className="bg-green-100 text-green-800 text-xs">
-                  ✓ Verified Expert
+                  Verified Expert
                 </Badge>
+              </div>
+            )}
+
+            {expert.badges.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-700 mb-2">Badges Earned</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {expert.badges.map((badge) => (
+                    <Badge key={badge} variant="outline" className="text-xs gap-1">
+                      <Award className="h-3 w-3" />
+                      {badge}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
             

@@ -1,5 +1,14 @@
-import { Facebook, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
+import { Facebook, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+
+const companyEmail = "kavin@irookee.com";
+
+const socialLinks: Array<{
+  label: string;
+  href: string;
+  Icon: typeof Facebook;
+}> = [];
 
 const Footer = () => {
   return (
@@ -14,43 +23,43 @@ const Footer = () => {
             </p>
             <div className="mb-6">
               <p className="text-sm text-gray-400 mb-2">For inquiries:</p>
-              <a href="mailto:kavin@irookee.com" className="text-purple-400 hover:text-purple-300 transition-colors">
-                kavin@irookee.com
+              <a href={`mailto:${companyEmail}`} className="text-purple-400 hover:text-purple-300 transition-colors">
+                {companyEmail}
               </a>
             </div>
-            <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Linkedin className="w-5 h-5" />
-              </a>
-            </div>
+            {socialLinks.length > 0 && (
+              <div className="flex space-x-4">
+                {socialLinks.map(({ label, href, Icon }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    aria-label={label}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <Icon className="w-5 h-5" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
             <h4 className="font-semibold mb-6">Quick Links</h4>
             <ul className="space-y-4">
-              <li><a href="/about" className="text-gray-400 hover:text-white transition-colors">About Us</a></li>
-              <li><a href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</a></li>
-              <li><a href="mailto:kavin@irookee.com" className="text-gray-400 hover:text-white transition-colors">Contact</a></li>
+              <li><Link to="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
+              <li><Link to="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li>
+              <li><a href={`mailto:${companyEmail}`} className="text-gray-400 hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold mb-6">For Experts</h4>
             <ul className="space-y-4">
-              <li><a href="/profile-setup" className="text-gray-400 hover:text-white transition-colors">Become an Expert</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Join as Expert</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Expert Guidelines</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Success Stories</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Resources</a></li>
+              <li><Link to="/expert/onboarding" className="text-gray-400 hover:text-white transition-colors">Become an Expert</Link></li>
+              <li><Link to="/profile-setup" className="text-gray-400 hover:text-white transition-colors">Complete Profile</Link></li>
+              <li><Link to="/search" className="text-gray-400 hover:text-white transition-colors">Find Experts</Link></li>
             </ul>
           </div>
 
@@ -78,11 +87,6 @@ const Footer = () => {
             <p className="text-gray-400 text-sm mb-4 md:mb-0">
               © 2025 irookee. All rights reserved.
             </p>
-            <div className="flex space-x-6 text-sm text-gray-400">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>
-            </div>
           </div>
         </div>
       </div>

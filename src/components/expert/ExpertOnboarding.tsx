@@ -20,6 +20,12 @@ interface ExpertOnboardingForm {
   bio?: string
 }
 
+const parseCommaList = (value: string) =>
+  value
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+
 export function ExpertOnboarding() {
   const { register, handleSubmit, formState: { errors } } = useForm<ExpertOnboardingForm>()
   const [loading, setLoading] = useState(false)
@@ -37,32 +43,47 @@ export function ExpertOnboarding() {
       }
 
       // Parse expertise areas and languages
-      const expertiseAreas = data.expertise_areas
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
-      
-      const languages = data.languages
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
+      const expertiseAreas = parseCommaList(data.expertise_areas)
+      const languages = parseCommaList(data.languages)
 
-          const { error: expertError } = await supabase
+      if (expertiseAreas.length === 0) {
+        toast.error('Enter at least one expertise area.')
+        return
+      }
+
+      if (languages.length === 0) {
+        toast.error('Select at least one language.')
+        return
+      }
+
+      const expertPayload = {
+        user_id: user.id,
+        name: data.full_name.trim(),
+        title: data.title.trim(),
+        bio: data.bio || '',
+        expertise: expertiseAreas,
+        hourly_rate: Math.round(data.hourly_rate),
+        location: data.location?.trim() || null,
+        languages,
+        is_verified: false,
+      }
+
+      const { data: existingExpert, error: existingExpertError } = await supabase
+        .from('speakers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (existingExpertError) throw existingExpertError
+
+      const { error: expertError } = existingExpert
+        ? await supabase
             .from('speakers')
-            .upsert({
-              user_id: user.id,
-              full_name: data.full_name.trim(),
-              title: data.title,
-              bio: data.bio || '',
-              expertise_areas: expertiseAreas,
-              experience_years: data.experience_years,
-              hourly_rate: Math.round(data.hourly_rate),
-              location: data.location || null,
-              languages: languages.length > 0 ? languages : null,
-              verification_status: 'pending'
-            },{
-              onConflict: 'user_id'
-            });
+            .update(expertPayload)
+            .eq('id', existingExpert.id)
+        : await supabase
+            .from('speakers')
+            .insert(expertPayload);
 
       if (expertError) throw expertError
 
@@ -118,7 +139,10 @@ export function ExpertOnboarding() {
               <Label htmlFor="full_name">Full Name *</Label>
               <Input
                 id="full_name"
-                {...register('full_name', { required: 'Name is required' })}
+                {...register('full_name', {
+                  required: 'Name is required',
+                  validate: value => value.trim().length > 0 || 'Name is required'
+                })}
                 placeholder="e.g., John Doe"
                 className="mt-1"
               />
@@ -132,7 +156,10 @@ export function ExpertOnboarding() {
               <Label htmlFor="title">Professional Title *</Label>
               <Input
                 id="title"
-                {...register('title', { required: 'Title is required' })}
+                {...register('title', {
+                  required: 'Title is required',
+                  validate: value => value.trim().length > 0 || 'Title is required'
+                })}
                 placeholder="e.g., Startup Mentor, Travel Guide, Business Consultant"
                 className="mt-1"
               />
@@ -145,7 +172,10 @@ export function ExpertOnboarding() {
               <Label htmlFor="expertise_areas">Expertise Areas (comma-separated) *</Label>
               <Input
                 id="expertise_areas"
-                {...register('expertise_areas', { required: 'Expertise areas are required' })}
+                {...register('expertise_areas', {
+                  required: 'Expertise areas are required',
+                  validate: value => parseCommaList(value).length > 0 || 'Enter at least one expertise area'
+                })}
                 placeholder="Startups, Fundraising, Product Management"
                 className="mt-1"
               />
@@ -206,7 +236,10 @@ export function ExpertOnboarding() {
               <Label htmlFor="languages">Languages (comma-separated) *</Label>
               <Input
                 id="languages"
-                {...register('languages', { required: 'Languages are required' })}
+                {...register('languages', {
+                  required: 'Languages are required',
+                  validate: value => parseCommaList(value).length > 0 || 'Select at least one language'
+                })}
                 placeholder="English, Spanish, French"
                 className="mt-1"
               />

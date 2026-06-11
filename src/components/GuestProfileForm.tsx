@@ -21,10 +21,47 @@ const GuestProfileForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneDigits = formData.phone.replace(/\D/g, "");
+
+    if (!formData.full_name.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.message.trim()) {
+      toast({
+        title: "Missing details",
+        description: "Please complete all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!emailPattern.test(formData.email.trim())) {
+      toast({
+        title: "Invalid email",
+        description: "Enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (phoneDigits.length < 10) {
+      toast({
+        title: "Invalid phone number",
+        description: "Enter a valid phone number with at least 10 digits.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("guest_profiles").insert([formData]);
+      const { error } = await supabase.from("guest_profiles").insert([{
+        ...formData,
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        company: formData.company.trim(),
+        message: formData.message.trim(),
+      }]);
 
       if (error) throw error;
 

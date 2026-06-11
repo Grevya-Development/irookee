@@ -33,6 +33,21 @@ const ProfileSetup = () => {
     bio: '',
     hourly_rate: '100',
   });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const nextErrors: Record<string, string> = {};
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+
+    if (!formData.full_name.trim()) nextErrors.full_name = 'Full name is required.';
+    if (!emailPattern.test(formData.email.trim())) nextErrors.email = 'Enter a valid email address.';
+    if (formData.phone && phoneDigits.length < 10) nextErrors.phone = 'Enter a valid phone number.';
+    if (!formData.hourly_rate || Number(formData.hourly_rate) < 1) nextErrors.hourly_rate = 'Hourly rate must be at least 1.';
+
+    setValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   useEffect(() => {
     if (user) {
@@ -99,17 +114,25 @@ const ProfileSetup = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!validateForm()) {
+      toast({
+        title: 'Please fix the highlighted fields',
+        description: 'Some required details are missing or invalid.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
       const { error } = await supabase.from('user_profiles').insert({
         user_id: user.id,
-        full_name: formData.full_name,
-        email: formData.email,
-        company: formData.company,
-        phone: formData.phone,
-        bio: formData.bio,
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        company: formData.company.trim(),
+        phone: formData.phone.trim(),
+        bio: formData.bio.trim(),
         hourly_rate: parseFloat(formData.hourly_rate) || 100,
       });
 
@@ -196,6 +219,9 @@ const ProfileSetup = () => {
                 onChange={handleInputChange}
                 required
               />
+              {validationErrors.full_name && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.full_name}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="email">Email *</Label>
@@ -208,6 +234,9 @@ const ProfileSetup = () => {
                 required
                 disabled
               />
+              {validationErrors.email && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.email}</p>
+              )}
             </div>
           </div>
 
@@ -230,6 +259,9 @@ const ProfileSetup = () => {
                 value={formData.phone}
                 onChange={handleInputChange}
               />
+              {validationErrors.phone && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.phone}</p>
+              )}
             </div>
           </div>
 
@@ -244,6 +276,9 @@ const ProfileSetup = () => {
               onChange={handleInputChange}
               required
             />
+            {validationErrors.hourly_rate && (
+              <p className="text-sm text-destructive mt-1">{validationErrors.hourly_rate}</p>
+            )}
           </div>
 
           <div>

@@ -1,92 +1,71 @@
-import { useState, useEffect, useRef } from 'react'
-import { Search, Sparkles } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { useAISearch } from '@/hooks/useAISearch'
-import { ExpertCard } from '@/components/expert/ExpertCard'
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Search, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface SearchBarProps {
-  initialQuery?: string
-  onSearchStateChange?: (hasSearched: boolean) => void
+  initialQuery?: string;
+  onSearchStateChange?: (hasSearched: boolean) => void;
 }
 
-export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarProps) {
-  const [query, setQuery] = useState(initialQuery)
-  const { search, results, loading } = useAISearch()
-  const prevInitialQuery = useRef<string | null>(null)
+export function SearchBar({ initialQuery = "", onSearchStateChange }: SearchBarProps) {
+  const [query, setQuery] = useState(initialQuery);
+  const prevInitialQuery = useRef<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-  // Only auto-search when initialQuery prop changes from outside (e.g., URL parameter)
-  // This will NOT trigger when user manually types and searches
   useEffect(() => {
-    // Skip on first render if no initialQuery
     if (prevInitialQuery.current === null) {
-      prevInitialQuery.current = initialQuery
-      // Auto-search only on mount if initialQuery is provided
-      if (initialQuery.trim()) {
-        search(initialQuery)
-        onSearchStateChange?.(true)
-      }
-      return
+      prevInitialQuery.current = initialQuery;
+      onSearchStateChange?.(Boolean(initialQuery.trim()));
+      return;
     }
 
-    // Only search if initialQuery actually changed from outside
     if (initialQuery !== prevInitialQuery.current) {
-      prevInitialQuery.current = initialQuery
-      setQuery(initialQuery)
-      if (initialQuery.trim()) {
-        search(initialQuery)
-        onSearchStateChange?.(true)
-      } else {
-        onSearchStateChange?.(false)
-      }
+      prevInitialQuery.current = initialQuery;
+      setQuery(initialQuery);
+      onSearchStateChange?.(Boolean(initialQuery.trim()));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQuery])
+  }, [initialQuery, onSearchStateChange]);
 
   const handleSearch = () => {
-    if (query.trim()) {
-      search(query)
-      onSearchStateChange?.(true)
+    const nextParams = new URLSearchParams(searchParams);
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery) {
+      nextParams.set("q", trimmedQuery);
+      onSearchStateChange?.(true);
     } else {
-      onSearchStateChange?.(false)
+      nextParams.delete("q");
+      onSearchStateChange?.(false);
     }
-  }
+
+    const nextSearch = nextParams.toString();
+    const nextUrl = `/search${nextSearch ? `?${nextSearch}` : ""}`;
+
+    navigate(nextUrl, { replace: location.pathname === "/search" });
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder="Describe what you need help with... (e.g., 'I need a mentor for my SaaS startup')"
-            className="pl-10 pr-4 py-6 text-lg"
+            placeholder="Describe what you need help with..."
+            className="pl-10 pr-4 py-6 text-base sm:text-lg"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
         </div>
-        <Button 
-          size="lg" 
-          onClick={handleSearch}
-          disabled={loading}
-          className="gap-2"
-        >
+        <Button size="lg" onClick={handleSearch} className="gap-2">
           <Sparkles className="h-4 w-4" />
-          {loading ? 'Searching...' : 'Find Experts'}
+          Find Experts
         </Button>
       </div>
-
-      {results.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Matching Experts</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {results.map((expert) => (
-              <ExpertCard key={expert.id} expert={expert} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
-  )
+  );
 }
-

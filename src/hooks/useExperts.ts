@@ -17,7 +17,7 @@ export function useExperts(expertId?: string) {
         .from('expert_profiles')
         .select(`
           *,
-          profiles!inner(full_name, avatar_url, bio, email)
+          profiles!inner(full_name, avatar_url, bio, email, updated_at)
         `)
         .eq('id', id)
         .eq('is_active', true)
@@ -43,7 +43,7 @@ export function useExperts(expertId?: string) {
         .from('expert_profiles')
         .select(`
           *,
-          profiles!inner(full_name, avatar_url, bio)
+          profiles!inner(full_name, avatar_url, bio, updated_at)
         `)
         .eq('is_active', true)
         .eq('verification_status', 'verified')

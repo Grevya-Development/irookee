@@ -36,23 +36,33 @@ export type ExpertProfile = {
 
 export type Booking = {
   id: string
-  user_id: string
+  user_id?: string
+  consumer_id?: string
   expert_id: string
+  scheduled_at?: string
   event_name: string
   event_date: string
-  duration_hours: number
+  duration_hours?: number
+  duration_minutes?: number
   total_amount: number
+  expert_payout?: number
   customer_name: string
   customer_email: string
   customer_phone: string
   notes: string | null
+  consumer_notes?: string | null
   currency: string
   status: string
   created_at: string
+  updated_at?: string
 
   speakers?: {
     full_name: string
     title: string
+  }
+  expert_profile?: {
+    full_name?: string
+    title?: string
   }
 }
 

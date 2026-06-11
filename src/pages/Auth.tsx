@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LogIn, UserPlus, Users } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, Users } from "lucide-react";
+import { getAuthErrorMessage, isRateLimitError } from "@/lib/authMessages";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [signupBlockedUntil, setSignupBlockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -20,9 +23,18 @@ const Auth = () => {
       setLoading(true);
 
       if (isSignUp) {
+        if (signupBlockedUntil && Date.now() < signupBlockedUntil) {
+          toast({
+            title: "Please wait",
+            description: "Please wait a few minutes before requesting another signup email.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         // Handle Sign Up
         const { error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: window.location.origin,
@@ -38,7 +50,7 @@ const Auth = () => {
       } else {
         // Handle Login
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
 
@@ -51,10 +63,13 @@ const Auth = () => {
         navigate("/");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+      if (isSignUp && isRateLimitError(error)) {
+        setSignupBlockedUntil(Date.now() + 3 * 60 * 1000);
+      }
+
       toast({
         title: "Error",
-        description: errorMessage,
+        description: getAuthErrorMessage(error, isSignUp ? "signup" : "login"),
         variant: "destructive",
       });
     } finally {
@@ -94,14 +109,27 @@ const Auth = () => {
             />
           </div>
           <div>
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full text-gray-600"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
           <Button
             type="submit"
