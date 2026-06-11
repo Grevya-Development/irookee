@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 export default function Booking() {
   const [searchParams] = useSearchParams()
   const expertId = searchParams.get('expertId')
+  const rescheduleId = searchParams.get('rescheduleId')
   const [selectedDateTime, setSelectedDateTime] = useState<string | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<number>(60)
   const { expert, loading } = useExperts(expertId || undefined)
@@ -56,7 +57,9 @@ export default function Booking() {
     <div className="min-h-screen py-12 container mx-auto px-4">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Book a Session</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            {rescheduleId ? 'Reschedule Session' : 'Book a Session'}
+          </h1>
           <p className="text-muted-foreground">
             with {expert.profiles?.full_name || expert.title}
           </p>
@@ -72,6 +75,7 @@ export default function Booking() {
             expertId={expertId}
             scheduledAt={selectedDateTime}
             duration={selectedDuration}
+            rescheduleId={rescheduleId || undefined}
           />
         )}
       </div>

@@ -30,6 +30,9 @@ export default function ExpertProfile() {
   }
 
   const profile = expert.profiles
+  const avatarUrl = profile?.avatar_url
+    ? `${profile.avatar_url}${profile.avatar_url.includes('?') ? '&' : '?'}v=${encodeURIComponent(profile.updated_at || '')}`
+    : undefined
 
   return (
     <div className="min-h-screen py-12 container mx-auto px-4">
@@ -37,14 +40,14 @@ export default function ExpertProfile() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex items-start gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={profile?.avatar_url || undefined} />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <Avatar className="h-20 w-20 shrink-0">
+                  <AvatarImage src={avatarUrl} />
                   <AvatarFallback className="text-2xl">
                     {profile?.full_name?.charAt(0) || 'E'}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <CardTitle className="text-3xl">{profile?.full_name || 'Expert'}</CardTitle>
                   <CardDescription className="text-lg mt-1">{expert.title}</CardDescription>
                 </div>
@@ -79,8 +82,8 @@ export default function ExpertProfile() {
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card>
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Session Details</CardTitle>
             </CardHeader>
@@ -116,11 +119,11 @@ export default function ExpertProfile() {
               )}
 
               <Button 
-                className="w-full" 
+                className="w-full whitespace-normal min-h-11"
                 size="lg"
                 onClick={() => navigate(`/booking?expertId=${expert.id}`)}
               >
-                Book Session
+                Book a Free Session
               </Button>
             </CardContent>
           </Card>

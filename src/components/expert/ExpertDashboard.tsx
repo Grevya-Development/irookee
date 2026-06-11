@@ -1,27 +1,46 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useExperts } from '@/hooks/useExperts'
-import { useBookings } from '@/hooks/useBookings'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AvailabilityManager } from './AvailabilityManager'
-import { Calendar, DollarSign, Star, Users, TrendingUp } from 'lucide-react'
+import { Calendar, DollarSign, Star, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import type { Booking } from '@/lib/supabase'
+
+type ExpertProfileState = {
+  id: string
+  title: string
+  expertise_areas?: string[] | null
+  expertise?: string[] | null
+  hourly_rate: number | null
+  verification_status?: string | null
+  is_verified?: boolean | null
+  rating?: number | null
+}
+
+type ExpertBooking = {
+  id: string
+  expert_id: string
+  scheduled_at?: string | null
+  event_date?: string | null
+  created_at: string
+  duration_minutes?: number | null
+  duration_hours?: number | null
+  total_amount?: number | null
+  expert_payout?: number | null
+  status: string
+}
+
+const getBookingDate = (booking: ExpertBooking) => booking.scheduled_at || booking.event_date || booking.created_at
 
 export function ExpertDashboard() {
-  const { user, profile } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
-  const [expertProfile, setExpertProfile] = useState<{
-    id: string
-    title: string
-    expertise_areas: string[]
-    hourly_rate: number
-    verification_status: string
-  } | null>(null)
+  const [expertProfile, setExpertProfile] = useState<ExpertProfileState | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({
     totalBookings: 0,
     totalEarnings: 0,
@@ -30,89 +49,120 @@ export function ExpertDashboard() {
   })
 
   useEffect(() => {
-    if (user) {
-      loadExpertProfile()
-      loadStats()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+    const loadDashboard = async () => {
+      if (authLoading) return
 
-  const loadExpertProfile = async () => {
-    if (!user) return
-    
-    try {
-      const { data, error } = await supabase
-      .from('speakers')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      
-      if (error && error.code !== 'PGRST116') throw error
-      
-      if (!data) {
-        // No expert profile, redirect to onboarding
-        navigate('/expert/onboarding')
+      if (!user) {
+        setLoading(false)
+        navigate('/auth')
         return
       }
 
-      setExpertProfile(data)
-    } catch (error) {
-      console.error('Error loading expert profile:', error)
+      setLoading(true)
+      setError(null)
+
+      try {
+        const { data, error: profileError } = await supabase
+          .from('speakers')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (profileError) throw profileError
+
+        if (!data) {
+          setExpertProfile(null)
+          setStats({
+            totalBookings: 0,
+            totalEarnings: 0,
+            averageRating: 0,
+            upcomingSessions: 0,
+          })
+          return
+        }
+
+        const profile = data as ExpertProfileState
+        setExpertProfile(profile)
+
+        const { data: bookings, error: bookingsError } = await supabase
+          .from('expertise_bookings' as never)
+          .select('*')
+          .eq('expert_id', profile.id)
+
+        if (bookingsError) throw bookingsError
+
+        const rows = ((bookings || []) as ExpertBooking[])
+        const totalEarnings = rows
+          .filter((booking) => booking.status === 'completed')
+          .reduce((sum, booking) => sum + Number(booking.expert_payout ?? booking.total_amount ?? 0), 0)
+
+        const upcomingSessions = rows.filter((booking) => {
+          const date = getBookingDate(booking)
+          return ['pending', 'confirmed', 'in_progress'].includes(booking.status) && date && new Date(date) > new Date()
+        }).length
+
+        setStats({
+          totalBookings: rows.length,
+          totalEarnings,
+          averageRating: Number(profile.rating) || 0,
+          upcomingSessions
+        })
+      } catch (loadError) {
+        console.error('Error loading expert dashboard:', loadError)
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load expert dashboard')
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadDashboard()
+  }, [authLoading, navigate, user])
+
+  if (authLoading || loading) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p>Loading expert dashboard...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  const loadStats = async () => {
-    if (!user) return
-
-    try {
-      const { data: expertData } = await supabase
-        .from('speakers')
-        .select('id, rating')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (!expertData) return
-
-      const expertId = expertData.id
-
-      // Get bookings
-      const { data: bookings } = await supabase
-        .from('expertise_bookings')
-        .select('*')
-        .eq('expert_id', expertId)
-
-      const totalBookings = bookings?.length || 0
-      const totalEarnings = bookings
-        ?.filter(b => b.status === 'completed')
-        .reduce((sum, b) => sum + Number(b.total_amount), 0) || 0
-
-      const upcomingSessions = bookings?.filter(b => {
-        const date = b.event_date || b.created_at
-        return b.status === 'confirmed' && date && new Date(date) > new Date()
-      }).length || 0
-
-      setStats({
-        totalBookings,
-        totalEarnings,
-        averageRating: Number(expertData.rating) || 0,
-        upcomingSessions
-      })
-    } catch (error) {
-      console.error('Error loading stats:', error)
-    }
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardContent className="py-8 text-center space-y-4">
+            <p className="text-destructive">{error}</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!expertProfile) {
     return (
       <div className="container mx-auto py-8">
         <Card>
-          <CardContent className="py-8 text-center">
-            <p>Loading...</p>
+          <CardHeader>
+            <CardTitle>Complete expert onboarding</CardTitle>
+            <CardDescription>
+              We could not find an expert profile for your account yet.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate('/expert/onboarding')}>Complete Onboarding</Button>
           </CardContent>
         </Card>
       </div>
     )
   }
+
+  const expertiseAreas = expertProfile.expertise_areas || expertProfile.expertise || []
+  const verificationStatus = expertProfile.verification_status || (expertProfile.is_verified ? 'verified' : 'pending')
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -184,30 +234,31 @@ export function ExpertDashboard() {
               <div>
                 <p className="text-sm font-medium">Expertise Areas</p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {expertProfile.expertise_areas.map((area: string, index: number) => (
-                    <Badge key={index} variant="outline">{area}</Badge>
-                  ))}
+                  {expertiseAreas.length > 0 ? (
+                    expertiseAreas.map((area, index) => (
+                      <Badge key={index} variant="outline">{area}</Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No expertise areas added yet.</p>
+                  )}
                 </div>
               </div>
               <div>
                 <p className="text-sm font-medium">Hourly Rate</p>
-                <p className="text-lg">${expertProfile.hourly_rate}/hour</p>
+                <p className="text-lg">${Number(expertProfile.hourly_rate || 0).toFixed(2)}/hour</p>
               </div>
               <div>
                 <p className="text-sm font-medium">Verification Status</p>
                 <Badge 
                   variant={
-                    expertProfile.verification_status === 'verified' ? 'default' : 
-                    expertProfile.verification_status === 'pending' ? 'secondary' : 
+                    verificationStatus === 'verified' ? 'default' :
+                    verificationStatus === 'pending' ? 'secondary' :
                     'destructive'
                   }
                 >
-                  {expertProfile.verification_status}
+                  {verificationStatus}
                 </Badge>
               </div>
-              <Button onClick={() => navigate('/expert/edit')}>
-                Edit Profile
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -225,41 +276,49 @@ export function ExpertDashboard() {
 }
 
 function BookingsList({ expertId }: { expertId: string }) {
+  const [bookings, setBookings] = useState<ExpertBooking[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [bookings, setBookings] = useState<Booking[]>([])
-const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    const fetchExpertBookings = async () => {
+      if (!expertId) return
 
-useEffect(() => {
-  const fetchExpertBookings = async () => {
-    if (!expertId) return
+      setLoading(true)
+      setError(null)
 
-    setLoading(true)
+      const { data, error: fetchError } = await supabase
+        .from('expertise_bookings' as never)
+        .select('*')
+        .eq('expert_id', expertId)
+        .order('created_at', { ascending: false })
 
-    const { data, error } = await supabase
-      .from('expertise_bookings')
-      .select('*')
-      .eq('expert_id', expertId)
-      .order('created_at', { ascending: false })
+      if (fetchError) {
+        console.error("Error fetching expert bookings:", fetchError)
+        setError('Failed to load bookings.')
+      } else {
+        setBookings((data || []) as ExpertBooking[])
+      }
 
-    if (error) {
-      console.error("Error fetching expert bookings:", error)
-    } else {
-      setBookings(data || [])
+      setLoading(false)
     }
 
-    setLoading(false)
+    fetchExpertBookings()
+  }, [expertId])
+
+  if (loading) return <div>Loading bookings...</div>
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <p className="text-destructive">{error}</p>
+        </CardContent>
+      </Card>
+    )
   }
 
-  fetchExpertBookings()
-}, [expertId])
-
-  const expertBookings = bookings
-
-  if (loading) {
-    return <div>Loading bookings...</div>
-  }
-
-  if (expertBookings.length === 0) {
+  if (bookings.length === 0) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
@@ -271,30 +330,32 @@ useEffect(() => {
 
   return (
     <div className="space-y-4">
-      {expertBookings.map(booking => (
-        <Card key={booking.id}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">
-                  {new Date(booking.event_date || booking.created_at).toLocaleDateString()}
-                </p>
+      {bookings.map(booking => {
+        const date = getBookingDate(booking)
+        return (
+          <Card key={booking.id}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">
+                    {date ? new Date(date).toLocaleDateString() : 'Date not set'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {date ? new Date(date).toLocaleTimeString() : 'Time not set'} ({booking.duration_minutes || booking.duration_hours || 0} min)
+                  </p>
+                </div>
+                <Badge>{booking.status}</Badge>
+              </div>
+              <div className="mt-2">
+                <p className="text-sm">Amount: ${Number(booking.total_amount || 0).toFixed(2)}</p>
                 <p className="text-sm text-muted-foreground">
-                  {new Date(booking.event_date || booking.created_at).toLocaleTimeString()} ({booking.duration_hours} min)
+                  Your payout: ${Number(booking.expert_payout ?? booking.total_amount ?? 0).toFixed(2)}
                 </p>
               </div>
-              <Badge>{booking.status}</Badge>
-            </div>
-            <div className="mt-2">
-              <p className="text-sm">Amount: ${booking.total_amount}</p>
-              <p className="text-sm text-muted-foreground">
-                Your payout: ${booking.total_amount}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }
-

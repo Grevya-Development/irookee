@@ -13,9 +13,10 @@ interface BookingConfirmationProps {
   expertId: string
   scheduledAt: string
   duration: number
+  rescheduleId?: string
 }
 
-export function BookingConfirmation({ expertId, scheduledAt, duration }: BookingConfirmationProps) {
+export function BookingConfirmation({ expertId, scheduledAt, duration, rescheduleId }: BookingConfirmationProps) {
   const [clientSecret, setClientSecret] = useState<string>('')
   const [bookingId, setBookingId] = useState<string>('')
   const [amount, setAmount] = useState<number>(0)
@@ -26,6 +27,25 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
   const createBooking = async () => {
     setLoading(true)
     try {
+      if (rescheduleId) {
+        const { error } = await supabase
+          .from('expertise_bookings' as never)
+          .update({
+            scheduled_at: scheduledAt,
+            duration_minutes: duration,
+            consumer_notes: consumerNotes || null,
+            status: 'confirmed',
+          } as never)
+          .eq('id', rescheduleId)
+          .eq('expert_id', expertId)
+
+        if (error) throw error
+
+        toast.success('Booking rescheduled.')
+        navigate('/dashboard')
+        return
+      }
+
       const { data, error } = await supabase.functions.invoke('create-booking', {
         body: { 
           expertId, 
@@ -62,8 +82,10 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Booking Confirmation</CardTitle>
-          <CardDescription>Review your booking details and proceed to payment</CardDescription>
+          <CardTitle>{rescheduleId ? 'Reschedule Confirmation' : 'Booking Confirmation'}</CardTitle>
+          <CardDescription>
+            {rescheduleId ? 'Review the new session time' : 'Review your booking details and proceed to payment'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -94,10 +116,10 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Booking...
+                {rescheduleId ? 'Updating Booking...' : 'Creating Booking...'}
               </>
             ) : (
-              'Proceed to Payment'
+              rescheduleId ? 'Confirm Reschedule' : 'Proceed to Payment'
             )}
           </Button>
         </CardContent>

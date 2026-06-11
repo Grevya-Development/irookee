@@ -1,41 +1,89 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { SearchBar } from '@/components/booking/SearchBar'
-import ExpertGrid from '@/components/ExpertGrid'
-import { Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { SearchBar } from "@/components/booking/SearchBar";
+import ExpertGrid from "@/components/ExpertGrid";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { Category } from "@/types/promptpeople";
 
 export default function Search() {
-  const [searchParams] = useSearchParams()
-  const queryParam = searchParams.get('q') || ''
-  const [hasSearched, setHasSearched] = useState(!!queryParam)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get("q") || "";
+  const categoryParam = searchParams.get("category") || "";
+  const [categories, setCategories] = useState<Category[]>([]);
+  const hasFilters = Boolean(queryParam.trim() || categoryParam);
 
-  // If there's a query param, mark as searched
   useEffect(() => {
-    if (queryParam) {
-      setHasSearched(true)
-    }
-  }, [queryParam])
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name");
+
+      if (!error) {
+        setCategories((data || []) as Category[]);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const updateCategory = useCallback(
+    (categoryId?: string) => {
+      const nextParams = new URLSearchParams(searchParams);
+
+      if (categoryId) {
+        nextParams.set("category", categoryId);
+      } else {
+        nextParams.delete("category");
+      }
+
+      setSearchParams(nextParams);
+    },
+    [searchParams, setSearchParams]
+  );
 
   return (
     <div className="min-h-screen py-12 container mx-auto px-4">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Find Experts</h1>
         <p className="text-muted-foreground">
-          Use AI-powered search to find the perfect expert for your needs
+          Search by need, category, language, location, title, topic, or expertise.
         </p>
       </div>
-      <SearchBar 
-        initialQuery={queryParam}
-        onSearchStateChange={setHasSearched}
-      />
-      
-      {/* Show all experts when no search query */}
-      {!hasSearched && (
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold mb-6">Browse All Experts</h2>
-          <ExpertGrid limit={20} />
-        </div>
-      )}
+
+      <SearchBar initialQuery={queryParam} />
+
+      <div className="mt-8 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant={!categoryParam ? "default" : "outline"}
+          onClick={() => updateCategory()}
+        >
+          All Categories
+        </Button>
+        {categories.map((category) => (
+          <Button
+            key={category.id}
+            type="button"
+            variant={categoryParam === category.id ? "default" : "outline"}
+            onClick={() => updateCategory(category.id)}
+          >
+            {category.name}
+          </Button>
+        ))}
+      </div>
+
+      <div className="mt-12">
+        <h2 className="text-2xl font-bold mb-6">
+          {hasFilters ? "Matching Experts" : "Browse All Experts"}
+        </h2>
+        <ExpertGrid
+          limit={hasFilters ? 40 : 20}
+          searchQuery={queryParam}
+          categoryId={categoryParam}
+        />
+      </div>
     </div>
-  )
+  );
 }
