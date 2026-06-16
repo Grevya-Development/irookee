@@ -275,12 +275,32 @@ export function ExpertOnboarding() {
                   </div>
                   <div>
                     <Label>Email *</Label>
-                    <Input type="email" {...register('email', { required: 'Required' })} className="mt-1" />
+                    <Input
+                      type="email"
+                      {...register('email', {
+                        required: 'Required',
+                        pattern: {
+                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                          message: 'Invalid email address'
+                        }
+                      })}
+                      className="mt-1"
+                    />
                     {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
                   </div>
                   <div>
                     <Label>Phone *</Label>
-                    <Input {...register('phone', { required: 'Required' })} placeholder="+91 98765 43210" className="mt-1" />
+                    <Input
+                      {...register('phone', {
+                        required: 'Required',
+                        validate: value => {
+                          const phone = value.replace(/[\s()-]/g, '')
+                          return /^\+?[1-9]\d{7,14}$/.test(phone) || 'Invalid phone number'
+                        }
+                      })}
+                      placeholder="+91 98765 43210"
+                      className="mt-1"
+                    />
                     {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
                   </div>
                   <div>
