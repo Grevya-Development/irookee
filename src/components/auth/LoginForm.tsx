@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import { LogIn } from 'lucide-react'
+import { Eye, EyeOff, LogIn } from 'lucide-react'
 
 interface LoginFormData {
   email: string
@@ -17,6 +17,7 @@ interface LoginFormData {
 export function LoginForm() {
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>()
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
 
   const onSubmit = async (data: LoginFormData) => {
@@ -32,7 +33,10 @@ export function LoginForm() {
       toast.success('Successfully logged in!')
       navigate('/')
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to log in'
+      const rawMessage = error instanceof Error ? error.message : 'Failed to log in'
+      const errorMessage = rawMessage.toLowerCase().includes('invalid login credentials')
+        ? 'Invalid email/password, or your email is not verified yet.'
+        : rawMessage
       toast.error(errorMessage)
     } finally {
       setLoading(false)
@@ -68,18 +72,28 @@ export function LoginForm() {
 
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              {...register('password', { 
-                required: 'Password is required',
-                minLength: {
-                  value: 6,
-                  message: 'Password must be at least 6 characters'
-                }
-              })}
-              className="mt-1"
-            />
+            <div className="relative mt-1">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                {...register('password', { 
+                  required: 'Password is required',
+                  minLength: {
+                    value: 6,
+                    message: 'Password must be at least 6 characters'
+                  }
+                })}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-destructive mt-1">{errors.password.message}</p>
             )}

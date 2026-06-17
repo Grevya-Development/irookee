@@ -46,6 +46,21 @@ function PasswordStrength({ password }: { password: string }) {
   )
 }
 
+function getFriendlyAuthError(error: unknown, isSignUp: boolean) {
+  const message = error instanceof Error ? error.message : 'Something went wrong';
+  const lower = message.toLowerCase();
+
+  if (lower.includes('rate limit') || lower.includes('too many requests')) {
+    return 'Too many email attempts right now. Please wait a few minutes before trying again.';
+  }
+
+  if (!isSignUp && (lower.includes('invalid login credentials') || lower.includes('email not confirmed'))) {
+    return 'Invalid email/password, or your email is not verified yet. Please verify your email and try the exact registered credentials.';
+  }
+
+  return message;
+}
+
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,7 +105,7 @@ const Auth = () => {
         navigate(redirect);
       }
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : 'Something went wrong', variant: "destructive" });
+      toast({ title: "Error", description: getFriendlyAuthError(error, isSignUp), variant: "destructive" });
     } finally {
       setLoading(false);
     }

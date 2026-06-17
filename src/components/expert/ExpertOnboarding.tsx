@@ -177,18 +177,39 @@ export function ExpertOnboarding() {
         submitted_at: new Date().toISOString()
       }
 
-      const { data: expertData, error: expertError } = await supabase
+      const speakerPayload = {
+        user_id: user.id, name: data.full_name.trim(), title: data.title,
+        bio: data.bio || '', expertise: expertiseAreas, experience_years: data.experience_years,
+        hourly_rate: 0, currency: 'INR', location: locationValue || null,
+        languages: languages.length > 0 ? languages : null,
+        verification_status: 'pending', is_verified: false, company: data.company || null,
+        phone: data.phone || null, email: data.email || user.email,
+        linkedin_url: data.linkedin_url || null, website_url: data.website_url || null,
+        verification_documents: verificationDocuments,
+      }
+
+      const { data: existingExpert, error: existingExpertError } = await supabase
         .from('speakers')
-        .upsert({
-          user_id: user.id, name: data.full_name.trim(), title: data.title,
-          bio: data.bio || '', expertise: expertiseAreas, experience_years: data.experience_years,
-          hourly_rate: 0, currency: 'INR', location: locationValue || null,
-          languages: languages.length > 0 ? languages : null,
-          verification_status: 'pending', is_verified: false, company: data.company || null,
-          phone: data.phone || null, email: data.email || user.email,
-          linkedin_url: data.linkedin_url || null, website_url: data.website_url || null,
-          verification_documents: verificationDocuments,
-        }, { onConflict: 'user_id' }).select().single()
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (existingExpertError) throw existingExpertError
+
+      const expertWrite = existingExpert
+        ? await supabase
+            .from('speakers')
+            .update(speakerPayload)
+            .eq('id', existingExpert.id)
+            .select()
+            .single()
+        : await supabase
+            .from('speakers')
+            .insert(speakerPayload)
+            .select()
+            .single()
+
+      const { data: expertData, error: expertError } = expertWrite
 
       if (expertError) throw expertError
 
@@ -199,10 +220,24 @@ export function ExpertOnboarding() {
         )
       }
       if (expertData) {
-        await supabase.from('verification_requests').upsert({
+        const verificationPayload = {
           speaker_id: expertData.id, status: 'pending', submitted_at: new Date().toISOString(),
           documents: verificationDocuments, notes: `${uploadedDocs.length} document(s) uploaded.`
-        }, { onConflict: 'speaker_id' })
+        }
+        const { data: existingRequest } = await supabase
+          .from('verification_requests')
+          .select('id')
+          .eq('speaker_id', expertData.id)
+          .maybeSingle()
+
+        if (existingRequest) {
+          await supabase
+            .from('verification_requests')
+            .update(verificationPayload)
+            .eq('id', existingRequest.id)
+        } else {
+          await supabase.from('verification_requests').insert(verificationPayload)
+        }
       }
       await supabase.from('profiles').upsert({
         id: user.id, full_name: data.full_name.trim(), email: user.email,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 import SearchFilters from "@/components/SearchFilters";
@@ -10,7 +11,6 @@ import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q") || "";
-  const [hasSearched, setHasSearched] = useState(!!queryParam);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>(
     []
   );
@@ -47,12 +47,6 @@ export default function Search() {
     setSearchParams(params, { replace: true });
   }, [filters, queryParam, setSearchParams]);
 
-  useEffect(() => {
-    if (queryParam) {
-      setHasSearched(true);
-    }
-  }, [queryParam]);
-
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
@@ -70,10 +64,18 @@ export default function Search() {
     setFilters(newFilters);
   }, []);
 
+  const hasActiveFilters = Object.keys(filters).some((key) => Boolean(filters[key as keyof SearchFiltersType]));
+  const hasSearch = Boolean(queryParam.trim());
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Navigation />
-      <div className="container mx-auto px-4 pt-28 pb-20">
+      <motion.div
+        className="container mx-auto px-4 pt-28 pb-20"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+      >
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Find Experts</h1>
           <p className="text-muted-foreground">
@@ -81,38 +83,28 @@ export default function Search() {
           </p>
         </div>
 
-        {/* AI Search Bar */}
-        <SearchBar
-          initialQuery={queryParam}
-          onSearchStateChange={setHasSearched}
-        />
+        <SearchBar initialQuery={queryParam} />
 
-        {/* Filters */}
         <div className="mt-8 mb-8">
           <SearchFilters
             onFilterChange={handleFilterChange}
             categories={categories}
+            value={filters}
           />
         </div>
 
-        {/* When no AI search has been performed, show filtered browse grid */}
-        {!hasSearched && (
-          <div>
-            <h2 className="text-2xl font-bold mb-6">Browse All Experts</h2>
-            <ExpertGrid
-              limit={40}
-              categoryId={filters.category}
-              searchQuery={
-                filters.location || filters.language
-                  ? [filters.location, filters.language]
-                      .filter(Boolean)
-                      .join(" ")
-                  : undefined
-              }
-            />
-          </div>
-        )}
-      </div>
+        <div>
+          <h2 className="text-2xl font-bold mb-6">
+            {hasSearch || hasActiveFilters ? "Matching Experts" : "Browse All Experts"}
+          </h2>
+          <ExpertGrid
+            limit={40}
+            categoryId={filters.category}
+            searchQuery={queryParam}
+            filters={filters}
+          />
+        </div>
+      </motion.div>
     </div>
   );
 }

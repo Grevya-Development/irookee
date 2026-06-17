@@ -1,4 +1,3 @@
-import { Facebook, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -18,20 +17,6 @@ const Footer = () => {
             <div className="mb-4">
               <a href="mailto:kavin@irookee.com" className="text-purple-400 hover:text-purple-300 text-sm transition-colors">
                 kavin@irookee.com
-              </a>
-            </div>
-            <div className="flex space-x-3">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Linkedin className="w-5 h-5" />
               </a>
             </div>
           </div>

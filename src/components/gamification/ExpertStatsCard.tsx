@@ -234,7 +234,7 @@ const ExpertStatsCard = ({ expertId }: ExpertStatsCardProps) => {
           </div>
         )}
 
-        {/* Member since — only render when we have a valid date */}
+        {/* Member since: only render when we have a valid date */}
         {(() => {
           const memberSince = stats.created_at ? new Date(stats.created_at) : null;
           if (!memberSince || isNaN(memberSince.getTime())) return null;
