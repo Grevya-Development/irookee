@@ -133,7 +133,8 @@ export async function searchExperts(rawQuery: string): Promise<ExpertProfile[]> 
     languages: expert.languages || [],
     hourly_rate: expert.hourly_rate,
     status: 'approved' as const,
-    verification_level: 'verified' as const,
+    // Tick reflects the admin-granted Verified badge (is_verified), not listing status.
+    verification_level: expert.is_verified ? ('verified' as const) : ('basic' as const),
     rating: Number(expert.rating) || 0,
     total_sessions: expert.past_events || 0,
     intro_video_url: expert.video_url,

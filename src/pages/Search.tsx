@@ -101,14 +101,13 @@ export default function Search() {
             <h2 className="text-2xl font-bold mb-6">Browse All Experts</h2>
             <ExpertGrid
               limit={40}
-              categoryId={filters.category}
-              searchQuery={
-                filters.location || filters.language
-                  ? [filters.location, filters.language]
-                      .filter(Boolean)
-                      .join(" ")
-                  : undefined
-              }
+              filters={{
+                category: filters.category,
+                language: filters.language,
+                location: filters.location,
+                minRating: filters.minRating,
+                sortBy: filters.sortBy,
+              }}
             />
           </div>
         )}

@@ -1,7 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Admin emails - add your admin emails here
-const ADMIN_EMAILS = ['nrkavin2000@gmail.com', 'kavinvsa@gmail.com'];
+// Admin allowlist. The backend `is_admin()` RPC (backed by the user_roles table
+// + RLS) is the authoritative check; this list is only a client-side convenience
+// fallback. Keep it in sync with the signup trigger in supabase/migrations.
+const ADMIN_EMAILS = ['kavin@grevya.com'];
 
 export const checkUserRole = async (role: 'admin' | 'moderator' | 'user') => {
   try {

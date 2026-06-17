@@ -10,10 +10,14 @@ import Footer from "@/components/sections/Footer";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "@/components/ExpertCard";
 import { searchExperts } from "@/lib/searchExperts";
+import Seo from "@/components/Seo";
+import { usePlatformStats } from "@/hooks/usePlatformStats";
+import { track } from "@/lib/analytics";
 
 const PromptPeople = memo(() => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const { data: platformStats } = usePlatformStats();
   const [searchResults, setSearchResults] = useState<ExpertProfile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -28,6 +32,11 @@ const PromptPeople = memo(() => {
     try {
       const results = await searchExperts(searchQuery);
       setSearchResults(results);
+      track("search_performed", {
+        query: searchQuery,
+        results_count: results.length,
+        source: "home_hero",
+      });
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -42,10 +51,29 @@ const PromptPeople = memo(() => {
     setSearchResults([]);
   }, []);
 
+  // Real, live stats from Supabase (falls back to a tasteful placeholder while
+  // loading). Replaces the previously hardcoded numbers so the social proof is
+  // accurate and grows with the platform.
+  const fmt = (n: number) => (n >= 10 ? `${Math.floor(n / 10) * 10}+` : `${n}`);
   const stats = [
-    { number: "20+", label: "Verified Experts", icon: Users },
-    { number: "40+", label: "Categories", icon: Globe },
-    { number: "4.8", label: "Average Rating", icon: Star },
+    {
+      number: platformStats ? fmt(platformStats.expertCount) : "—",
+      label: "Verified Experts",
+      icon: Users,
+    },
+    {
+      number: platformStats ? fmt(platformStats.categoryCount) : "—",
+      label: "Categories",
+      icon: Globe,
+    },
+    {
+      number:
+        platformStats && platformStats.avgRating > 0
+          ? platformStats.avgRating.toFixed(1)
+          : "—",
+      label: "Average Rating",
+      icon: Star,
+    },
     { number: "100%", label: "Free Platform", icon: Shield },
   ];
 
@@ -74,6 +102,11 @@ const PromptPeople = memo(() => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="irookee — Find verified experts, mentors & guides"
+        description="Connect instantly with verified professionals, mentors, and guides for any career, travel, or personal-growth situation. People for People."
+        path="/"
+      />
       <Navigation />
       
       {/* Hero Section */}

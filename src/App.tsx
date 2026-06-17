@@ -5,6 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/components/AuthProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { trackPageview } from "@/lib/analytics";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Lazy load pages for better performance
 const PromptPeople = lazy(() => import("./pages/PromptPeople"));
@@ -42,6 +46,7 @@ const ScrollToTop = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    trackPageview(pathname);
   }, [pathname]);
 
   return null;
@@ -60,6 +65,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
@@ -94,9 +100,12 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
+        <Analytics />
+        <SpeedInsights />
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
