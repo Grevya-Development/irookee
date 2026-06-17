@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useAISearch } from '@/hooks/useAISearch'
 import ExpertCard from '@/components/ExpertCard'
+import { track } from '@/lib/analytics'
 
 interface SearchBarProps {
   initialQuery?: string
@@ -39,6 +40,7 @@ export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarP
   const handleSearch = () => {
     if (query.trim()) {
       search(query)
+      track('search_performed', { query, source: 'search_page' })
       onSearchStateChange?.(true)
     } else {
       onSearchStateChange?.(false)

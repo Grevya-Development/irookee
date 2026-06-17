@@ -163,7 +163,8 @@ export function ExpertOnboarding() {
     if (selectedLanguages.length === 0) { toast.error('Select at least one language'); return }
     if (!locationValue.trim()) { toast.error('Please enter your location'); return }
     if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
-    if (uploadedDocs.length === 0) { toast.error('Upload at least one verification document'); return }
+    // Verification documents are optional. Uploading them lets an admin grant the
+    // "Verified" badge; without them the expert still goes live once approved.
     setLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -172,10 +173,11 @@ export function ExpertOnboarding() {
 
       const expertiseAreas = data.expertise_areas.split(',').map(s => s.trim()).filter(Boolean)
       const languages = selectedLanguages
-      const verificationDocuments = {
+      const hasDocs = uploadedDocs.length > 0
+      const verificationDocuments = hasDocs ? {
         documents: uploadedDocs.map(doc => ({ name: doc.name, url: doc.url, type: doc.type, uploaded_at: new Date().toISOString() })),
         submitted_at: new Date().toISOString()
-      }
+      } : null
 
       const { data: expertData, error: expertError } = await supabase
         .from('speakers')
@@ -198,7 +200,9 @@ export function ExpertOnboarding() {
           selectedCategories.map(catId => ({ speaker_id: expertData.id, category_id: catId }))
         )
       }
-      if (expertData) {
+      // Only open a verification request when the expert actually uploaded
+      // documents — that's what an admin reviews to grant the Verified badge.
+      if (expertData && hasDocs) {
         await supabase.from('verification_requests').upsert({
           speaker_id: expertData.id, status: 'pending', submitted_at: new Date().toISOString(),
           documents: verificationDocuments, notes: `${uploadedDocs.length} document(s) uploaded.`
@@ -209,7 +213,11 @@ export function ExpertOnboarding() {
         user_type: 'expert', bio: data.bio || '', phone: data.phone || null,
       })
 
-      toast.success('Profile submitted for verification!')
+      toast.success(
+        hasDocs
+          ? 'Profile submitted! Your documents are under review for the Verified badge.'
+          : 'Profile submitted! You can add verification documents anytime to earn the Verified badge.'
+      )
       navigate('/expert/dashboard')
     } catch (error) {
       console.error('Error:', error)
@@ -439,13 +447,21 @@ export function ExpertOnboarding() {
               <CardContent className="p-6 md:p-8 space-y-5">
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                    <Shield className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                     <div>
-                      <p className="font-medium text-amber-800">Upload proof documents</p>
-                      <ul className="text-sm text-amber-700 mt-1 list-disc list-inside space-y-0.5">
+                      <p className="font-medium text-amber-800">
+                        Get the Verified badge <span className="font-normal">(optional)</span>
+                      </p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Uploading proof documents lets our team review and grant you a
+                        <span className="font-medium"> Verified ✓ </span>
+                        badge — it builds trust and helps you get booked. You can skip this
+                        and still go live; add documents anytime later.
+                      </p>
+                      <ul className="text-sm text-amber-700 mt-2 list-disc list-inside space-y-0.5">
                         <li>Government ID (Aadhar, PAN, Passport)</li>
                         <li>Professional certificate or degree</li>
-                        <li>Work experience proof (optional)</li>
+                        <li>Work experience proof</li>
                       </ul>
                     </div>
                   </div>
@@ -483,7 +499,11 @@ export function ExpertOnboarding() {
                     <ArrowLeft className="h-4 w-4 mr-1" /> Back
                   </Button>
                   <Button type="submit" disabled={loading} size="lg">
-                    {loading ? 'Submitting...' : 'Submit for Verification'}
+                    {loading
+                      ? 'Submitting...'
+                      : uploadedDocs.length > 0
+                        ? 'Submit for Verification'
+                        : 'Submit & Skip for Now'}
                   </Button>
                 </div>
               </CardContent>

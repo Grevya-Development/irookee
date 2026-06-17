@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 // Map icon names from DB to emoji for display
 const ICON_EMOJI_MAP: Record<string, string> = {
@@ -41,30 +42,32 @@ interface CategoryItem {
 const CategoryGrid = memo(() => {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      setError(false);
+      const { data, error: dbError } = await supabase
         .from("categories")
         .select("*")
         .order("name");
 
-      if (error) throw error;
+      if (dbError) throw dbError;
       setCategories((data || []) as CategoryItem[]);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      toast({ title: "Error", description: "Failed to load categories", variant: "destructive" });
+    } catch (e) {
+      console.error("Error fetching categories:", e);
+      setError(true);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleCategoryClick = useCallback(
     (categoryName: string) => {
@@ -104,8 +107,22 @@ const CategoryGrid = memo(() => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+        <p className="text-lg font-medium mb-1">Couldn't load categories</p>
+        <Button variant="outline" onClick={fetchCategories} className="mt-2">
+          Retry
+        </Button>
       </div>
     );
   }
