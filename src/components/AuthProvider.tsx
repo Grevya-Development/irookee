@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getSiteUrl } from '@/lib/siteUrl';
+import { identifyUser, resetAnalytics } from '@/lib/analytics';
+import { validateEmailInput } from '@/lib/emailValidation';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +28,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Tie analytics to the authenticated user (or clear on sign out).
+        if (session?.user) {
+          identifyUser(session.user.id, { email: session.user.email });
+        } else if (event === 'SIGNED_OUT') {
+          resetAnalytics();
+        }
       }
     );
 
@@ -40,8 +49,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string) => {
+    const validation = validateEmailInput(email);
+    if (validation.error) {
+      return { error: new Error(validation.error) };
+    }
+
     const { error } = await supabase.auth.signUp({
-      email,
+      email: validation.email,
       password,
       options: {
         emailRedirectTo: getSiteUrl(),
@@ -52,7 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
     return { error };

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { getSiteUrl } from '@/lib/siteUrl'
+import { validateEmailInput } from '@/lib/emailValidation'
 import { toast } from 'sonner'
 import { Eye, EyeOff, UserPlus } from 'lucide-react'
 
@@ -18,7 +19,7 @@ interface SignupFormData {
 }
 
 export function SignupForm() {
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<SignupFormData>()
+  const { register, handleSubmit, formState: { errors }, watch, setError } = useForm<SignupFormData>()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -27,10 +28,17 @@ export function SignupForm() {
   const password = watch('password')
 
   const onSubmit = async (data: SignupFormData) => {
+    const emailValidation = validateEmailInput(data.email)
+    if (emailValidation.error) {
+      setError('email', { type: 'validate', message: emailValidation.error })
+      toast.error(emailValidation.error)
+      return
+    }
+
     setLoading(true)
     try {
       const { error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
+        email: emailValidation.email,
         password: data.password,
         options: {
           emailRedirectTo: `${getSiteUrl()}/auth/callback`,
@@ -81,11 +89,9 @@ export function SignupForm() {
               id="email"
               type="email"
               {...register('email', { 
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address'
-                }
+                required: 'Please enter your email address.',
+                setValueAs: (value) => String(value || '').trim(),
+                validate: (value) => validateEmailInput(value).error || true,
               })}
               className="mt-1"
             />

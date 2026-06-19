@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Sparkles, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { track } from '@/lib/analytics'
 
 interface SearchBarProps {
   initialQuery?: string
@@ -23,6 +24,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
 
     if (trimmed) {
       params.set('q', trimmed)
+      track('search_performed', { query: trimmed, source: 'search_page' })
     } else {
       params.delete('q')
     }

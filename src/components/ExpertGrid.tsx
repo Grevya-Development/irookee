@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "./ExpertCard";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ExpertGridSkeleton } from "@/components/ExpertCardSkeleton";
 import { searchExperts } from "@/lib/searchExperts";
 import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 
@@ -17,49 +18,64 @@ interface ExpertGridProps {
 const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: ExpertGridProps) => {
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    fetchExperts();
-  }, [categoryId, filters.location, filters.language, filters.minRating, filters.sortBy, searchQuery, limit]);
+  const { category, language, location, minRating, sortBy } = filters;
 
-  const fetchExperts = async () => {
+  const fetchExperts = useCallback(async () => {
     try {
       setLoading(true);
+      setError(false);
       const results = await searchExperts({
         ...filters,
-        category: filters.category || categoryId,
+        category: category || categoryId,
         query: searchQuery,
         limit,
       });
       setExperts(results);
-    } catch (error) {
-      console.error('Error fetching experts:', error);
-      toast({ title: "Error", description: "Failed to load experts.", variant: "destructive" });
+    } catch (e) {
+      console.error("Error fetching experts:", e);
+      setError(true);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, category, categoryId, searchQuery, limit]);
 
-  const expertCards = useMemo(() =>
-    experts.map((expert, index) => (
-      <motion.div
-        key={expert.id}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.24, delay: Math.min(index * 0.035, 0.3) }}
-        whileHover={{ y: -3 }}
-      >
-        <ExpertCard expert={expert} />
-      </motion.div>
-    )),
+  useEffect(() => {
+    fetchExperts();
+  }, [fetchExperts]);
+
+  const expertCards = useMemo(
+    () =>
+      experts.map((expert, index) => (
+        <motion.div
+          key={expert.id}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, delay: Math.min(index * 0.035, 0.3) }}
+          whileHover={{ y: -3 }}
+        >
+          <ExpertCard expert={expert} />
+        </motion.div>
+      )),
     [experts]
   );
 
   if (loading) {
+    return <ExpertGridSkeleton count={Math.min(limit, 8)} />;
+  }
+
+  if (error) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="text-center py-12">
+        <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+        <p className="text-lg font-medium mb-1">Couldn't load experts</p>
+        <p className="text-muted-foreground mb-4">
+          Something went wrong while fetching experts. Please try again.
+        </p>
+        <Button variant="outline" onClick={fetchExperts}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -68,7 +84,7 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
     return (
       <div className="text-center py-12">
         <p className="text-lg text-muted-foreground">
-          No experts found. Try a different search.
+          No experts found. Try adjusting your filters or search.
         </p>
       </div>
     );
@@ -86,6 +102,6 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
   );
 });
 
-ExpertGrid.displayName = 'ExpertGrid';
+ExpertGrid.displayName = "ExpertGrid";
 
 export default ExpertGrid;

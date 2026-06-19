@@ -6,6 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/components/AuthProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { trackPageview } from "@/lib/analytics";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Lazy load pages for better performance
 const PromptPeople = lazy(() => import("./pages/PromptPeople"));
@@ -45,6 +49,7 @@ const ScrollToTop = () => {
     if (!hash) {
       window.scrollTo(0, 0);
     }
+    trackPageview(`${pathname}${search}`);
   }, [pathname, search, hash]);
 
   return null;
@@ -104,6 +109,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
@@ -115,9 +121,12 @@ const App = () => (
             <AnimatedRoutes />
           </Suspense>
         </BrowserRouter>
+        <Analytics />
+        <SpeedInsights />
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

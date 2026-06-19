@@ -21,6 +21,7 @@ interface SpeakerSearchRow {
   hourly_rate: number | null
   rating: number | null
   past_events: number | null
+  is_verified: boolean | null
   video_url: string | null
   experience_years: number | null
   created_at: string
@@ -87,7 +88,7 @@ const toExpertProfile = (expert: SpeakerSearchRow): ExpertProfile => ({
   languages: expert.languages || [],
   hourly_rate: expert.hourly_rate,
   status: 'approved',
-  verification_level: 'verified',
+  verification_level: expert.is_verified ? 'verified' : 'basic',
   rating: Number(expert.rating) || 0,
   total_sessions: expert.past_events || 0,
   intro_video_url: expert.video_url,

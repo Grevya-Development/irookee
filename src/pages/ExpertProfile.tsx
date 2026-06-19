@@ -5,13 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Star, MapPin, Languages, Calendar, Shield, Briefcase, ExternalLink, MessageSquare } from 'lucide-react'
+import { Star, MapPin, Languages, Calendar, Briefcase, ExternalLink, MessageSquare, BadgeCheck } from 'lucide-react'
 import BookingModal from '@/components/BookingModal'
 import { Expert } from '@/types/speaker'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
 import Navigation from '@/components/Navigation'
+import Seo from '@/components/Seo'
 import { supabase } from '@/integrations/supabase/client'
+import { track } from '@/lib/analytics'
 
 interface ReviewRow {
   id: string
@@ -32,6 +34,17 @@ export default function ExpertProfile() {
   useEffect(() => {
     if (id) fetchReviews(id)
   }, [id])
+
+  useEffect(() => {
+    if (expert) {
+      track('expert_profile_viewed', {
+        expert_id: expert.id,
+        expert_name: expert.name,
+        rating: expert.rating,
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expert?.id])
 
   const fetchReviews = async (expertId: string) => {
     setReviewsLoading(true)
@@ -106,8 +119,28 @@ export default function ExpertProfile() {
     travel_preferences: {},
   }
 
+  const openBooking = (source: string) => {
+    track('booking_started', {
+      expert_id: expert.id,
+      expert_name: expert.name,
+      source,
+    })
+    setIsBookingOpen(true)
+  }
+
+  const seoDescription = expert.bio
+    ? expert.bio.slice(0, 155)
+    : `Book a free session with ${expert.name}${expert.title ? `, ${expert.title}` : ''} on irookee.`
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 lg:pb-12">
+      <Seo
+        title={`${expert.name}${expert.title ? ` — ${expert.title}` : ''}`}
+        description={seoDescription}
+        path={`/expert/${expert.id}`}
+        image={expert.image_url || undefined}
+        type="profile"
+      />
       <Navigation />
       <div className="container mx-auto px-4 pt-24 pb-12">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -126,8 +159,13 @@ export default function ExpertProfile() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-3xl">{expert.name}</CardTitle>
-                      {expert.verification_status === 'verified' && (
-                        <Shield className="h-5 w-5 text-green-600" />
+                      {expert.is_verified && (
+                        <span
+                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5"
+                          title="Verified expert"
+                        >
+                          <BadgeCheck className="h-4 w-4 text-blue-600" /> Verified
+                        </span>
                       )}
                       <ExpertTierBadge tier={expertTier} />
                     </div>
@@ -220,7 +258,16 @@ export default function ExpertProfile() {
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto" />
                   </div>
                 ) : reviews.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">No reviews yet. Be the first to book and review!</p>
+                  <div className="text-center py-6">
+                    <MessageSquare className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="font-medium mb-1">No reviews yet</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Be the first to connect with {expert.name?.split(' ')[0] || 'this expert'} and share your experience.
+                    </p>
+                    <Button size="sm" onClick={() => openBooking('empty_reviews')}>
+                      Book the first session
+                    </Button>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {reviews.map(review => (
@@ -268,7 +315,7 @@ export default function ExpertProfile() {
 
                 <div className="text-2xl font-bold text-green-600">Free</div>
 
-                <Button className="w-full" size="lg" onClick={() => setIsBookingOpen(true)}>
+                <Button className="w-full" size="lg" onClick={() => openBooking('sidebar')}>
                   Book Session
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => navigate(`/booking?expertId=${expert.id}`)}>
@@ -280,6 +327,19 @@ export default function ExpertProfile() {
             <ExpertStatsCard expertId={expert.id} />
           </div>
         </div>
+      </div>
+
+      {/* Mobile sticky booking bar — the sidebar card is far down the page on
+          small screens, so this keeps the primary CTA always reachable. */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur border-t p-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 shrink-0" />
+          <span className="font-semibold">{(expert.rating || 0).toFixed(1)}</span>
+          <span className="text-sm text-green-600 font-medium truncate">· Free session</span>
+        </div>
+        <Button size="lg" className="shrink-0" onClick={() => openBooking('mobile_sticky')}>
+          Book Session
+        </Button>
       </div>
 
       <BookingModal

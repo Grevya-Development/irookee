@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search } from "lucide-react";
+import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, BadgeCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,7 @@ interface ExpertRow {
   expertise_areas: string[] | null;
   experience_years: number | null;
   verification_status: string | null;
+  is_verified: boolean | null;
   verification_documents: Record<string, unknown> | null;
   created_at: string;
   bio: string | null;
@@ -67,29 +68,60 @@ const ExpertApproval = () => {
     }
   };
 
+  // Approve = make the profile live (listed). The "Verified" badge is a separate,
+  // deliberate decision (handleToggleVerified) so docs are optional.
   const handleApprove = async (expertId: string) => {
     setActionLoading(expertId);
     try {
       const { error } = await supabase
         .from('speakers')
-        .update({ verification_status: 'verified', is_verified: true })
+        .update({ verification_status: 'verified' })
         .eq('id', expertId);
 
       if (error) throw error;
-
-      // Try updating verification_requests (may not exist)
-      await supabase
-        .from('verification_requests' as any)
-        .update({ status: 'approved', reviewed_at: new Date().toISOString() })
-        .eq('speaker_id', expertId)
-        .then(() => {}) // ignore errors
-        .catch(() => {});
 
       toast({ title: "Expert Approved", description: "Profile is now live on the platform" });
       fetchExperts();
     } catch (error: any) {
       console.error('Approve error:', error);
       toast({ title: "Error", description: error?.message || "Failed to approve", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Grant or revoke the Verified badge (the tick mark shown to users).
+  const handleToggleVerified = async (expertId: string, value: boolean) => {
+    setActionLoading(expertId);
+    try {
+      const { error } = await supabase
+        .from('speakers')
+        .update({ is_verified: value })
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      // Reflect the decision on the verification request, if one exists. Wrapped
+      // because the table may not exist in every environment.
+      try {
+        await supabase
+          .from('verification_requests' as any)
+          .update({ status: value ? 'approved' : 'pending', reviewed_at: new Date().toISOString() })
+          .eq('speaker_id', expertId);
+      } catch {
+        /* no-op */
+      }
+
+      toast({
+        title: value ? "Verified badge granted" : "Verified badge removed",
+        description: value
+          ? "This expert now shows the Verified ✓ badge."
+          : "The Verified badge has been removed.",
+      });
+      fetchExperts();
+    } catch (error: any) {
+      console.error('Verify toggle error:', error);
+      toast({ title: "Error", description: error?.message || "Failed to update", variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -208,6 +240,7 @@ const ExpertApproval = () => {
                   <TableHead>Expertise</TableHead>
                   <TableHead>Docs</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Verified</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -236,9 +269,29 @@ const ExpertApproval = () => {
                     </TableCell>
                     <TableCell>{getStatusBadge(expert.verification_status)}</TableCell>
                     <TableCell>
+                      {expert.is_verified ? (
+                        <Badge className="bg-blue-100 text-blue-800">
+                          <BadgeCheck className="h-3 w-3 mr-1" />Verified
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex space-x-1">
                         <Button size="sm" variant="outline" onClick={() => setSelectedExpert(expert)}>
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={expert.is_verified ? "outline" : "default"}
+                          title={expert.is_verified ? "Remove Verified badge" : "Grant Verified badge"}
+                          onClick={() => handleToggleVerified(expert.id, !expert.is_verified)}
+                          disabled={actionLoading === expert.id}
+                        >
+                          {actionLoading === expert.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <BadgeCheck className="h-4 w-4" />}
                         </Button>
                         {expert.verification_status === 'pending' && (
                           <>
@@ -322,6 +375,28 @@ const ExpertApproval = () => {
                 ) : (
                   <p className="text-sm text-muted-foreground">No documents uploaded</p>
                 )}
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-3 border rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">Verified badge</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedExpert.is_verified
+                      ? "This expert shows the Verified ✓ badge."
+                      : getDocuments(selectedExpert).length > 0
+                        ? "Documents uploaded — review and grant the badge."
+                        : "No documents uploaded. You can still grant the badge manually."}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={selectedExpert.is_verified ? "outline" : "default"}
+                  onClick={() => { handleToggleVerified(selectedExpert.id, !selectedExpert.is_verified); setSelectedExpert(null); }}
+                  disabled={actionLoading === selectedExpert.id}
+                >
+                  <BadgeCheck className="h-4 w-4 mr-1" />
+                  {selectedExpert.is_verified ? "Remove badge" : "Grant Verified"}
+                </Button>
               </div>
 
               <div>

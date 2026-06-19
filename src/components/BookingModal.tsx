@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Expert } from "@/types/speaker";
+import { track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { BookingCalendar } from "@/components/booking/BookingCalendar";
 import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
@@ -87,6 +88,12 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
       setMeetingLink(generatedMeetingLink);
       setBookingSuccess(true);
+      track("booking_submitted", {
+        expert_id: speaker.id,
+        expert_name: speaker.name,
+        session_format: sessionFormat,
+        duration_minutes: selectedDuration,
+      });
       toast({
         title: "Session Booked!",
         description: `Your session with ${speaker.name} has been confirmed.`,

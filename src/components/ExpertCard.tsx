@@ -3,7 +3,7 @@ import { ExpertProfile } from "@/types/promptpeople";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { MapPin, Star, Languages, Calendar, Shield } from "lucide-react";
+import { MapPin, Star, Languages, Calendar, BadgeCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BookingModal from "./BookingModal";
 import { Expert } from "@/types/speaker";
@@ -85,8 +85,8 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
           {/* Badges row */}
           <div className="flex flex-wrap gap-1.5 mb-3">
             {expert.verification_level === "verified" && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2 py-0.5 border border-green-200">
-                <Shield className="h-3 w-3" /> Verified
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-full px-2 py-0.5 border border-blue-200">
+                <BadgeCheck className="h-3 w-3 text-blue-600" /> Verified
               </span>
             )}
             <span className={`inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 ${tierConfig.color}`}>
@@ -95,6 +95,17 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
             <span className="inline-flex items-center text-xs font-semibold text-green-700 bg-green-50 rounded-full px-2 py-0.5 border border-green-200">
               Free
             </span>
+            {/* Social-proof signals derived from real data */}
+            {expert.rating >= 4.9 && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full px-2 py-0.5 border border-amber-200">
+                <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Top rated
+              </span>
+            )}
+            {expert.total_sessions >= 100 && (
+              <span className="inline-flex items-center text-xs font-medium text-purple-700 bg-purple-50 rounded-full px-2 py-0.5 border border-purple-200">
+                Popular
+              </span>
+            )}
           </div>
 
           {/* Bio */}

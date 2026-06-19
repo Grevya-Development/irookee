@@ -11,11 +11,8 @@ import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q") || "";
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
-    []
-  );
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState<SearchFiltersType>(() => {
-    // Initialise filters from URL params
     const initial: SearchFiltersType = {};
     const cat = searchParams.get("category");
     const loc = searchParams.get("location");
@@ -26,8 +23,9 @@ export default function Search() {
     if (loc) initial.location = loc;
     if (lang) initial.language = lang;
     if (rating) initial.minRating = Number(rating);
-    if (sort && ["rating", "sessions", "experience"].includes(sort))
+    if (sort && ["rating", "sessions", "experience"].includes(sort)) {
       initial.sortBy = sort as "rating" | "sessions" | "experience";
+    }
     return initial;
   });
 
@@ -35,7 +33,6 @@ export default function Search() {
     fetchCategories();
   }, []);
 
-  // Sync filters to URL params
   useEffect(() => {
     const params = new URLSearchParams();
     if (queryParam) params.set("q", queryParam);
