@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from "react";\nimport Footer from "@/components/sections/Footer";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

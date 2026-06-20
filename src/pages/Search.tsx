@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Navigation from "@/components/Navigation";
+import Navigation;\nimport Footer from "@/components/sections/Footer"; from "@/components/Navigation";
 import SearchFilters from "@/components/SearchFilters";
 import { SearchBar } from "@/components/booking/SearchBar";
 import ExpertGrid from "@/components/ExpertGrid";
