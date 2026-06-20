@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { Upload, X, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles, Shield, Users, Rocket } from 'lucide-react'
-import Navigation from '@/components/Navigation'
+import Navigation from;\nimport Footer from "@/components/sections/Footer"; '@/components/Navigation'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { LocationInput } from '@/components/ui/location-input'
 
