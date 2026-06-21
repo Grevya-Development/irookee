@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/sections/Footer";
 import SearchFilters from "@/components/SearchFilters";
 import { SearchBar } from "@/components/booking/SearchBar";
 import ExpertGrid from "@/components/ExpertGrid";
@@ -65,10 +66,10 @@ export default function Search() {
   const hasSearch = Boolean(queryParam.trim());
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
       <Navigation />
       <motion.div
-        className="container mx-auto px-4 pt-28 pb-20"
+        className="container mx-auto px-4 pt-28 pb-20 flex-1"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
@@ -102,6 +103,7 @@ export default function Search() {
           />
         </div>
       </motion.div>
+      <Footer />
     </div>
   );
 }

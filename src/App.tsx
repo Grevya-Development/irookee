@@ -27,7 +27,6 @@ const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ExpertOnboarding = lazy(() => import("./components/expert/ExpertOnboarding").then(m => ({ default: m.ExpertOnboarding })));
 const ExpertDashboard = lazy(() => import("./components/expert/ExpertDashboard").then(m => ({ default: m.ExpertDashboard })));
-const Speakers = lazy(() => import("./pages/Speakers"));
 const GuestProfile = lazy(() => import("./pages/GuestProfile"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -70,13 +69,14 @@ const AnimatedRoutes = () => {
         <Routes location={location}>
           <Route path="/" element={<PromptPeople />} />
           <Route path="/home" element={<PromptPeople />} />
+          <Route path="/experts" element={<Search />} />
           <Route path="/search" element={<Search />} />
           <Route path="/expert/:id" element={<ExpertProfile />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/expert/onboarding" element={<ExpertOnboarding />} />
           <Route path="/expert/dashboard" element={<ExpertDashboard />} />
-          <Route path="/speakers" element={<Speakers />} />
+          <Route path="/speakers" element={<Search />} />
           <Route path="/about" element={<About />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/auth" element={<Auth />} />

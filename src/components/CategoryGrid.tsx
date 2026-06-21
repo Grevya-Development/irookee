@@ -71,7 +71,7 @@ const CategoryGrid = memo(() => {
 
   const handleCategoryClick = useCallback(
     (categoryName: string) => {
-      navigate(`/speakers?category=${encodeURIComponent(categoryName)}`);
+      navigate(`/experts?category=${encodeURIComponent(categoryName)}`);
     },
     [navigate]
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Sparkles, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ interface SearchBarProps {
 export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery)
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -29,7 +30,10 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
       params.delete('q')
     }
 
-    navigate({ pathname: '/search', search: params.toString() ? `?${params.toString()}` : '' })
+    const pathname = location.pathname === '/experts' || location.pathname === '/speakers'
+      ? location.pathname
+      : '/search'
+    navigate({ pathname, search: params.toString() ? `?${params.toString()}` : '' })
   }
 
   const handleSearch = () => updateUrl(query)

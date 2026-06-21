@@ -11,6 +11,7 @@ import { Expert } from '@/types/speaker'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
 import Navigation from '@/components/Navigation'
+import Footer from '@/components/sections/Footer'
 import Seo from '@/components/Seo'
 import { supabase } from '@/integrations/supabase/client'
 import { track } from '@/lib/analytics'
@@ -80,7 +81,7 @@ export default function ExpertProfile() {
         <Navigation />
         <div className="pt-24 text-center container mx-auto px-4">
           <h1 className="text-2xl font-bold mb-4">Expert not found</h1>
-          <Button onClick={() => navigate('/speakers')}>Browse Experts</Button>
+          <Button onClick={() => navigate('/experts')}>Browse Experts</Button>
         </div>
       </div>
     )
@@ -133,7 +134,7 @@ export default function ExpertProfile() {
     : `Book a free session with ${expert.name}${expert.title ? `, ${expert.title}` : ''} on irookee.`
 
   return (
-    <div className="min-h-screen bg-background pb-20 lg:pb-12">
+    <div className="min-h-screen bg-background pb-20 lg:pb-0">
       <Seo
         title={`${expert.name}${expert.title ? ` — ${expert.title}` : ''}`}
         description={seoDescription}
@@ -341,6 +342,8 @@ export default function ExpertProfile() {
           Book Session
         </Button>
       </div>
+
+      <Footer />
 
       <BookingModal
         isOpen={isBookingOpen}

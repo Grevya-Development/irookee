@@ -1,11 +1,12 @@
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/sections/Footer";
 import GuestProfileForm from "@/components/GuestProfileForm";
 
 const GuestProfile = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
       <Navigation />
-      <div className="container mx-auto px-4 pt-32 pb-20">
+      <div className="container mx-auto px-4 pt-32 pb-20 flex-1">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold text-center mb-8">
             Guest Profile Submission
@@ -17,6 +18,7 @@ const GuestProfile = () => {
           <GuestProfileForm />
         </div>
       </div>
+      <Footer />
     </div>
   );
 };
