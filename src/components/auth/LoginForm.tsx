@@ -76,7 +76,7 @@ export function LoginForm() {
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                {...register('password', { 
+                {...register('password', {
                   required: 'Password is required',
                   minLength: {
                     value: 6,

@@ -106,7 +106,7 @@ export function SignupForm() {
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                {...register('password', { 
+                {...register('password', {
                   required: 'Password is required',
                   minLength: {
                     value: 6,
@@ -135,7 +135,7 @@ export function SignupForm() {
               <Input
                 id="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
-                {...register('confirmPassword', { 
+                {...register('confirmPassword', {
                   required: 'Please confirm your password',
                   validate: value => value === password || 'Passwords do not match'
                 })}
