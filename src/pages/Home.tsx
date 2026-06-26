@@ -62,7 +62,7 @@ export default function Home() {
             <SearchBar />
           </div>
           <div className="flex gap-4 justify-center">
-            <Button size="lg" onClick={() => navigate('/experts')}>
+            <Button size="lg" onClick={() => navigate('/speakers')}>
               Browse Experts
             </Button>
             <Button size="lg" variant="outline" onClick={() => navigate('/expert/onboarding')}>

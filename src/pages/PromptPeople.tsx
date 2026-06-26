@@ -251,7 +251,7 @@ const PromptPeople = memo(() => {
           </div>
           <ExpertGrid limit={8} />
           <div className="text-center mt-12">
-            <Button size="lg" onClick={() => navigate("/experts")}>
+            <Button size="lg" onClick={() => navigate("/speakers")}>
               View All Experts
             </Button>
           </div>
@@ -292,7 +292,7 @@ const PromptPeople = memo(() => {
             Join thousands of people who have found the perfect expert for their needs
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" onClick={() => navigate("/experts")}>
+            <Button size="lg" variant="secondary" onClick={() => navigate("/speakers")}>
               Find an Expert
             </Button>
             <Button 

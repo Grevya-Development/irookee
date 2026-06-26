@@ -1,6 +1,5 @@
 
 import Navigation from "@/components/Navigation";
-import Footer from "@/components/sections/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen } from "lucide-react";
 
@@ -33,10 +32,10 @@ const Blog = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Navigation />
       
-      <div className="container mx-auto px-4 pt-32 pb-20 flex-1">
+      <div className="container mx-auto px-4 pt-32">
         <div className="flex items-center gap-3 mb-8">
           <BookOpen className="w-8 h-8 text-primary-600" />
           <h1 className="text-4xl font-bold text-gray-900">Blog</h1>
@@ -66,7 +65,6 @@ const Blog = () => {
           ))}
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

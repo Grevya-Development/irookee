@@ -1,79 +1,88 @@
-import { useEffect, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, Sparkles, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Search, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useAISearch } from '@/hooks/useAISearch'
+import ExpertCard from '@/components/ExpertCard'
 import { track } from '@/lib/analytics'
 
 interface SearchBarProps {
   initialQuery?: string
+  onSearchStateChange?: (hasSearched: boolean) => void
 }
 
-export function SearchBar({ initialQuery = '' }: SearchBarProps) {
+export function SearchBar({ initialQuery = '', onSearchStateChange }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery)
-  const [searchParams] = useSearchParams()
-  const location = useLocation()
-  const navigate = useNavigate()
+  const { search, results, loading } = useAISearch()
+  const prevInitialQuery = useRef<string | null>(null)
 
   useEffect(() => {
-    setQuery(initialQuery)
+    if (prevInitialQuery.current === null) {
+      prevInitialQuery.current = initialQuery
+      if (initialQuery.trim()) {
+        search(initialQuery)
+        onSearchStateChange?.(true)
+      }
+      return
+    }
+    if (initialQuery !== prevInitialQuery.current) {
+      prevInitialQuery.current = initialQuery
+      setQuery(initialQuery)
+      if (initialQuery.trim()) {
+        search(initialQuery)
+        onSearchStateChange?.(true)
+      } else {
+        onSearchStateChange?.(false)
+      }
+    }
   }, [initialQuery])
 
-  const updateUrl = (nextQuery: string) => {
-    const params = new URLSearchParams(searchParams)
-    const trimmed = nextQuery.trim()
-
-    if (trimmed) {
-      params.set('q', trimmed)
-      track('search_performed', { query: trimmed, source: 'search_page' })
+  const handleSearch = () => {
+    if (query.trim()) {
+      search(query)
+      track('search_performed', { query, source: 'search_page' })
+      onSearchStateChange?.(true)
     } else {
-      params.delete('q')
+      onSearchStateChange?.(false)
     }
-
-    const pathname = location.pathname === '/experts' || location.pathname === '/speakers'
-      ? location.pathname
-      : '/search'
-    navigate({ pathname, search: params.toString() ? `?${params.toString()}` : '' })
-  }
-
-  const handleSearch = () => updateUrl(query)
-  const handleClear = () => {
-    setQuery('')
-    updateUrl('')
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <div className="flex flex-col sm:flex-row gap-2">
+    <div className="w-full max-w-3xl mx-auto space-y-6">
+      <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder="Search by name, expertise, category, location..."
-            className="pl-10 pr-10 py-6 text-base sm:text-lg"
+            placeholder="Search by name, expertise, category, location... (e.g., 'startup mentor bangalore')"
+            className="pl-10 pr-4 py-6 text-lg"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
-          {query && (
-            <button
-              type="button"
-              onClick={handleClear}
-              aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
         <Button
           size="lg"
           onClick={handleSearch}
-          className="gap-2 sm:min-w-36"
+          disabled={loading}
+          className="gap-2"
         >
           <Sparkles className="h-4 w-4" />
-          Find Experts
+          {loading ? 'Searching...' : 'Find Experts'}
         </Button>
       </div>
+
+      {results.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">
+            Found {results.length} matching expert{results.length !== 1 ? 's' : ''}
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {results.map((expert) => (
+              <ExpertCard key={expert.id} expert={expert} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteUrl } from "@/lib/siteUrl";
 import { validateEmailInput } from "@/lib/emailValidation";
-import Footer from "@/components/sections/Footer";
 import { LogIn, UserPlus, ArrowLeft, Mail, Eye, EyeOff } from "lucide-react";
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string; tips: string[] } {
@@ -335,7 +334,6 @@ const Auth = () => {
           </p>
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

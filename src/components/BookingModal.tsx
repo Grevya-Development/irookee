@@ -43,7 +43,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         description: "You need to log in to book a session.",
         variant: "destructive",
       });
-      navigate("/auth?redirect=/experts");
+      navigate("/auth?redirect=/speakers");
       return;
     }
 
@@ -128,7 +128,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
           </DialogHeader>
           <div className="text-center py-6">
             <p className="text-muted-foreground mb-4">Please log in to book a session.</p>
-            <Button onClick={() => navigate("/auth?redirect=/experts")}>Sign In</Button>
+            <Button onClick={() => navigate("/auth?redirect=/speakers")}>Sign In</Button>
           </div>
         </DialogContent>
       </Dialog>

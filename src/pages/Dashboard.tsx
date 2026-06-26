@@ -138,7 +138,7 @@ export default function Dashboard() {
         <UserLoyaltyCard userId={user.id} />
 
         <div className="flex gap-3">
-          <Button onClick={() => navigate('/experts')}>Browse Experts</Button>
+          <Button onClick={() => navigate('/speakers')}>Browse Experts</Button>
           <Button onClick={() => navigate('/search')} variant="outline">Search</Button>
           <Button onClick={() => navigate('/leaderboard')} variant="outline">Leaderboard</Button>
         </div>
@@ -159,7 +159,7 @@ export default function Dashboard() {
               <Card>
                 <CardContent className="py-8 text-center">
                   <p className="text-muted-foreground">No upcoming sessions</p>
-                  <Button className="mt-4" onClick={() => navigate('/experts')}>
+                  <Button className="mt-4" onClick={() => navigate('/speakers')}>
                     Find Experts
                   </Button>
                 </CardContent>

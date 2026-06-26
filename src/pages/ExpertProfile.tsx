@@ -11,7 +11,6 @@ import { Expert } from '@/types/speaker'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
 import Navigation from '@/components/Navigation'
-import Footer from '@/components/sections/Footer'
 import Seo from '@/components/Seo'
 import { supabase } from '@/integrations/supabase/client'
 import { track } from '@/lib/analytics'
@@ -81,7 +80,7 @@ export default function ExpertProfile() {
         <Navigation />
         <div className="pt-24 text-center container mx-auto px-4">
           <h1 className="text-2xl font-bold mb-4">Expert not found</h1>
-          <Button onClick={() => navigate('/experts')}>Browse Experts</Button>
+          <Button onClick={() => navigate('/speakers')}>Browse Experts</Button>
         </div>
       </div>
     )
@@ -342,8 +341,6 @@ export default function ExpertProfile() {
           Book Session
         </Button>
       </div>
-
-      <Footer />
 
       <BookingModal
         isOpen={isBookingOpen}

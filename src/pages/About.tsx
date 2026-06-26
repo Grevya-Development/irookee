@@ -99,7 +99,7 @@ const About = () => {
             irookee is the place for you.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button size="lg" onClick={() => navigate('/experts')}>Find an Expert</Button>
+            <Button size="lg" onClick={() => navigate('/speakers')}>Find an Expert</Button>
             <Button size="lg" variant="outline" onClick={() => navigate('/expert/onboarding')}>Become an Expert</Button>
           </div>
         </div>
