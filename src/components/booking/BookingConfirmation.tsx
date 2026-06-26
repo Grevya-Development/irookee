@@ -86,7 +86,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
             If you or the expert don't show up, the session will be marked as a no-show.
           </p>
           <div className="flex gap-3 justify-center pt-4">
-            <Button variant="outline" onClick={() => navigate('/speakers')}>Browse More Experts</Button>
+            <Button variant="outline" onClick={() => navigate('/experts')}>Browse More Experts</Button>
             <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
           </div>
         </CardContent>

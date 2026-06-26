@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Navigation;\nimport Footer from "@/components/sections/Footer"; from "@/components/Navigation";
+import Navigation from "@/components/Navigation";
+import Footer from "@/components/sections/Footer";
 import SearchFilters from "@/components/SearchFilters";
 import { SearchBar } from "@/components/booking/SearchBar";
 import ExpertGrid from "@/components/ExpertGrid";
@@ -10,12 +11,8 @@ import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q") || "";
-  const [hasSearched, setHasSearched] = useState(!!queryParam);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
-    []
-  );
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState<SearchFiltersType>(() => {
-    // Initialise filters from URL params
     const initial: SearchFiltersType = {};
     const cat = searchParams.get("category");
     const loc = searchParams.get("location");
@@ -26,8 +23,9 @@ export default function Search() {
     if (loc) initial.location = loc;
     if (lang) initial.language = lang;
     if (rating) initial.minRating = Number(rating);
-    if (sort && ["rating", "sessions", "experience"].includes(sort))
+    if (sort && ["rating", "sessions", "experience"].includes(sort)) {
       initial.sortBy = sort as "rating" | "sessions" | "experience";
+    }
     return initial;
   });
 
@@ -35,7 +33,6 @@ export default function Search() {
     fetchCategories();
   }, []);
 
-  // Sync filters to URL params
   useEffect(() => {
     const params = new URLSearchParams();
     if (queryParam) params.set("q", queryParam);
@@ -46,12 +43,6 @@ export default function Search() {
     if (filters.sortBy) params.set("sortBy", filters.sortBy);
     setSearchParams(params, { replace: true });
   }, [filters, queryParam, setSearchParams]);
-
-  useEffect(() => {
-    if (queryParam) {
-      setHasSearched(true);
-    }
-  }, [queryParam]);
 
   const fetchCategories = async () => {
     try {
@@ -70,10 +61,13 @@ export default function Search() {
     setFilters(newFilters);
   }, []);
 
+  const hasActiveFilters = Object.keys(filters).some((key) => Boolean(filters[key as keyof SearchFiltersType]));
+  const hasSearch = Boolean(queryParam.trim());
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
       <Navigation />
-      <div className="container mx-auto px-4 pt-28 pb-20">
+      <div className="container mx-auto px-4 pt-28 pb-20 flex-1">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Find Experts</h1>
           <p className="text-muted-foreground">
@@ -81,37 +75,29 @@ export default function Search() {
           </p>
         </div>
 
-        {/* AI Search Bar */}
-        <SearchBar
-          initialQuery={queryParam}
-          onSearchStateChange={setHasSearched}
-        />
+        <SearchBar initialQuery={queryParam} />
 
-        {/* Filters */}
         <div className="mt-8 mb-8">
           <SearchFilters
             onFilterChange={handleFilterChange}
             categories={categories}
+            value={filters}
           />
         </div>
 
-        {/* When no AI search has been performed, show filtered browse grid */}
-        {!hasSearched && (
-          <div>
-            <h2 className="text-2xl font-bold mb-6">Browse All Experts</h2>
-            <ExpertGrid
-              limit={40}
-              filters={{
-                category: filters.category,
-                language: filters.language,
-                location: filters.location,
-                minRating: filters.minRating,
-                sortBy: filters.sortBy,
-              }}
-            />
-          </div>
-        )}
+        <div>
+          <h2 className="text-2xl font-bold mb-6">
+            {hasSearch || hasActiveFilters ? "Matching Experts" : "Browse All Experts"}
+          </h2>
+          <ExpertGrid
+            limit={40}
+            categoryId={filters.category}
+            searchQuery={queryParam}
+            filters={filters}
+          />
+        </div>
       </div>
+      <Footer />
     </div>
   );
 }

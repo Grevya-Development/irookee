@@ -24,7 +24,7 @@ export default function Booking() {
         <Navigation />
         <div className="container mx-auto px-4 pt-24 text-center">
           <p className="text-muted-foreground">Please select an expert to book a session</p>
-          <Button className="mt-4" onClick={() => navigate('/speakers')}>Browse Experts</Button>
+          <Button className="mt-4" onClick={() => navigate('/experts')}>Browse Experts</Button>
         </div>
       </div>
     )
@@ -47,7 +47,7 @@ export default function Booking() {
         <Navigation />
         <div className="container mx-auto px-4 pt-24 text-center">
           <p>Expert not found</p>
-          <Button className="mt-4" onClick={() => navigate('/speakers')}>Browse Experts</Button>
+          <Button className="mt-4" onClick={() => navigate('/experts')}>Browse Experts</Button>
         </div>
       </div>
     )

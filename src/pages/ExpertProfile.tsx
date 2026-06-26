@@ -80,7 +80,7 @@ export default function ExpertProfile() {
         <Navigation />
         <div className="pt-24 text-center container mx-auto px-4">
           <h1 className="text-2xl font-bold mb-4">Expert not found</h1>
-          <Button onClick={() => navigate('/speakers')}>Browse Experts</Button>
+          <Button onClick={() => navigate('/experts')}>Browse Experts</Button>
         </div>
       </div>
     )

@@ -1,7 +1,20 @@
-import { Facebook, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Facebook, Instagram, MessageCircle } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+
+const socialLinks = [
+  { label: "X", href: "https://x.com/irookee", icon: "x" },
+  { label: "Instagram", href: "https://www.instagram.com/irookee_official", icon: Instagram },
+  { label: "Facebook", href: "https://www.facebook.com/irookee.official", icon: Facebook },
+  { label: "Reddit", href: "https://www.reddit.com/user/irookee_official/", icon: MessageCircle },
+];
 
 const Footer = () => {
+  const { user } = useAuth();
+
+  const protectedHref = (path: string) =>
+    user ? path : `/auth?redirect=${encodeURIComponent(path)}`;
+
   return (
     <footer className="bg-gray-900 text-white pt-16 pb-8">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,19 +33,26 @@ const Footer = () => {
                 kavin@irookee.com
               </a>
             </div>
-            <div className="flex space-x-3">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-                <Linkedin className="w-5 h-5" />
-              </a>
+            <div className="flex items-center gap-2">
+              {socialLinks.map((social) => {
+                const Icon = social.icon;
+                return (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.label}
+                    className="h-9 w-9 rounded-full bg-gray-800 text-gray-300 hover:bg-purple-600 hover:text-white transition-colors flex items-center justify-center"
+                  >
+                    {Icon === "x" ? (
+                      <span className="text-sm font-bold">X</span>
+                    ) : (
+                      <Icon className="h-4 w-4" />
+                    )}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -41,7 +61,7 @@ const Footer = () => {
             <h4 className="font-semibold mb-5">Platform</h4>
             <ul className="space-y-3 text-sm">
               <li><Link to="/" className="text-gray-400 hover:text-white transition-colors">Home</Link></li>
-              <li><Link to="/speakers" className="text-gray-400 hover:text-white transition-colors">Browse Experts</Link></li>
+              <li><Link to="/experts" className="text-gray-400 hover:text-white transition-colors">Browse Experts</Link></li>
               <li><Link to="/search" className="text-gray-400 hover:text-white transition-colors">Search</Link></li>
               <li><Link to="/leaderboard" className="text-gray-400 hover:text-white transition-colors">Leaderboard</Link></li>
               <li><Link to="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
@@ -53,9 +73,9 @@ const Footer = () => {
             <h4 className="font-semibold mb-5">For Experts</h4>
             <ul className="space-y-3 text-sm">
               <li><Link to="/expert/onboarding" className="text-gray-400 hover:text-white transition-colors">Become an Expert</Link></li>
-              <li><Link to="/expert/dashboard" className="text-gray-400 hover:text-white transition-colors">Expert Dashboard</Link></li>
-              <li><Link to="/dashboard" className="text-gray-400 hover:text-white transition-colors">My Dashboard</Link></li>
-              <li><Link to="/settings" className="text-gray-400 hover:text-white transition-colors">Settings</Link></li>
+              <li><Link to={protectedHref("/expert/dashboard")} className="text-gray-400 hover:text-white transition-colors">Expert Dashboard</Link></li>
+              <li><Link to={protectedHref("/dashboard")} className="text-gray-400 hover:text-white transition-colors">My Dashboard</Link></li>
+              <li><Link to={protectedHref("/settings")} className="text-gray-400 hover:text-white transition-colors">Settings</Link></li>
             </ul>
           </div>
 

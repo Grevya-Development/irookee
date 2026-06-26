@@ -6,6 +6,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpertGridSkeleton } from "@/components/ExpertCardSkeleton";
 import { searchExperts } from "@/lib/searchExperts";
+import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 
 export interface ExpertGridFilters {
   category?: string;
@@ -17,8 +18,9 @@ export interface ExpertGridFilters {
 
 interface ExpertGridProps {
   limit?: number;
+  categoryId?: string;
   searchQuery?: string;
-  filters?: ExpertGridFilters;
+  filters?: ExpertGridFilters | SearchFiltersType;
 }
 
 interface RawSpeaker {
@@ -66,7 +68,7 @@ const transform = (speaker: RawSpeaker): ExpertProfile => ({
   updated_at: speaker.updated_at,
 });
 
-const ExpertGrid = memo(({ limit = 20, searchQuery, filters }: ExpertGridProps) => {
+const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: ExpertGridProps) => {
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -78,10 +80,18 @@ const ExpertGrid = memo(({ limit = 20, searchQuery, filters }: ExpertGridProps) 
       setLoading(true);
       setError(false);
 
-      // Free-text search path uses the relevance search engine.
-      if (searchQuery && searchQuery.trim()) {
-        const results = await searchExperts(searchQuery);
-        setExperts(results.slice(0, limit));
+      const useSearchEngine =
+        Boolean(searchQuery?.trim()) ||
+        Boolean(category || categoryId || language || location || minRating || sortBy);
+
+      if (useSearchEngine) {
+        const results = await searchExperts({
+          ...(filters as SearchFiltersType),
+          category: category || categoryId,
+          query: searchQuery,
+          limit,
+        });
+        setExperts(results);
         return;
       }
 
@@ -133,7 +143,7 @@ const ExpertGrid = memo(({ limit = 20, searchQuery, filters }: ExpertGridProps) 
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, limit, category, language, location, minRating, sortBy]);
+  }, [searchQuery, limit, category, categoryId, language, location, minRating, sortBy, filters]);
 
   useEffect(() => {
     fetchExperts();
