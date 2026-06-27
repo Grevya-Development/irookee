@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteUrl } from "@/lib/siteUrl";
+import { validateEmailInput } from "@/lib/emailValidation";
 import { LogIn, UserPlus, ArrowLeft, Mail, Eye, EyeOff } from "lucide-react";
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string; tips: string[] } {
@@ -47,6 +48,21 @@ function PasswordStrength({ password }: { password: string }) {
   )
 }
 
+function getFriendlyAuthError(error: unknown, isSignUp: boolean) {
+  const message = error instanceof Error ? error.message : 'Something went wrong';
+  const lower = message.toLowerCase();
+
+  if (lower.includes('rate limit') || lower.includes('too many requests')) {
+    return 'Too many email attempts right now. Please wait a few minutes before trying again.';
+  }
+
+  if (!isSignUp && (lower.includes('invalid login credentials') || lower.includes('email not confirmed'))) {
+    return 'Invalid email/password, or your email is not verified yet. Please verify your email and try the exact registered credentials.';
+  }
+
+  return message;
+}
+
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,7 +79,19 @@ const Auth = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const trimmedEmail = email.trim();
       if (isSignUp) {
+        const emailValidation = validateEmailInput(email);
+        if (emailValidation.error) {
+          toast({
+            title: "Check your email",
+            description: emailValidation.error,
+            variant: "destructive",
+          });
+          return;
+        }
+        setEmail(emailValidation.email);
+
         // Enforce a minimum password strength on account creation.
         const { score } = getPasswordStrength(password);
         if (password.length < 8 || score < 3) {
@@ -77,21 +105,22 @@ const Auth = () => {
       }
       setLoading(true);
       if (isSignUp) {
+        const emailValidation = validateEmailInput(email);
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email: emailValidation.email, password,
           options: { emailRedirectTo: getSiteUrl() },
         });
         if (error) throw error;
         toast({ title: "Account Created!", description: "Check your email to verify, then log in." });
         setIsSignUp(false);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
         if (error) throw error;
         toast({ title: "Welcome back!", description: "You're now signed in." });
         navigate(redirect);
       }
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : 'Something went wrong', variant: "destructive" });
+      toast({ title: "Error", description: getFriendlyAuthError(error, isSignUp), variant: "destructive" });
     } finally {
       setLoading(false);
     }

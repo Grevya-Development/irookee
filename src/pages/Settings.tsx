@@ -146,6 +146,7 @@ export default function Settings() {
           })
           if (isExpert && expertData) {
             await supabase.from('speakers').update({ image_url: dataUrl }).eq('id', expertData.id)
+            setExpertData(prev => prev ? { ...prev, image_url: dataUrl } : prev)
           }
           toast({ title: "Photo Updated", description: "Profile photo saved" })
         }
@@ -163,6 +164,7 @@ export default function Settings() {
       await supabase.from('profiles').upsert({ id: user.id, avatar_url: publicUrl })
       if (isExpert && expertData) {
         await supabase.from('speakers').update({ image_url: publicUrl }).eq('id', expertData.id)
+        setExpertData(prev => prev ? { ...prev, image_url: publicUrl } : prev)
       }
 
       toast({ title: "Photo Updated", description: "Profile photo uploaded" })

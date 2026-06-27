@@ -133,7 +133,7 @@ export default function ExpertProfile() {
     : `Book a free session with ${expert.name}${expert.title ? `, ${expert.title}` : ''} on irookee.`
 
   return (
-    <div className="min-h-screen bg-background pb-20 lg:pb-12">
+    <div className="min-h-screen bg-background pb-20 lg:pb-0">
       <Seo
         title={`${expert.name}${expert.title ? ` — ${expert.title}` : ''}`}
         description={seoDescription}
@@ -297,8 +297,8 @@ export default function ExpertProfile() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
-            <Card className="sticky top-24">
+          <div className="space-y-6 min-w-0">
+            <Card className="lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle>Book a Free Session</CardTitle>
               </CardHeader>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, BadgeCheck } from "lucide-react";
+import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, BadgeCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +36,7 @@ const ExpertApproval = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<ExpertRow | null>(null);
   const [filter, setFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -169,6 +171,23 @@ const ExpertApproval = () => {
     return expert.expertise || expert.expertise_areas || [];
   };
 
+  const visibleExperts = experts.filter((expert) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+
+    return [
+      expert.name,
+      expert.title,
+      expert.email,
+      expert.location,
+      expert.company,
+      expert.bio,
+      ...getExpertise(expert),
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+
   if (loading) {
     return (
       <Card>
@@ -193,14 +212,24 @@ const ExpertApproval = () => {
               <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
           </Tabs>
-          <p className="text-sm text-muted-foreground">{experts.length} expert(s)</p>
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search experts..."
+              className="pl-9"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">{visibleExperts.length} expert(s)</p>
         </CardHeader>
         <CardContent>
-          {experts.length === 0 ? (
+          {visibleExperts.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No experts in this category</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -216,7 +245,7 @@ const ExpertApproval = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {experts.map((expert) => (
+                {visibleExperts.map((expert) => (
                   <TableRow key={expert.id}>
                     <TableCell className="font-medium">{expert.name || 'N/A'}</TableCell>
                     <TableCell>{expert.title || 'N/A'}</TableCell>
@@ -285,6 +314,7 @@ const ExpertApproval = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

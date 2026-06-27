@@ -12,9 +12,10 @@ interface BookingConfirmationProps {
   expertId: string
   scheduledAt: string
   duration: number
+  bookingId?: string | null
 }
 
-export function BookingConfirmation({ expertId, scheduledAt, duration }: BookingConfirmationProps) {
+export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId }: BookingConfirmationProps) {
   const [loading, setLoading] = useState(false)
   const [consumerNotes, setConsumerNotes] = useState('')
   const [booked, setBooked] = useState(false)
@@ -37,30 +38,50 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
         .eq('id', expertId)
         .single()
 
-      const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
-      const meetingLink = `https://meet.jit.si/${roomId}`;
+      let error
 
-      const { error } = await supabase
-        .from('expertise_bookings')
-        .insert({
-          expert_id: expertId,
-          user_id: user.id,
-          event_name: `Session with ${expert?.name || 'Expert'}`,
-          event_date: scheduledAt,
-          duration_hours: duration / 60,
-          total_amount: 0,
-          customer_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-          customer_email: user.email,
-          notes: consumerNotes || null,
-          currency: 'INR',
-          status: 'confirmed',
-          meeting_link: meetingLink,
-        })
+      if (bookingId) {
+        const updateResult = await supabase
+          .from('expertise_bookings')
+          .update({
+            event_date: scheduledAt,
+            duration_hours: duration / 60,
+            notes: consumerNotes || null,
+            status: 'confirmed',
+          })
+          .eq('id', bookingId)
+          .eq('user_id', user.id)
+          .eq('expert_id', expertId)
+
+        error = updateResult.error
+      } else {
+        const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
+        const meetingLink = `https://meet.jit.si/${roomId}`;
+
+        const insertResult = await supabase
+          .from('expertise_bookings')
+          .insert({
+            expert_id: expertId,
+            user_id: user.id,
+            event_name: `Session with ${expert?.name || 'Expert'}`,
+            event_date: scheduledAt,
+            duration_hours: duration / 60,
+            total_amount: 0,
+            customer_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            customer_email: user.email,
+            notes: consumerNotes || null,
+            currency: 'INR',
+            status: 'confirmed',
+            meeting_link: meetingLink,
+          })
+
+        error = insertResult.error
+      }
 
       if (error) throw error
 
       setBooked(true)
-      toast.success('Session booked successfully!')
+      toast.success(bookingId ? 'Session rescheduled successfully!' : 'Session booked successfully!')
     } catch (error) {
       console.error('Booking error:', error)
       toast.error('Failed to create booking. Please try again.')
@@ -74,7 +95,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
       <Card>
         <CardContent className="py-12 text-center space-y-4">
           <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-          <h2 className="text-2xl font-bold">Session Booked!</h2>
+          <h2 className="text-2xl font-bold">{bookingId ? 'Session Rescheduled!' : 'Session Booked!'}</h2>
           <p className="text-muted-foreground">
             Your free session is confirmed for{' '}
             {new Date(scheduledAt).toLocaleString('en-IN', {
@@ -97,8 +118,8 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Confirm Your Session</CardTitle>
-        <CardDescription>Review and confirm your free session</CardDescription>
+        <CardTitle>{bookingId ? 'Confirm New Session Time' : 'Confirm Your Session'}</CardTitle>
+        <CardDescription>{bookingId ? 'Review and confirm your rescheduled session' : 'Review and confirm your free session'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
@@ -140,7 +161,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration }: Booking
           {loading ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Booking...</>
           ) : (
-            'Confirm Free Session'
+            bookingId ? 'Confirm Reschedule' : 'Confirm Free Session'
           )}
         </Button>
       </CardContent>

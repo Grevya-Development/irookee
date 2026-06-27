@@ -32,6 +32,9 @@ export function ExpertDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [expertProfile, setExpertProfile] = useState<Record<string, unknown> | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileMissing, setProfileMissing] = useState(false)
   const [stats, setStats] = useState({
     totalBookings: 0,
     completedSessions: 0,
@@ -52,6 +55,9 @@ export function ExpertDashboard() {
 
   const loadExpertProfile = async () => {
     if (!user) return
+    setProfileLoading(true)
+    setProfileError(null)
+    setProfileMissing(false)
     try {
       const { data, error } = await supabase
         .from('speakers')
@@ -62,7 +68,7 @@ export function ExpertDashboard() {
       if (error && error.code !== 'PGRST116') throw error
 
       if (!data) {
-        navigate('/expert/onboarding')
+        setProfileMissing(true)
         return
       }
 
@@ -70,6 +76,9 @@ export function ExpertDashboard() {
       loadStats(data.id)
     } catch (error) {
       console.error('Error loading expert profile:', error)
+      setProfileError(error instanceof Error ? error.message : 'Failed to load expert profile')
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -105,12 +114,41 @@ export function ExpertDashboard() {
     }
   }
 
-  if (!expertProfile) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="pt-24 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+        </div>
+      </div>
+    )
+  }
+
+  if (profileMissing || !expertProfile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 pt-24 pb-12 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>Complete Expert Onboarding</CardTitle>
+              <CardDescription>
+                We could not find an expert profile for this account yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {profileError && (
+                <p className="text-sm text-destructive">{profileError}</p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Finish onboarding to create your public expert profile, upload verification documents, and access expert tools.
+              </p>
+              <Button onClick={() => navigate('/expert/onboarding')}>
+                Complete Onboarding
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -341,8 +379,8 @@ function BookingsList({ expertId }: { expertId: string }) {
 
   const pending = bookings.filter(b => b.status === 'pending')
   const upcoming = bookings.filter(b => b.status === 'confirmed' && b.event_date && new Date(b.event_date) > new Date())
-  const past = bookings.filter(b => b.status === 'completed' || b.status === 'no_show' || b.status === 'cancelled' ||
-    (b.status === 'confirmed' && b.event_date && new Date(b.event_date) <= new Date()))
+  const past = bookings.filter(b => b.status === 'completed')
+  const cancelled = bookings.filter(b => b.status === 'cancelled')
 
   return (
     <div className="space-y-6">
@@ -466,6 +504,29 @@ function BookingsList({ expertId }: { expertId: string }) {
                     >
                       {booking.status}
                     </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cancelled.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-lg mb-3">Cancelled Sessions ({cancelled.length})</h3>
+          <div className="space-y-2">
+            {cancelled.map(booking => (
+              <Card key={booking.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{booking.event_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {booking.customer_name} - {booking.event_date && new Date(booking.event_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="destructive">cancelled</Badge>
                   </div>
                 </CardContent>
               </Card>

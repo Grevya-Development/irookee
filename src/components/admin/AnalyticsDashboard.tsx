@@ -169,7 +169,7 @@ const AnalyticsDashboard = () => {
           <CardContent>
             <div className="grid grid-cols-3 gap-4">
               <div className="p-3 border rounded-lg text-center">
-                <div className="text-2xl font-bold text-yellow-600">{stats.avgRating || '—'}</div>
+                <div className="text-2xl font-bold text-yellow-600">{stats.avgRating || '-'}</div>
                 <div className="text-xs text-muted-foreground">Avg Rating</div>
               </div>
               <div className="p-3 border rounded-lg text-center">

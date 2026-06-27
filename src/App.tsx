@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/components/AuthProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { trackPageview } from "@/lib/analytics";
@@ -41,14 +42,58 @@ const PageLoader = () => (
 );
 
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-    trackPageview(pathname);
-  }, [pathname]);
+    if (!hash) {
+      window.scrollTo(0, 0);
+    }
+    trackPageview(`${pathname}${search}`);
+  }, [pathname, search, hash]);
 
   return null;
+};
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.16 }}
+      >
+        <Routes location={location}>
+          <Route path="/" element={<PromptPeople />} />
+          <Route path="/home" element={<PromptPeople />} />
+          <Route path="/experts" element={<Search />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/expert/:id" element={<ExpertProfile />} />
+          <Route path="/booking" element={<Booking />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/expert/onboarding" element={<ExpertOnboarding />} />
+          <Route path="/expert/dashboard" element={<ExpertDashboard />} />
+          <Route path="/speakers" element={<Search />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/user-dashboard" element={<UserDashboard />} />
+          <Route path="/profile-setup" element={<ProfileSetup />} />
+          <Route path="/guest-profile" element={<GuestProfile />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
 };
 
 // Optimized QueryClient with caching
@@ -73,31 +118,7 @@ const App = () => (
         <BrowserRouter>
           <ScrollToTop />
           <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<PromptPeople />} />
-              <Route path="/home" element={<PromptPeople />} />
-              <Route path="/experts" element={<Search />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/expert/:id" element={<ExpertProfile />} />
-              <Route path="/booking" element={<Booking />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/expert/onboarding" element={<ExpertOnboarding />} />
-              <Route path="/expert/dashboard" element={<ExpertDashboard />} />
-              <Route path="/speakers" element={<Search />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/blog" element={<Blog />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/user-dashboard" element={<UserDashboard />} />
-              <Route path="/profile-setup" element={<ProfileSetup />} />
-              <Route path="/guest-profile" element={<GuestProfile />} />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/cookies" element={<CookiePolicy />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AnimatedRoutes />
           </Suspense>
         </BrowserRouter>
         <Analytics />

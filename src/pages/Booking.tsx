@@ -14,6 +14,7 @@ export default function Booking() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const expertId = searchParams.get('expertId')
+  const bookingId = searchParams.get('bookingId')
   const [selectedDateTime, setSelectedDateTime] = useState<string | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<number>(60)
   const { expert, loading } = useExperts(expertId || undefined)
@@ -64,7 +65,7 @@ export default function Booking() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main - Calendar/Confirmation */}
           <div className="lg:col-span-2">
-            <h1 className="text-3xl font-bold mb-2">Book a Session</h1>
+            <h1 className="text-3xl font-bold mb-2">{bookingId ? 'Reschedule Session' : 'Book a Session'}</h1>
             <p className="text-muted-foreground mb-6">with {expert.name}</p>
 
             {!selectedDateTime ? (
@@ -77,6 +78,7 @@ export default function Booking() {
                 expertId={expertId}
                 scheduledAt={selectedDateTime}
                 duration={selectedDuration}
+                bookingId={bookingId}
               />
             )}
 
