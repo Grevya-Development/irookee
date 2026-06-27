@@ -59,7 +59,7 @@ export default function Dashboard() {
   }
 
   const upcomingBookings = bookings.filter(b => {
-    const date = b.event_date || b.created_at
+    const date = b.event_date
     return (
       (b.status === 'pending' || b.status === 'confirmed') &&
       date &&
@@ -68,9 +68,10 @@ export default function Dashboard() {
   })
 
   const pastBookings = bookings.filter(b => {
-    return b.status === 'completed' || b.status === 'no_show' || b.status === 'cancelled' ||
-      (b.event_date && new Date(b.event_date).getTime() <= Date.now())
+    return b.status === 'completed'
   })
+
+  const cancelledBookings = bookings.filter(b => b.status === 'cancelled')
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
@@ -143,9 +144,10 @@ export default function Dashboard() {
         </div>
 
         <Tabs defaultValue="upcoming" className="space-y-4">
-          <TabsList>
+          <TabsList className="h-auto flex flex-wrap justify-start">
             <TabsTrigger value="upcoming">Upcoming ({upcomingBookings.length})</TabsTrigger>
             <TabsTrigger value="past">Past ({pastBookings.length})</TabsTrigger>
+            <TabsTrigger value="cancelled">Cancelled ({cancelledBookings.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upcoming">
@@ -223,7 +225,7 @@ export default function Dashboard() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate(`/booking?expertId=${booking.expert_id}`)}
+                            onClick={() => navigate(`/booking?expertId=${booking.expert_id}&bookingId=${booking.id}`)}
                           >
                             <CalendarClock className="h-4 w-4 mr-1" /> Reschedule
                           </Button>
@@ -288,6 +290,43 @@ export default function Dashboard() {
                           )}
                           {getStatusBadge(booking.status)}
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="cancelled">
+            {bookingsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+              </div>
+            ) : cancelledBookings.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">No cancelled sessions</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {cancelledBookings.map(booking => (
+                  <Card key={booking.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-medium">{booking.speakers?.name || 'Expert'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {booking.event_date
+                              ? new Date(booking.event_date).toLocaleDateString('en-IN', {
+                                  month: 'short', day: 'numeric', year: 'numeric'
+                                })
+                              : 'Date not set'}
+                            {booking.speakers?.title && ` - ${booking.speakers.title}`}
+                          </p>
+                        </div>
+                        {getStatusBadge(booking.status)}
                       </div>
                     </CardContent>
                   </Card>

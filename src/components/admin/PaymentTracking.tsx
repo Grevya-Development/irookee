@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, Clock, XCircle, Loader2, UserX, Video } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Loader2, UserX, Video, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,6 +29,7 @@ const PaymentTracking = () => {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -129,6 +131,22 @@ const PaymentTracking = () => {
     return <Badge variant={variant}>{getStatusIcon(status)}<span className="ml-1">{(status || 'unknown').replace('_', ' ')}</span></Badge>;
   };
 
+  const visibleBookings = bookings.filter((booking) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+
+    return [
+      booking.event_name,
+      booking.expert_name,
+      booking.customer_name,
+      booking.customer_email,
+      booking.status,
+      booking.notes,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+
   if (loading) {
     return <Card><CardContent className="py-8 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></CardContent></Card>;
   }
@@ -138,24 +156,36 @@ const PaymentTracking = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Booking Management ({bookings.length})</CardTitle>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="Filter" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="no_show">No Show</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
+            <CardTitle>Booking Management ({visibleBookings.length})</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search bookings..."
+                  className="pl-9 sm:w-56"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Filter" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="no_show">No Show</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {bookings.length === 0 ? (
+          {visibleBookings.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">No bookings found</p>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -168,7 +198,7 @@ const PaymentTracking = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map((b) => (
+                {visibleBookings.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">{b.event_name}</TableCell>
                     <TableCell>{b.expert_name}</TableCell>
@@ -182,6 +212,7 @@ const PaymentTracking = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
