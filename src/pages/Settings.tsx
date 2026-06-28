@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import Navigation from '@/components/Navigation'
+import Footer from '@/components/sections/Footer'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -269,9 +270,9 @@ export default function Settings() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 max-w-5xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 max-w-5xl flex-1">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
@@ -563,6 +564,7 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Footer />
     </div>
   )
 }

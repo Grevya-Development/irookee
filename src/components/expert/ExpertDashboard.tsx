@@ -8,6 +8,7 @@ import { AvailabilityManager } from './AvailabilityManager'
 import { Calendar, Star, Users, TrendingUp, Clock, UserX, CheckCircle, Video, ExternalLink, XCircle, ThumbsUp, MessageSquare, ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Navigation from '@/components/Navigation'
+import Footer from '@/components/sections/Footer'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
@@ -154,9 +155,9 @@ export function ExpertDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 space-y-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 space-y-6 flex-1">
       <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
         <ArrowLeft className="h-4 w-4 mr-1" /> Back to Dashboard
       </Button>
@@ -300,6 +301,7 @@ export function ExpertDashboard() {
         </TabsContent>
       </Tabs>
       </div>
+      <Footer />
     </div>
   )
 }

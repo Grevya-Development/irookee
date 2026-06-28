@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, CheckCircle, UserX, Star, MessageSquare, ArrowLeft, CalendarClock, XCircle } from 'lucide-react'
 import Navigation from '@/components/Navigation'
+import Footer from '@/components/sections/Footer'
 import UserLoyaltyCard from '@/components/gamification/UserLoyaltyCard'
 import ReviewForm from '@/components/ReviewForm'
 
@@ -84,9 +85,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 max-w-6xl space-y-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 max-w-6xl space-y-6 flex-1">
         <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Home
         </Button>
@@ -138,7 +139,7 @@ export default function Dashboard() {
         <UserLoyaltyCard userId={user.id} />
 
         <div className="flex gap-3">
-          <Button onClick={() => navigate('/speakers')}>Browse Experts</Button>
+          <Button onClick={() => navigate('/experts')}>Browse Experts</Button>
           <Button onClick={() => navigate('/search')} variant="outline">Search</Button>
           <Button onClick={() => navigate('/leaderboard')} variant="outline">Leaderboard</Button>
         </div>
@@ -159,7 +160,7 @@ export default function Dashboard() {
               <Card>
                 <CardContent className="py-8 text-center">
                   <p className="text-muted-foreground">No upcoming sessions</p>
-                  <Button className="mt-4" onClick={() => navigate('/speakers')}>
+                  <Button className="mt-4" onClick={() => navigate('/experts')}>
                     Find Experts
                   </Button>
                 </CardContent>
@@ -370,6 +371,7 @@ export default function Dashboard() {
           onSubmit={() => { setReviewBooking(null); refetch(); }}
         />
       )}
+      <Footer />
     </div>
   )
 }

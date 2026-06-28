@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { Upload, X, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles, Shield, Users, Rocket } from 'lucide-react'
 import Navigation from '@/components/Navigation'
+import Footer from '@/components/sections/Footer'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { LocationInput } from '@/components/ui/location-input'
 
@@ -266,9 +267,9 @@ export function ExpertOnboarding() {
   const StepIcon = STEP_INFO[step - 1].icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background">
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background flex flex-col">
       <Navigation />
-      <div className="mx-auto px-4 sm:px-6 lg:px-10 pt-24 pb-12">
+      <div className="mx-auto px-4 sm:px-6 lg:px-10 pt-24 pb-12 flex-1">
 
         {/* Welcome header */}
         <div className="text-center mb-8">
@@ -553,6 +554,7 @@ export function ExpertOnboarding() {
           <span className="flex items-center gap-1"><Sparkles className="h-4 w-4" /> AI-Powered Matching</span>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

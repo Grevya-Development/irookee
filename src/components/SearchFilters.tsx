@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,16 @@ import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 interface SearchFiltersProps {
   onFilterChange: (filters: SearchFiltersType) => void;
   categories: { id: string; name: string }[];
+  value?: SearchFiltersType;
 }
 
-const SearchFilters = ({ onFilterChange, categories }: SearchFiltersProps) => {
-  const [filters, setFilters] = useState<SearchFiltersType>({});
+const SearchFilters = ({ onFilterChange, categories, value }: SearchFiltersProps) => {
+  const [filters, setFilters] = useState<SearchFiltersType>(value || {});
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setFilters(value || {});
+  }, [value]);
 
   const updateFilter = (key: keyof SearchFiltersType, value: string | number | undefined) => {
     const updated = { ...filters, [key]: value || undefined };
