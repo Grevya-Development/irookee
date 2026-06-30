@@ -51,10 +51,20 @@ export function ExpertOnboarding() {
         return
       }
 
-      if (languages.length === 0) {
-        toast.error('Select at least one language.')
-        return
-      }
+    if (languages.length === 0) {
+      toast.error('Select at least one language.')
+      return
+    }
+
+    if (languages.some(language => !/[a-z]/i.test(language))) {
+      toast.error('Languages must contain valid language names.')
+      return
+    }
+
+    if (data.location && !/[a-z]/i.test(data.location)) {
+      toast.error('Location must contain a valid place name.')
+      return
+    }
 
       const expertPayload = {
         user_id: user.id,

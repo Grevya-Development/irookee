@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ExpertProfile } from '@/lib/supabase'
+import { withTimeout } from '@/lib/asyncTimeout'
 
 export function useAISearch() {
   const [loading, setLoading] = useState(false)
@@ -17,9 +18,13 @@ export function useAISearch() {
     setError(null)
     
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('search-experts', {
-        body: { query }
-      })
+      const { data, error: invokeError } = await withTimeout(
+        supabase.functions.invoke('search-experts', {
+          body: { query }
+        }),
+        12000,
+        'AI search timed out'
+      )
 
       if (invokeError) throw invokeError
       

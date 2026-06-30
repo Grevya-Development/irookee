@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { sendNotificationEmail } from "@/lib/notifications";
 
 const GuestProfileForm = () => {
   const [loading, setLoading] = useState(false);
@@ -51,6 +52,15 @@ const GuestProfileForm = () => {
       return;
     }
 
+    if (/^\d+$/.test(formData.company.trim())) {
+      toast({
+        title: "Invalid company",
+        description: "Company name cannot be numbers only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -64,6 +74,13 @@ const GuestProfileForm = () => {
       }]);
 
       if (error) throw error;
+
+      await sendNotificationEmail({
+        to: formData.email.trim(),
+        subject: "We received your Irookee expert application",
+        eventType: "expert_application_submitted",
+        html: `<p>Thanks for applying to become an Irookee expert.</p><p>Your application has been submitted for review.</p>`,
+      });
 
       toast({
         title: "Success!",

@@ -10,6 +10,27 @@ import Footer from "@/components/sections/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "@/components/ExpertCard";
+import { withTimeout } from "@/lib/asyncTimeout";
+
+type SearchExpertResult = {
+  id: string;
+  user_id?: string | null;
+  title?: string | null;
+  profiles?: {
+    full_name?: string | null;
+    bio?: string | null;
+  } | null;
+  expertise_areas?: string[] | null;
+  experience_years?: number | null;
+  location?: string | null;
+  languages?: string[] | null;
+  hourly_rate?: number | null;
+  verification_status?: string | null;
+  rating?: number | null;
+  total_sessions?: number | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+};
 
 const PromptPeople = memo(() => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,13 +49,17 @@ const PromptPeople = memo(() => {
     try {
       // Try AI-powered search first (search-experts)
       try {
-        const { data: aiData, error: aiError } = await supabase.functions.invoke('search-experts', {
-          body: { query: searchQuery }
-        });
+        const { data: aiData, error: aiError } = await withTimeout(
+          supabase.functions.invoke('search-experts', {
+            body: { query: searchQuery }
+          }),
+          10000,
+          'AI search timed out'
+        );
 
         if (!aiError && aiData && aiData.experts && Array.isArray(aiData.experts) && aiData.experts.length > 0) {
           // Transform expert_profiles format to ExpertProfile
-          const transformed: ExpertProfile[] = aiData.experts.map((expert: any) => ({
+          const transformed: ExpertProfile[] = (aiData.experts as SearchExpertResult[]).map((expert) => ({
             id: expert.id,
             user_id: expert.user_id || '',
             full_name: expert.profiles?.full_name || expert.title || 'Expert',
@@ -80,7 +105,11 @@ const PromptPeople = memo(() => {
         query = query.or(searchConditions.join(','));
       }
 
-      const { data: speakers, error } = await query.limit(20);
+      const { data: speakers, error } = await withTimeout(
+        query.limit(20),
+        12000,
+        'Database search timed out'
+      );
 
       if (error) throw error;
 

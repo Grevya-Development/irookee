@@ -53,7 +53,7 @@ export function useBookings(userId?: string) {
         const expert = expertsById.get(booking.expert_id)
         return {
           ...booking,
-          event_date: booking.event_date || booking.scheduled_at || booking.created_at,
+          event_date: booking.event_date || booking.scheduled_at,
           duration_hours: booking.duration_hours ?? ((booking.duration_minutes || 0) / 60),
           expert_profile: {
             full_name: expert?.profiles?.full_name || 'Expert',

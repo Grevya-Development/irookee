@@ -4,6 +4,7 @@ import ExpertCard from "./ExpertCard";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { searchExperts } from "@/lib/searchExperts";
+import { withTimeout } from "@/lib/asyncTimeout";
 
 interface ExpertGridProps {
   limit?: number;
@@ -25,11 +26,15 @@ const ExpertGrid = memo(({ limit = 12, categoryId, searchQuery }: ExpertGridProp
     try {
       setLoading(true);
 
-      const transformedExperts = await searchExperts({
-        query: searchQuery,
-        categoryId,
-        limit,
-      });
+      const transformedExperts = await withTimeout(
+        searchExperts({
+          query: searchQuery,
+          categoryId,
+          limit,
+        }),
+        12000,
+        "Expert search timed out"
+      );
 
       setExperts(transformedExperts);
     } catch (error) {

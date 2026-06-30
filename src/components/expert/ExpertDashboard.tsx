@@ -8,6 +8,7 @@ import { AvailabilityManager } from './AvailabilityManager'
 import { Calendar, DollarSign, Star, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { formatBookingDuration, getBookingStart, isUpcomingBooking } from '@/lib/bookingUtils'
 
 type ExpertProfileState = {
   id: string
@@ -32,8 +33,6 @@ type ExpertBooking = {
   expert_payout?: number | null
   status: string
 }
-
-const getBookingDate = (booking: ExpertBooking) => booking.scheduled_at || booking.event_date || booking.created_at
 
 export function ExpertDashboard() {
   const { user, loading: authLoading } = useAuth()
@@ -96,10 +95,7 @@ export function ExpertDashboard() {
           .filter((booking) => booking.status === 'completed')
           .reduce((sum, booking) => sum + Number(booking.expert_payout ?? booking.total_amount ?? 0), 0)
 
-        const upcomingSessions = rows.filter((booking) => {
-          const date = getBookingDate(booking)
-          return ['pending', 'confirmed', 'in_progress'].includes(booking.status) && date && new Date(date) > new Date()
-        }).length
+        const upcomingSessions = rows.filter((booking) => isUpcomingBooking(booking)).length
 
         setStats({
           totalBookings: rows.length,
@@ -331,7 +327,7 @@ function BookingsList({ expertId }: { expertId: string }) {
   return (
     <div className="space-y-4">
       {bookings.map(booking => {
-        const date = getBookingDate(booking)
+        const date = getBookingStart(booking)
         return (
           <Card key={booking.id}>
             <CardContent className="p-4">
@@ -341,7 +337,7 @@ function BookingsList({ expertId }: { expertId: string }) {
                     {date ? new Date(date).toLocaleDateString() : 'Date not set'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {date ? new Date(date).toLocaleTimeString() : 'Time not set'} ({booking.duration_minutes || booking.duration_hours || 0} min)
+                    {date ? new Date(date).toLocaleTimeString() : 'Time not set'} ({formatBookingDuration(booking)})
                   </p>
                 </div>
                 <Badge>{booking.status}</Badge>

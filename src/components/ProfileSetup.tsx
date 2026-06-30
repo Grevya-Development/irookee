@@ -43,6 +43,7 @@ const ProfileSetup = () => {
     if (!formData.full_name.trim()) nextErrors.full_name = 'Full name is required.';
     if (!emailPattern.test(formData.email.trim())) nextErrors.email = 'Enter a valid email address.';
     if (formData.phone && phoneDigits.length < 10) nextErrors.phone = 'Enter a valid phone number.';
+    if (formData.company.trim() && /^\d+$/.test(formData.company.trim())) nextErrors.company = 'Company name cannot be numbers only.';
     if (!formData.hourly_rate || Number(formData.hourly_rate) < 1) nextErrors.hourly_rate = 'Hourly rate must be at least 1.';
 
     setValidationErrors(nextErrors);
@@ -249,6 +250,9 @@ const ProfileSetup = () => {
                 value={formData.company}
                 onChange={handleInputChange}
               />
+              {validationErrors.company && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.company}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="phone">Phone</Label>

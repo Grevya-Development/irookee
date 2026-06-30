@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, LogIn, UserPlus, Users } from "lucide-react";
 import { getAuthErrorMessage, isRateLimitError } from "@/lib/authMessages";
+import { assertSignupCreatedNewIdentity } from "@/lib/authSignup";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -15,7 +16,10 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [signupBlockedUntil, setSignupBlockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const redirectPath = searchParams.get("redirect") || "/";
+  const safeRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//") ? redirectPath : "/";
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +37,7 @@ const Auth = () => {
         }
 
         // Handle Sign Up
-        const { error: signUpError } = await supabase.auth.signUp({
+        const signUpResponse = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -41,7 +45,7 @@ const Auth = () => {
           },
         });
 
-        if (signUpError) throw signUpError;
+        assertSignupCreatedNewIdentity(signUpResponse);
 
         toast({
           title: "Success!",
@@ -60,7 +64,7 @@ const Auth = () => {
           title: "Success!",
           description: "You have successfully logged in.",
         });
-        navigate("/");
+        navigate(safeRedirectPath);
       }
     } catch (error) {
       if (isSignUp && isRateLimitError(error)) {

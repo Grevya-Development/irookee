@@ -10,10 +10,7 @@ import { Calendar, DollarSign, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Booking } from '@/lib/supabase'
-
-const ACTIVE_STATUSES = new Set(['pending', 'confirmed', 'in_progress'])
-
-const getBookingDate = (booking: Booking) => booking.scheduled_at || booking.event_date || booking.created_at
+import { formatBookingDuration, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
 
 const getExpertName = (booking: Booking) =>
   booking.expert_profile?.full_name || booking.speakers?.full_name || 'Expert'
@@ -42,16 +39,9 @@ export default function Dashboard() {
 
   if (!user) return null
 
-  const upcomingBookings = bookings.filter(booking => {
-    const date = getBookingDate(booking)
-    return (
-      ACTIVE_STATUSES.has(booking.status) &&
-      date &&
-      new Date(date).getTime() > Date.now()
-    )
-  })
+  const upcomingBookings = bookings.filter(booking => isUpcomingBooking(booking))
 
-  const pastBookings = bookings.filter(booking => booking.status === 'completed')
+  const pastBookings = bookings.filter(booking => isPastBooking(booking))
   const cancelledBookings = bookings.filter(booking => booking.status === 'cancelled')
 
   const cancelBooking = async (bookingId: string) => {
@@ -70,7 +60,7 @@ export default function Dashboard() {
   }
 
   const renderBookingCard = (booking: Booking, showActions = false) => {
-    const date = getBookingDate(booking)
+    const date = getBookingStart(booking)
 
     return (
       <Card key={booking.id}>
@@ -91,7 +81,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4" />
-              {booking.duration_minutes ? `${booking.duration_minutes} minutes` : `${booking.duration_hours || 0} hours`}
+              {formatBookingDuration(booking)}
             </div>
             <div className="flex items-center gap-2 text-sm">
               <DollarSign className="h-4 w-4" />

@@ -56,14 +56,25 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
     setIsSubmitting(true);
 
 try {
+  const eventDate = new Date(formData.eventDate);
+  if (Number.isNaN(eventDate.getTime()) || eventDate.getTime() <= Date.now()) {
+    toast({
+      title: "Invalid Date",
+      description: "Please choose a future date and time.",
+      variant: "destructive",
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
   // Insert booking
   const { data, error } = await supabase
-    .from("expertise_bookings")
+    .from("bookings")
     .insert({
-      user_id: user.id,
-      expert_id: speaker.id, 
+      organizer_id: user.id,
+      speaker_id: speaker.id, 
       event_name: formData.eventName,
-      event_date: new Date(formData.eventDate).toISOString(),
+      event_date: eventDate.toISOString(),
       duration_hours: parseFloat(formData.duration) || 1,
       total_amount:
         speaker.hourly_rate * (parseFloat(formData.duration) || 1),

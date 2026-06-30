@@ -3,6 +3,7 @@ import ExpertCard from "./SpeakerCard";
 import IntelligentSearch from "./IntelligentSearch";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/asyncTimeout";
 
 interface Person {
   id: string;
@@ -51,7 +52,11 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
           query = query.or(`name.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,bio.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`);
         }
 
-        const { data: speakers, error } = await query;
+        const { data: speakers, error } = await withTimeout(
+          query,
+          12000,
+          'Browse experts request timed out'
+        );
 
         if (error) {
           throw error;

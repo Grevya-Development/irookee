@@ -18,6 +18,9 @@ const About = lazy(() => import("./pages/About"));
 const Blog = lazy(() => import("./pages/Blog"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Admin = lazy(() => import("./pages/Admin"));
+const GuestProfile = lazy(() => import("./pages/GuestProfile"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const UserDashboard = lazy(() => import("./components/UserDashboard"));
 const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -67,6 +70,9 @@ const App = () => (
               <Route path="/blog" element={<Blog />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/guest-profile" element={<GuestProfile />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/user-dashboard" element={<UserDashboard />} />
               <Route path="/profile-setup" element={<ProfileSetup />} />
               <Route path="*" element={<NotFound />} />

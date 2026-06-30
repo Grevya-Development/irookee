@@ -8,6 +8,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const activeStatuses = ['pending', 'confirmed', 'in_progress']
+
+const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
+  startA < endB && startB < endA
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -27,6 +32,23 @@ serve(async (req) => {
       )
     }
 
+    const scheduledDate = new Date(scheduledAt)
+    const duration = Number(durationMinutes)
+
+    if (Number.isNaN(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
+      return new Response(
+        JSON.stringify({ error: 'Please choose a future time slot' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Duration must be greater than zero' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -37,6 +59,7 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !STRIPE_SECRET_KEY) {
@@ -48,6 +71,10 @@ serve(async (req) => {
       SUPABASE_ANON_KEY,
       { global: { headers: { Authorization: authHeader } } }
     )
+
+    const serviceSupabase = SUPABASE_SERVICE_ROLE_KEY
+      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      : supabase
 
     // Get user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -79,8 +106,35 @@ serve(async (req) => {
       )
     }
 
+    const requestedEnd = new Date(scheduledDate.getTime() + duration * 60 * 1000)
+    const { data: existingBookings, error: existingBookingsError } = await serviceSupabase
+      .from('expertise_bookings')
+      .select('id, scheduled_at, duration_minutes, status')
+      .eq('expert_id', expertId)
+      .in('status', activeStatuses)
+
+    if (existingBookingsError) throw existingBookingsError
+
+    const overlapsExistingBooking = (existingBookings || []).some((booking) => {
+      if (!booking.scheduled_at) return false
+
+      const existingStart = new Date(booking.scheduled_at)
+      if (Number.isNaN(existingStart.getTime())) return false
+
+      const existingDuration = Number(booking.duration_minutes) || 60
+      const existingEnd = new Date(existingStart.getTime() + existingDuration * 60 * 1000)
+      return rangesOverlap(scheduledDate, requestedEnd, existingStart, existingEnd)
+    })
+
+    if (overlapsExistingBooking) {
+      return new Response(
+        JSON.stringify({ error: 'That time slot is already booked' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Calculate pricing
-    const sessionCost = Number((Number(expert.hourly_rate) * Number(durationMinutes)) / 60)
+    const sessionCost = Number((Number(expert.hourly_rate) * duration) / 60)
     const commissionRate = Number(expert.commission_rate) || 15.00
     const platformFee = Number((sessionCost * commissionRate) / 100)
     const expertPayout = sessionCost - platformFee
@@ -97,8 +151,8 @@ serve(async (req) => {
       metadata: {
         expert_id: expertId,
         consumer_id: user.id,
-        scheduled_at: scheduledAt,
-        duration_minutes: String(durationMinutes)
+        scheduled_at: scheduledDate.toISOString(),
+        duration_minutes: String(duration)
       }
     })
 
@@ -108,12 +162,15 @@ serve(async (req) => {
       .insert({
         consumer_id: user.id,
         expert_id: expertId,
-        scheduled_at: scheduledAt,
-        duration_minutes: durationMinutes,
+        scheduled_at: scheduledDate.toISOString(),
+        original_scheduled_at: scheduledDate.toISOString(),
+        duration_minutes: duration,
+        original_duration_minutes: duration,
         total_amount: sessionCost,
         platform_fee: platformFee,
         expert_payout: expertPayout,
         payment_intent_id: paymentIntent.id,
+        meeting_link: `https://meet.jit.si/irookee-${crypto.randomUUID()}`,
         consumer_notes: consumerNotes || null,
         status: 'pending'
       })

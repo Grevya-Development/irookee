@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { Eye, EyeOff, UserPlus } from 'lucide-react'
 import { getAuthErrorMessage, isRateLimitError } from '@/lib/authMessages'
+import { assertSignupCreatedNewIdentity } from '@/lib/authSignup'
 
 interface SignupFormData {
   email: string
@@ -35,7 +36,7 @@ export function SignupForm() {
 
     setLoading(true)
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const signUpResponse = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
@@ -46,7 +47,7 @@ export function SignupForm() {
         },
       })
 
-      if (signUpError) throw signUpError
+      assertSignupCreatedNewIdentity(signUpResponse)
 
       toast.success('Account created! Please check your email to verify your account.')
       navigate('/auth')

@@ -27,6 +27,11 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, reschedul
   const createBooking = async () => {
     setLoading(true)
     try {
+      if (new Date(scheduledAt).getTime() <= Date.now()) {
+        toast.error('Please choose a future time slot.')
+        return
+      }
+
       if (rescheduleId) {
         const { error } = await supabase
           .from('expertise_bookings' as never)
@@ -75,7 +80,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, reschedul
 
   const handlePaymentSuccess = () => {
     toast.success('Booking confirmed!')
-    navigate(`/booking/${bookingId}/success`)
+    navigate('/dashboard')
   }
 
   if (!clientSecret) {
