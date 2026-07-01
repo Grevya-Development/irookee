@@ -4,10 +4,9 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { getSiteUrl } from '@/lib/siteUrl'
 
-const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : Promise.resolve(null)
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
 
 interface PaymentFormProps {
   clientSecret: string
@@ -30,26 +29,14 @@ function PaymentFormInner({ amount, bookingId, onSuccess }: Omit<PaymentFormProp
     try {
       const { error } = await stripe.confirmPayment({
         elements,
-        redirect: 'if_required',
         confirmParams: {
-          return_url: `${window.location.origin}/booking/${bookingId}/success`,
+          return_url: `${getSiteUrl()}/booking/${bookingId}/success`,
         },
       })
 
       if (error) {
         toast.error(error.message || 'Payment failed')
       } else {
-        const { error: updateError } = await supabase
-          .from('expertise_bookings' as never)
-          .update({ status: 'confirmed' } as never)
-          .eq('id', bookingId)
-
-        if (updateError) throw updateError
-
-        await supabase.functions.invoke('notify-booking-confirmed', {
-          body: { bookingId },
-        })
-
         onSuccess()
       }
     } catch (error) {
@@ -75,16 +62,6 @@ function PaymentFormInner({ amount, bookingId, onSuccess }: Omit<PaymentFormProp
 }
 
 export function PaymentForm({ clientSecret, amount, bookingId, onSuccess }: PaymentFormProps) {
-  if (!stripePublishableKey) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground">Payment configuration is missing.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   if (!clientSecret) {
     return (
       <Card>
@@ -109,4 +86,3 @@ export function PaymentForm({ clientSecret, amount, bookingId, onSuccess }: Paym
     </Card>
   )
 }
-

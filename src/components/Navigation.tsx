@@ -1,10 +1,9 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, MessageCircle, User, LogOut, LogIn, Settings } from "lucide-react";
+import { Menu, X, User, LogOut, LogIn, Settings } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
-import { NotificationCenter } from "@/components/NotificationCenter";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,10 +11,9 @@ const Navigation = () => {
 
   const navItems = [
     { name: "Home", href: "/" },
-    { name: "Experts", href: "/speakers" },
+    { name: "Experts", href: "/experts" },
     { name: "Leaderboard", href: "/leaderboard" },
     { name: "About", href: "/about" },
-    { name: "Blog", href: "/blog" },
   ];
 
   const handleSignOut = async () => {
@@ -29,7 +27,7 @@ const Navigation = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <MessageCircle className="h-8 w-8 text-blue-600" />
+              <img src="/irookee-mark.svg" alt="irookee" className="h-9 w-9 object-contain" />
               <span className="text-xl font-bold text-gray-900">irookee</span>
             </Link>
           </div>
@@ -46,24 +44,23 @@ const Navigation = () => {
               </Link>
             ))}
             <Link
-              to="/guest-profile"
+              to="/expert/onboarding"
               className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
             >
-              Submit Profile
+              Become an Expert
             </Link>
             {user ? (
-              <div className="flex items-center space-x-2">
-                <NotificationCenter />
+              <div className="flex items-center space-x-1">
                 <Link
                   to="/dashboard"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
                 >
                   <User className="h-4 w-4" />
                   Dashboard
                 </Link>
                 <Link
                   to="/settings"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
                 >
                   <Settings className="h-4 w-4" />
                   Settings
@@ -72,7 +69,7 @@ const Navigation = () => {
                   onClick={handleSignOut}
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 ml-1"
                 >
                   <LogOut className="h-3 w-3" />
                   Sign Out
@@ -119,11 +116,11 @@ const Navigation = () => {
                 </Link>
               ))}
               <Link
-                to="/guest-profile"
+                to="/expert/onboarding"
                 className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
                 onClick={() => setIsOpen(false)}
               >
-                Submit Profile
+                Become an Expert
               </Link>
               {user ? (
                 <>

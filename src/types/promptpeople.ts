@@ -17,6 +17,7 @@ export interface ExpertProfile {
   id: string;
   user_id: string;
   full_name: string;
+  title?: string;
   bio: string;
   industry_expertise: string[];
   years_experience: number | null;
@@ -90,6 +91,7 @@ export interface SearchFilters {
   location?: string;
   language?: string;
   minRating?: number;
+  sortBy?: 'rating' | 'sessions' | 'experience';
   maxPrice?: number;
   experienceLevel?: string;
   isInstantAvailable?: boolean;

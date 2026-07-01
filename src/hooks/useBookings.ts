@@ -1,79 +1,82 @@
-import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { Booking } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/integrations/supabase/client'
 
-type ExpertSummary = {
+export interface BookingWithExpert {
   id: string
-  title?: string | null
-  profiles?: {
+  user_id: string
+  expert_id: string
+  event_name: string
+  event_date: string | null
+  duration_hours: number | null
+  duration_minutes?: number | null
+  scheduled_at?: string | null
+  total_amount: number | null
+  customer_name: string | null
+  customer_email: string | null
+  customer_phone: string | null
+  notes: string | null
+  currency: string | null
+  status: string | null
+  meeting_link?: string | null
+  created_at: string
+  speakers: {
+    name: string | null
     full_name?: string | null
+    title: string | null
   } | null
+  expert_profile?: {
+    full_name: string
+    title: string
+  }
 }
 
 export function useBookings(userId?: string) {
-  const [bookings, setBookings] = useState<Booking[]>([])
+  const [bookings, setBookings] = useState<BookingWithExpert[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchBookings = useCallback(async () => {
-    if (!userId) {
-      setBookings([])
-      setLoading(false)
-      return
-    }
-
+  const fetchBookings = async () => {
+    if (!userId) return
     setLoading(true)
     setError(null)
-    
+
     try {
       const { data, error: fetchError } = await supabase
-        .from('expertise_bookings' as never)
-        .select('*')
-        .eq('consumer_id', userId)
+        .from('expertise_bookings')
+        .select(`
+          *,
+          speakers!expertise_bookings_expert_id_fkey (
+            name,
+            title
+          )
+        `)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
       if (fetchError) throw fetchError
-
-      const rows = (data || []) as Booking[]
-      const expertIds = Array.from(new Set(rows.map((booking) => booking.expert_id).filter(Boolean)))
-      let expertsById = new Map<string, ExpertSummary>()
-
-      if (expertIds.length > 0) {
-        const { data: experts } = await supabase
-          .from('expert_profiles' as never)
-          .select('id, title, profiles(full_name)')
-          .in('id', expertIds)
-
-        expertsById = new Map(
-          ((experts || []) as ExpertSummary[]).map((expert) => [expert.id, expert])
-        )
-      }
-
-      setBookings(rows.map((booking) => {
-        const expert = expertsById.get(booking.expert_id)
-        return {
-          ...booking,
-          event_date: booking.event_date || booking.scheduled_at,
-          duration_hours: booking.duration_hours ?? ((booking.duration_minutes || 0) / 60),
-          expert_profile: {
-            full_name: expert?.profiles?.full_name || 'Expert',
-            title: expert?.title || '',
-          },
-        }
-      }))
+      const rows = (data || []) as BookingWithExpert[]
+      setBookings(rows.map((booking) => ({
+        ...booking,
+        event_date: booking.event_date || booking.scheduled_at || null,
+        duration_hours: booking.duration_hours ?? ((booking.duration_minutes || 0) / 60),
+        expert_profile: {
+          full_name: booking.speakers?.full_name || booking.speakers?.name || 'Expert',
+          title: booking.speakers?.title || '',
+        },
+      })))
     } catch (err) {
       console.error('Error fetching bookings:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch bookings'
-      setError(errorMessage)
-      setBookings([])
+      setError(err instanceof Error ? err.message : 'Failed to fetch bookings')
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }
 
   useEffect(() => {
-    fetchBookings()
-  }, [fetchBookings])
+    if (userId) {
+      fetchBookings()
+    }
+  }, [userId])
 
   return { bookings, loading, error, refetch: fetchBookings }
 }

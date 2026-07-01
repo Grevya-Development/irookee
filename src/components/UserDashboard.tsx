@@ -38,9 +38,9 @@ const UserDashboard = () => {
   const fetchBookings = async () => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('expertise_bookings')
         .select('*')
-        .eq('organizer_id', user?.id)
+        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -141,12 +141,12 @@ const UserDashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${bookings.reduce((sum, booking) => sum + booking.total_amount, 0).toFixed(2)}
+              {bookings.filter(b => b.status === 'completed').length}
             </div>
           </CardContent>
         </Card>

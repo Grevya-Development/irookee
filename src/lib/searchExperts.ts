@@ -1,143 +1,219 @@
-import { supabase } from "@/integrations/supabase/client";
-import { ExpertProfile } from "@/types/promptpeople";
+import { supabase } from '@/integrations/supabase/client'
+import { ExpertProfile, SearchFilters } from '@/types/promptpeople'
 
-type SpeakerRow = {
-  id: string;
-  user_id?: string | null;
-  full_name?: string | null;
-  name?: string | null;
-  title?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  languages?: string[] | null;
-  hourly_rate?: number | null;
-  rating?: number | null;
-  expertise?: string[] | null;
-  expertise_areas?: string[] | null;
-  topics?: string[] | null;
-  verification_status?: string | null;
-  is_verified?: boolean | null;
-  total_reviews?: number | null;
-  past_events?: number | null;
-  video_url?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  speaker_categories?: Array<{
-    category_id?: string | null;
-    categories?: {
-      id?: string | null;
-      name?: string | null;
-    } | null;
-  }> | null;
-};
-
-export interface SearchExpertsOptions {
-  query?: string;
-  categoryId?: string;
-  limit?: number;
+interface SpeakerCategoryRow {
+  category_id?: string | null
+  categories?: { id?: string | null; name?: string | null } | null
 }
 
-const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase();
+interface SpeakerSearchRow {
+  id: string
+  user_id: string | null
+  full_name?: string | null
+  name: string | null
+  title: string | null
+  bio: string | null
+  company: string | null
+  expertise: string[] | null
+  expertise_areas: string[] | null
+  topics: string[] | null
+  languages: string[] | null
+  location: string | null
+  hourly_rate: number | null
+  rating: number | string | null
+  past_events: number | null
+  is_verified: boolean | null
+  video_url: string | null
+  experience_years: number | null
+  created_at: string
+  updated_at: string
+  speaker_categories?: SpeakerCategoryRow[] | null
+}
 
-const normalizeArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string");
-};
+export interface SearchExpertsOptions extends SearchFilters {
+  query?: string
+  categoryId?: string
+  limit?: number
+}
 
-const includesNeedle = (value: unknown, needle: string) => normalize(value).includes(needle);
+/**
+ * Comprehensive expert search that queries across ALL relevant fields.
+ * No AI dependency - pure database search with relevance scoring.
+ */
+// Common words that carry no search intent. Without filtering these, a phrase
+// like "I'm in Coimbatore need a software developer" matches almost every
+// expert because short words such as "in"/"an" are substrings of many fields.
+const STOPWORDS = new Set([
+  'i', "i'm", 'im', 'a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'and',
+  'or', 'is', 'are', 'am', 'be', 'me', 'my', 'we', 'us', 'you', 'your', 'need',
+  'needs', 'want', 'wants', 'looking', 'look', 'find', 'get', 'with', 'who', 'can',
+  'help', 'someone', 'some', 'any', 'please', 'would', 'like', 'near', 'around',
+  'from', 'this', 'that', 'have', 'has', 'about',
+])
 
-const arrayIncludesNeedle = (value: unknown, needle: string) =>
-  normalizeArray(value).some((item) => includesNeedle(item, needle));
+const normalize = (value: unknown) => String(value || '').trim().toLowerCase()
 
-const getExpertise = (speaker: SpeakerRow) =>
-  normalizeArray(speaker.expertise_areas).length > 0
-    ? normalizeArray(speaker.expertise_areas)
-    : normalizeArray(speaker.expertise);
+const normalizeTerms = (rawQuery?: string) => {
+  const query = normalize(rawQuery)
+  if (!query) return { query: '', terms: [] as string[] }
 
-const getCategoryNames = (speaker: SpeakerRow) =>
-  (speaker.speaker_categories || [])
-    .map((entry) => entry.categories?.name)
-    .filter((name): name is string => Boolean(name));
+  const terms = query
+    .split(/[\s,]+/)
+    .map(term => term.trim().replace(/[^a-z0-9'+#.]/g, ''))
+    .filter(term => term.length >= 2 && !STOPWORDS.has(term))
 
-const matchesQuery = (speaker: SpeakerRow, rawQuery: string) => {
-  const needle = normalize(rawQuery);
-  if (!needle) return true;
+  return { query, terms }
+}
 
-  return [
-    includesNeedle(speaker.full_name || speaker.name, needle),
-    includesNeedle(speaker.title, needle),
-    includesNeedle(speaker.bio, needle),
-    includesNeedle(speaker.location, needle),
-    arrayIncludesNeedle(speaker.languages, needle),
-    arrayIncludesNeedle(getExpertise(speaker), needle),
-    arrayIncludesNeedle(speaker.topics, needle),
-    getCategoryNames(speaker).some((category) => includesNeedle(category, needle)),
-  ].some(Boolean);
-};
+const textIncludes = (value: unknown, needle: string) => normalize(value).includes(needle)
 
-const matchesCategory = (speaker: SpeakerRow, rawCategoryId?: string) => {
-  const categoryId = normalize(rawCategoryId);
-  if (!categoryId || categoryId === "all") return true;
+const arrayIncludes = (values: unknown[] | null | undefined, needle: string) =>
+  (values || []).some(value => textIncludes(value, needle))
 
-  return (speaker.speaker_categories || []).some((entry) => {
-    return normalize(entry.category_id) === categoryId || normalize(entry.categories?.id) === categoryId;
-  });
-};
+const getCategoryRows = (expert: SpeakerSearchRow) => expert.speaker_categories || []
 
-export const mapSpeakerToExpertProfile = (speaker: SpeakerRow): ExpertProfile => ({
-  id: speaker.id,
-  user_id: speaker.user_id || "",
-  full_name: speaker.full_name || speaker.name || "Expert",
-  title: speaker.title || "",
-  bio: speaker.bio || "",
-  industry_expertise: getExpertise(speaker),
-  verification_level:
-    speaker.verification_status === "verified" || speaker.is_verified
-      ? "verified"
-      : "basic",
-  total_sessions: Number(speaker.total_reviews ?? speaker.past_events) || 0,
-  years_experience: null,
-  location: speaker.location || null,
-  languages: normalizeArray(speaker.languages),
-  hourly_rate: speaker.hourly_rate ?? null,
-  status: "approved",
-  rating: Number(speaker.rating) || 0,
-  intro_video_url: speaker.video_url || null,
+const getCategoryNames = (expert: SpeakerSearchRow) =>
+  getCategoryRows(expert)
+    .map(row => row.categories?.name)
+    .filter((name): name is string => Boolean(name))
+
+const getCategoryIds = (expert: SpeakerSearchRow) =>
+  getCategoryRows(expert)
+    .map(row => row.category_id || row.categories?.id)
+    .filter((id): id is string => Boolean(id))
+
+const getExpertise = (expert: SpeakerSearchRow) =>
+  expert.expertise?.length ? expert.expertise : expert.expertise_areas || []
+
+const toExpertProfile = (expert: SpeakerSearchRow): ExpertProfile => ({
+  id: expert.id,
+  user_id: expert.user_id || '',
+  full_name: expert.full_name || expert.name || 'Expert',
+  title: expert.title || '',
+  bio: expert.bio || '',
+  industry_expertise: getExpertise(expert),
+  years_experience: expert.experience_years,
+  location: expert.location,
+  languages: expert.languages || [],
+  hourly_rate: expert.hourly_rate,
+  status: 'approved' as const,
+  verification_level: expert.is_verified ? ('verified' as const) : ('basic' as const),
+  rating: Number(expert.rating) || 0,
+  total_sessions: expert.past_events || 0,
+  intro_video_url: expert.video_url,
   kyc_documents: null,
   availability_timezone: null,
   is_instant_available: true,
-  created_at: speaker.created_at || new Date().toISOString(),
-  updated_at: speaker.updated_at || speaker.created_at || new Date().toISOString(),
-});
+  created_at: expert.created_at,
+  updated_at: expert.updated_at,
+})
 
-export const searchExperts = async ({
-  query = "",
-  categoryId,
-  limit = 12,
-}: SearchExpertsOptions): Promise<ExpertProfile[]> => {
-  const { data, error } = await supabase
-    .from("speakers")
+const matchesFilters = (expert: SpeakerSearchRow, options: SearchExpertsOptions) => {
+  const category = normalize(options.category || options.categoryId)
+  const location = normalize(options.location)
+  const language = normalize(options.language)
+  const minRating = Number(options.minRating) || 0
+
+  if (category && category !== 'all') {
+    const categoryIds = getCategoryIds(expert).map(normalize)
+    const categoryNames = getCategoryNames(expert).map(normalize)
+    const categoryMatches =
+      categoryIds.includes(category) ||
+      categoryNames.some(name => name.includes(category))
+
+    if (!categoryMatches) return false
+  }
+
+  if (location && !textIncludes(expert.location, location)) return false
+  if (language && !arrayIncludes(expert.languages, language)) return false
+  if (minRating > 0 && (Number(expert.rating) || 0) < minRating) return false
+
+  return true
+}
+
+const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) => {
+  if (!query && terms.length === 0) return 0
+
+  let score = 0
+  const name = normalize(expert.full_name || expert.name)
+  const title = normalize(expert.title)
+  const bio = normalize(expert.bio)
+  const location = normalize(expert.location)
+  const company = normalize(expert.company)
+  const expertiseArr = getExpertise(expert).map(normalize)
+  const topicsArr = (expert.topics || []).map(normalize)
+  const languagesArr = (expert.languages || []).map(normalize)
+  const categoryNames = getCategoryNames(expert).map(normalize)
+
+  if (title.includes(query)) score += 50
+  if (name.includes(query)) score += 40
+  if (expertiseArr.some(e => e.includes(query))) score += 45
+  if (categoryNames.some(c => c.includes(query))) score += 40
+  if (topicsArr.some(t => t.includes(query))) score += 35
+
+  for (const term of terms) {
+    if (name.includes(term)) score += 15
+    if (title.includes(term)) score += 20
+    if (expertiseArr.some(e => e.includes(term))) score += 25
+    if (topicsArr.some(t => t.includes(term))) score += 20
+    if (categoryNames.some(c => c.includes(term))) score += 20
+    if (bio.includes(term)) score += 8
+    if (location.includes(term)) score += 12
+    if (company.includes(term)) score += 10
+    if (languagesArr.some(l => l.includes(term))) score += 10
+  }
+
+  return score
+}
+
+const sortExperts = (
+  experts: Array<{ expert: SpeakerSearchRow; relevance: number }>,
+  sortBy?: SearchFilters['sortBy'],
+) => {
+  return experts.sort((a, b) => {
+    if (sortBy === 'rating') return (Number(b.expert.rating) || 0) - (Number(a.expert.rating) || 0)
+    if (sortBy === 'sessions') return (b.expert.past_events || 0) - (a.expert.past_events || 0)
+    if (sortBy === 'experience') return (b.expert.experience_years || 0) - (a.expert.experience_years || 0)
+
+    const bScore = b.relevance + (Number(b.expert.rating) || 0) * 2 + Math.min((b.expert.past_events || 0) / 10, 10)
+    const aScore = a.relevance + (Number(a.expert.rating) || 0) * 2 + Math.min((a.expert.past_events || 0) / 10, 10)
+    if (bScore !== aScore) return bScore - aScore
+    return (Number(b.expert.rating) || 0) - (Number(a.expert.rating) || 0)
+  })
+}
+
+export async function searchExperts(optionsOrQuery: SearchExpertsOptions | string): Promise<ExpertProfile[]> {
+  const options: SearchExpertsOptions =
+    typeof optionsOrQuery === 'string' ? { query: optionsOrQuery } : optionsOrQuery
+
+  const { query, terms } = normalizeTerms(options.query)
+  const hasQuery = Boolean(query)
+
+  if (hasQuery && terms.length === 0) return []
+
+  // Fetch ALL verified experts with their categories
+  const { data: allExperts, error } = await supabase
+    .from('speakers')
     .select(`
       *,
       speaker_categories (
         category_id,
-        categories (
-          id,
-          name
-        )
+        categories ( id, name )
       )
     `)
-    .order("rating", { ascending: false })
-    .limit(query.trim() || (categoryId && categoryId !== "all") ? 200 : limit);
+    .eq('verification_status', 'verified')
 
-  if (error) {
-    console.error("Error searching experts:", error);
-    throw error;
+  if (error || !allExperts) {
+    console.error('Search error:', error)
+    return []
   }
 
-  return ((data || []) as SpeakerRow[])
-    .filter((speaker) => matchesCategory(speaker, categoryId))
-    .filter((speaker) => matchesQuery(speaker, query))
-    .slice(0, limit)
-    .map(mapSpeakerToExpertProfile);
-};
+  const filtered = (allExperts as SpeakerSearchRow[])
+    .filter(expert => matchesFilters(expert, options))
+    .map(expert => ({ expert, relevance: scoreExpert(expert, query, terms) }))
+    .filter(row => !hasQuery || row.relevance > 0)
+
+  return sortExperts(filtered, options.sortBy)
+    .slice(0, options.limit || 40)
+    .map(({ expert }) => toExpertProfile(expert))
+}

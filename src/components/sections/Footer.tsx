@@ -1,93 +1,100 @@
-import { Facebook, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Facebook, Instagram, MessageCircle } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
 
-const companyEmail = "kavin@irookee.com";
-
-const socialLinks: Array<{
-  label: string;
-  href: string;
-  Icon: typeof Facebook;
-}> = [];
+const socialLinks = [
+  { label: "X", href: "https://x.com/irookee", icon: "x" },
+  { label: "Instagram", href: "https://www.instagram.com/irookee_official", icon: Instagram },
+  { label: "Facebook", href: "https://www.facebook.com/irookee.official", icon: Facebook },
+  { label: "Reddit", href: "https://www.reddit.com/user/irookee_official/", icon: MessageCircle },
+];
 
 const Footer = () => {
+  const { user } = useAuth();
+
+  const protectedHref = (path: string) =>
+    user ? path : `/auth?redirect=${encodeURIComponent(path)}`;
+
   return (
-    <footer className="bg-gray-900 text-white pt-20 pb-10">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+    <footer className="bg-gray-900 text-white pt-16 pb-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+          {/* Brand */}
           <div>
-            <h3 className="text-2xl font-bold mb-4">irookee</h3>
-            <p className="text-lg font-semibold text-purple-400 mb-4">People for People</p>
-            <p className="text-gray-400 mb-4">
-              Connecting exceptional experts with amazing events worldwide.
+            <div className="bg-white rounded-xl p-4 mb-4 inline-block">
+              <img src="/irookee.svg" alt="irookee — Find people, get connected." className="h-28 w-auto object-contain" />
+            </div>
+            <p className="text-lg font-semibold text-purple-400 mb-3">People for People</p>
+            <p className="text-gray-400 text-sm mb-4">
+              Democratizing the way people connect with each other. The right person, for any situation, available to everyone.
             </p>
-            <div className="mb-6">
-              <p className="text-sm text-gray-400 mb-2">For inquiries:</p>
-              <a href={`mailto:${companyEmail}`} className="text-purple-400 hover:text-purple-300 transition-colors">
-                {companyEmail}
+            <div className="mb-4">
+              <a href="mailto:kavin@irookee.com" className="text-purple-400 hover:text-purple-300 text-sm transition-colors">
+                kavin@irookee.com
               </a>
             </div>
-            {socialLinks.length > 0 && (
-              <div className="flex space-x-4">
-                {socialLinks.map(({ label, href, Icon }) => (
+            <div className="flex items-center gap-2">
+              {socialLinks.map((social) => {
+                const Icon = social.icon;
+                return (
                   <a
-                    key={label}
-                    href={href}
-                    aria-label={label}
+                    key={social.label}
+                    href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-white transition-colors"
+                    aria-label={social.label}
+                    className="h-9 w-9 rounded-full bg-gray-800 text-gray-300 hover:bg-purple-600 hover:text-white transition-colors flex items-center justify-center"
                   >
-                    <Icon className="w-5 h-5" />
+                    {Icon === "x" ? (
+                      <span className="text-sm font-bold">X</span>
+                    ) : (
+                      <Icon className="h-4 w-4" />
+                    )}
                   </a>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
 
+          {/* Platform */}
           <div>
-            <h4 className="font-semibold mb-6">Quick Links</h4>
-            <ul className="space-y-4">
+            <h4 className="font-semibold mb-5">Platform</h4>
+            <ul className="space-y-3 text-sm">
+              <li><Link to="/" className="text-gray-400 hover:text-white transition-colors">Home</Link></li>
+              <li><Link to="/experts" className="text-gray-400 hover:text-white transition-colors">Browse Experts</Link></li>
+              <li><Link to="/search" className="text-gray-400 hover:text-white transition-colors">Search</Link></li>
+              <li><Link to="/leaderboard" className="text-gray-400 hover:text-white transition-colors">Leaderboard</Link></li>
               <li><Link to="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
-              <li><Link to="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li>
-              <li><a href={`mailto:${companyEmail}`} className="text-gray-400 hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
 
+          {/* For Experts */}
           <div>
-            <h4 className="font-semibold mb-6">For Experts</h4>
-            <ul className="space-y-4">
+            <h4 className="font-semibold mb-5">For Experts</h4>
+            <ul className="space-y-3 text-sm">
               <li><Link to="/expert/onboarding" className="text-gray-400 hover:text-white transition-colors">Become an Expert</Link></li>
-              <li><Link to="/profile-setup" className="text-gray-400 hover:text-white transition-colors">Complete Profile</Link></li>
-              <li><Link to="/search" className="text-gray-400 hover:text-white transition-colors">Find Experts</Link></li>
+              <li><Link to={protectedHref("/expert/dashboard")} className="text-gray-400 hover:text-white transition-colors">Expert Dashboard</Link></li>
+              <li><Link to={protectedHref("/dashboard")} className="text-gray-400 hover:text-white transition-colors">My Dashboard</Link></li>
+              <li><Link to={protectedHref("/settings")} className="text-gray-400 hover:text-white transition-colors">Settings</Link></li>
             </ul>
           </div>
 
+          {/* Legal */}
           <div>
-            <h4 className="font-semibold mb-6">Newsletter</h4>
-            <p className="text-gray-400 mb-4">
-              Stay updated with the latest speaking opportunities and industry insights.
-            </p>
-            <form className="space-y-4">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full px-4 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:border-purple-500"
-              />
-              <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                <Mail className="w-4 h-4 mr-2" />
-                Subscribe
-              </Button>
-            </form>
+            <h4 className="font-semibold mb-5">Legal</h4>
+            <ul className="space-y-3 text-sm">
+              <li><Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
+              <li><Link to="/cookies" className="text-gray-400 hover:text-white transition-colors">Cookie Policy</Link></li>
+              <li><a href="mailto:kavin@irookee.com" className="text-gray-400 hover:text-white transition-colors">Contact Us</a></li>
+            </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm mb-4 md:mb-0">
-              © 2025 irookee. All rights reserved.
-            </p>
-          </div>
+        <div className="border-t border-gray-800 pt-6">
+          <p className="text-gray-500 text-sm text-center">
+            &copy; 2026 irookee. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

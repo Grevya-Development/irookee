@@ -6,10 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
+import { getSiteUrl } from '@/lib/siteUrl'
+import { validateEmailInput } from '@/lib/emailValidation'
 import { toast } from 'sonner'
 import { Eye, EyeOff, UserPlus } from 'lucide-react'
-import { getAuthErrorMessage, isRateLimitError } from '@/lib/authMessages'
-import { assertSignupCreatedNewIdentity } from '@/lib/authSignup'
 
 interface SignupFormData {
   email: string
@@ -19,43 +19,45 @@ interface SignupFormData {
 }
 
 export function SignupForm() {
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<SignupFormData>()
+  const { register, handleSubmit, formState: { errors }, watch, setError } = useForm<SignupFormData>()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [signupBlockedUntil, setSignupBlockedUntil] = useState<number | null>(null)
   const navigate = useNavigate()
 
   const password = watch('password')
 
   const onSubmit = async (data: SignupFormData) => {
-    if (signupBlockedUntil && Date.now() < signupBlockedUntil) {
-      toast.error('Please wait a few minutes before requesting another signup email.')
+    const emailValidation = validateEmailInput(data.email)
+    if (emailValidation.error) {
+      setError('email', { type: 'validate', message: emailValidation.error })
+      toast.error(emailValidation.error)
       return
     }
 
     setLoading(true)
     try {
-      const signUpResponse = await supabase.auth.signUp({
-        email: data.email.trim(),
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: emailValidation.email,
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth`,
+          emailRedirectTo: `${getSiteUrl()}/auth/callback`,
           data: {
             full_name: data.fullName
           }
         },
       })
 
-      assertSignupCreatedNewIdentity(signUpResponse)
+      if (signUpError) throw signUpError
 
       toast.success('Account created! Please check your email to verify your account.')
       navigate('/auth')
     } catch (error) {
-      if (isRateLimitError(error)) {
-        setSignupBlockedUntil(Date.now() + 3 * 60 * 1000)
-      }
-      toast.error(getAuthErrorMessage(error, 'signup'))
+      const rawMessage = error instanceof Error ? error.message : 'Failed to create account'
+      const errorMessage = rawMessage.toLowerCase().includes('rate limit') || rawMessage.toLowerCase().includes('too many requests')
+        ? 'Too many signup emails have been requested. Please wait a few minutes before trying again.'
+        : rawMessage
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -87,11 +89,9 @@ export function SignupForm() {
               id="email"
               type="email"
               {...register('email', { 
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address'
-                }
+                required: 'Please enter your email address.',
+                setValueAs: (value) => String(value || '').trim(),
+                validate: (value) => validateEmailInput(value).error || true,
               })}
               className="mt-1"
             />
@@ -115,16 +115,14 @@ export function SignupForm() {
                 })}
                 className="pr-10"
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
+              </button>
             </div>
             {errors.password && (
               <p className="text-sm text-destructive mt-1">{errors.password.message}</p>
@@ -143,16 +141,14 @@ export function SignupForm() {
                 })}
                 className="pr-10"
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full"
                 onClick={() => setShowConfirmPassword((value) => !value)}
                 aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
+              </button>
             </div>
             {errors.confirmPassword && (
               <p className="text-sm text-destructive mt-1">{errors.confirmPassword.message}</p>

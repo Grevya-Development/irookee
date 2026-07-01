@@ -36,33 +36,32 @@ export type ExpertProfile = {
 
 export type Booking = {
   id: string
-  user_id?: string
-  consumer_id?: string
+  user_id: string
   expert_id: string
-  scheduled_at?: string
   event_name: string
-  event_date: string
-  duration_hours?: number
-  duration_minutes?: number
+  event_date: string | null
+  scheduled_at?: string | null
+  duration_hours: number | null
+  duration_minutes?: number | null
+  original_scheduled_at?: string | null
+  original_duration_minutes?: number | null
   total_amount: number
-  expert_payout?: number
   customer_name: string
   customer_email: string
   customer_phone: string
   notes: string | null
-  consumer_notes?: string | null
   currency: string
   status: string
   created_at: string
-  updated_at?: string
 
   speakers?: {
+    name?: string | null
+    full_name?: string | null
+    title?: string | null
+  } | null
+  expert_profile?: {
     full_name: string
     title: string
-  }
-  expert_profile?: {
-    full_name?: string
-    title?: string
   }
 }
 
@@ -85,4 +84,3 @@ export type Review = {
   comment: string | null
   created_at: string
 }
-

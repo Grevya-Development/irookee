@@ -1,157 +1,94 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle, X, Eye, Loader2, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, BadgeCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { approveGuestProfile, rejectGuestProfile } from "@/lib/adminApi";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sendNotificationEmail } from "@/lib/notifications";
 
-interface GuestProfile {
+interface ExpertRow {
   id: string;
-  full_name: string;
-  email: string;
-  company: string | null;
+  name: string;
+  title: string;
+  email: string | null;
   phone: string | null;
-  message: string | null;
+  company: string | null;
+  location: string | null;
+  expertise: string[] | null;
+  expertise_areas: string[] | null;
+  experience_years: number | null;
+  verification_status: string | null;
+  is_verified: boolean | null;
+  verification_documents: Record<string, unknown> | null;
   created_at: string;
-  status?: string | null;
+  bio: string | null;
+  linkedin_url: string | null;
+  user_id: string | null;
 }
-
-type VerificationRequest = {
-  id: string;
-  speaker_id: string | null;
-  status: string | null;
-  submitted_at: string;
-  documents: unknown;
-  notes: string | null;
-};
 
 const VERIFICATION_BUCKET = "verification-documents";
 
-const extractDocumentPaths = (documents: unknown): string[] => {
-  if (!documents) return [];
-  if (typeof documents === "string") return [documents];
-  if (Array.isArray(documents)) return documents.flatMap(extractDocumentPaths);
-  if (typeof documents === "object") {
-    return Object.values(documents).flatMap(extractDocumentPaths);
-  }
-  return [];
-};
-
-const normalizeStoragePath = (value: string) =>
-  value.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 const ExpertApproval = () => {
-  const [profiles, setProfiles] = useState<GuestProfile[]>([]);
-  const [verificationRequests, setVerificationRequests] = useState<VerificationRequest[]>([]);
+  const [experts, setExperts] = useState<ExpertRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedExpert, setSelectedExpert] = useState<ExpertRow | null>(null);
+  const [filter, setFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchReviewData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchExperts();
+  }, [filter]);
 
-  const fetchReviewData = async () => {
+  const fetchExperts = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [{ data: guestProfiles, error: guestError }, { data: requests, error: requestError }] = await Promise.all([
-        supabase
-          .from("guest_profiles")
-          .select("*")
-          .neq("status", "approved")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("verification_requests")
-          .select("*")
-          .order("submitted_at", { ascending: false }),
-      ]);
+      let query = supabase
+        .from('speakers')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (guestError) throw guestError;
-      if (requestError) throw requestError;
+      if (filter !== 'all') {
+        query = query.eq('verification_status', filter);
+      }
 
-      setProfiles((guestProfiles || []) as GuestProfile[]);
-      setVerificationRequests((requests || []) as VerificationRequest[]);
+      const { data, error } = await query;
+      if (error) {
+        console.error('Fetch error:', error);
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      }
+      setExperts((data || []) as ExpertRow[]);
     } catch (error) {
-      console.error("Error loading approval data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load approval data",
-        variant: "destructive",
-      });
+      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (profile: GuestProfile) => {
-    setActionLoading(profile.id);
+  const openDocument = async (url: string) => {
     try {
-      await approveGuestProfile(profile.id);
-      await sendNotificationEmail({
-        to: profile.email,
-        subject: "Your Irookee expert profile was approved",
-        eventType: "expert_approved",
-        html: `<p>Your Irookee expert profile was approved.</p><p>You can now sign in and complete your expert profile setup.</p>`,
-      });
+      if (!url || url.startsWith('local://')) return;
 
-      toast({
-        title: "Success",
-        description: "Profile approved successfully",
-      });
-
-      setProfiles(prev => prev.filter(p => p.id !== profile.id));
-    } catch (error) {
-      console.error("Error approving profile:", error);
-      toast({
-        title: "Error",
-        description: "Failed to approve profile",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleReject = async (profileId: string) => {
-    setActionLoading(profileId);
-    try {
-      await rejectGuestProfile(profileId);
-
-      toast({
-        title: "Success",
-        description: "Profile rejected",
-      });
-
-      setProfiles(prev => prev.filter(p => p.id !== profileId));
-    } catch (error) {
-      console.error("Error rejecting profile:", error);
-      toast({
-        title: "Error",
-        description: "Failed to reject profile",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const openDocument = async (documentPath: string) => {
-    try {
-      if (/^https?:\/\//i.test(documentPath)) {
-        window.open(documentPath, "_blank", "noopener,noreferrer");
+      if (/^https?:\/\//i.test(url)) {
+        window.open(url, "_blank", "noopener,noreferrer");
         return;
       }
 
+      const normalizedPath = url.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
       const { data, error } = await supabase.storage
         .from(VERIFICATION_BUCKET)
-        .createSignedUrl(normalizeStoragePath(documentPath), 300);
+        .createSignedUrl(normalizedPath, 300);
 
       if (error || !data?.signedUrl) throw error || new Error("Document URL could not be created");
-
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Error opening verification document:", error);
@@ -163,146 +100,382 @@ const ExpertApproval = () => {
     }
   };
 
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
+  // Approve = make the profile live (listed). The "Verified" badge is a separate,
+  // deliberate decision (handleToggleVerified) so docs are optional.
+  const handleApprove = async (expertId: string) => {
+    setActionLoading(expertId);
+    try {
+      const { error } = await supabase
+        .from('speakers')
+        .update({ verification_status: 'verified' })
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      const expert = experts.find((item) => item.id === expertId);
+      if (expert?.email) {
+        await sendNotificationEmail({
+          to: expert.email,
+          subject: "Your Irookee expert profile was approved",
+          eventType: "expert_approved",
+          html: "<p>Your Irookee expert profile was approved.</p><p>You can now receive bookings from users.</p>",
+        });
+      }
+
+      toast({ title: "Expert Approved", description: "Profile is now live on the platform" });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Approve error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to approve"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Grant or revoke the Verified badge (the tick mark shown to users).
+  const handleToggleVerified = async (expertId: string, value: boolean) => {
+    setActionLoading(expertId);
+    try {
+      const { error } = await supabase
+        .from('speakers')
+        .update({ is_verified: value })
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      // Reflect the decision on the verification request, if one exists. Wrapped
+      // because the table may not exist in every environment.
+      try {
+        await supabase
+          .from('verification_requests' as never)
+          .update({ status: value ? 'approved' : 'pending', reviewed_at: new Date().toISOString() })
+          .eq('speaker_id', expertId);
+      } catch {
+        /* no-op */
+      }
+
+      toast({
+        title: value ? "Verified badge granted" : "Verified badge removed",
+        description: value
+          ? "This expert now shows the Verified ✓ badge."
+          : "The Verified badge has been removed.",
+      });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Verify toggle error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to update"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (expertId: string) => {
+    setActionLoading(expertId);
+    try {
+      const { error } = await supabase
+        .from('speakers')
+        .update({ verification_status: 'rejected', is_verified: false })
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      await supabase
+        .from('verification_requests' as never)
+        .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+        .eq('speaker_id', expertId)
+        .then(() => {})
+        .catch(() => {});
+
+      toast({ title: "Expert Rejected", description: "Profile has been rejected" });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Reject error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to reject"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getStatusBadge = (status: string | null) => {
+    switch (status) {
+      case 'verified': return <Badge className="bg-green-100 text-green-800"><Shield className="h-3 w-3 mr-1" />Verified</Badge>;
+      case 'rejected': return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
+      default: return <Badge variant="secondary"><AlertCircle className="h-3 w-3 mr-1" />Pending</Badge>;
+    }
+  };
+
+  const getDocuments = (expert: ExpertRow) => {
+    const docs = expert.verification_documents as { documents?: { name: string; url: string; type: string }[] } | null;
+    return docs?.documents || [];
+  };
+
+  const getExpertise = (expert: ExpertRow): string[] => {
+    return expert.expertise || expert.expertise_areas || [];
+  };
+
+  const visibleExperts = experts.filter((expert) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+
+    return [
+      expert.name,
+      expert.title,
+      expert.email,
+      expert.location,
+      expert.company,
+      expert.bio,
+      ...getExpertise(expert),
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
 
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Expert Profile Approval</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <span className="ml-2">Loading profiles...</span>
-          </div>
+        <CardContent className="py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading experts...</span>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <Card>
         <CardHeader>
-          <CardTitle>Expert Profile Approval</CardTitle>
-          <p className="text-sm text-gray-600">
-            {profiles.length} pending profile{profiles.length !== 1 ? "s" : ""} for review
-          </p>
+          <CardTitle>Expert Verification & Approval</CardTitle>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+            <TabsList>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="verified">Verified</TabsTrigger>
+              <TabsTrigger value="rejected">Rejected</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search experts..."
+              className="pl-9"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">{visibleExperts.length} expert(s)</p>
         </CardHeader>
         <CardContent>
-          {profiles.length === 0 ? (
+          {visibleExperts.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No pending profiles to review</p>
+              <p className="text-muted-foreground">No experts in this category</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Title</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Submitted</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Expertise</TableHead>
+                  <TableHead>Docs</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Verified</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles.map((profile) => (
-                  <TableRow key={profile.id}>
-                    <TableCell className="font-medium">{profile.full_name}</TableCell>
-                    <TableCell>{profile.email}</TableCell>
-                    <TableCell>{profile.company || "N/A"}</TableCell>
-                    <TableCell>{profile.phone || "N/A"}</TableCell>
-                    <TableCell>{formatDate(profile.created_at)}</TableCell>
+                {visibleExperts.map((expert) => (
+                  <TableRow key={expert.id}>
+                    <TableCell className="font-medium">{expert.name || 'N/A'}</TableCell>
+                    <TableCell>{expert.title || 'N/A'}</TableCell>
+                    <TableCell className="text-xs">{expert.email || 'N/A'}</TableCell>
+                    <TableCell>{expert.location || 'N/A'}</TableCell>
                     <TableCell>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" title={`Message: ${profile.message || "No message"}`}>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {getExpertise(expert).slice(0, 2).map((e, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">{e}</Badge>
+                        ))}
+                        {getExpertise(expert).length > 2 && (
+                          <Badge variant="outline" className="text-xs">+{getExpertise(expert).length - 2}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        <FileText className="h-3 w-3 mr-1" />
+                        {getDocuments(expert).length}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(expert.verification_status)}</TableCell>
+                    <TableCell>
+                      {expert.is_verified ? (
+                        <Badge className="bg-blue-100 text-blue-800">
+                          <BadgeCheck className="h-3 w-3 mr-1" />Verified
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-1">
+                        <Button size="sm" variant="outline" onClick={() => setSelectedExpert(expert)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
-                          variant="default"
-                          onClick={() => handleApprove(profile)}
-                          disabled={actionLoading === profile.id}
+                          variant={expert.is_verified ? "outline" : "default"}
+                          title={expert.is_verified ? "Remove Verified badge" : "Grant Verified badge"}
+                          onClick={() => handleToggleVerified(expert.id, !expert.is_verified)}
+                          disabled={actionLoading === expert.id}
                         >
-                          {actionLoading === profile.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                          {actionLoading === expert.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <BadgeCheck className="h-4 w-4" />}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleReject(profile.id)}
-                          disabled={actionLoading === profile.id}
-                        >
-                          {actionLoading === profile.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                        </Button>
+                        {expert.verification_status === 'pending' && (
+                          <>
+                            <Button size="sm" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
+                              {actionLoading === expert.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleReject(expert.id)} disabled={actionLoading === expert.id}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {expert.verification_status === 'rejected' && (
+                          <Button size="sm" variant="outline" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
+                            Re-approve
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Verification Documents</CardTitle>
-          <p className="text-sm text-gray-600">
-            Open submitted expert verification documents with signed storage URLs.
-          </p>
-        </CardHeader>
-        <CardContent>
-          {verificationRequests.length === 0 ? (
-            <p className="text-sm text-gray-500">No verification requests found.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Request</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Documents</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {verificationRequests.map((request) => {
-                  const paths = extractDocumentPaths(request.documents);
+      <Dialog open={!!selectedExpert} onOpenChange={() => setSelectedExpert(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Expert Details: {selectedExpert?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedExpert && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="font-medium text-muted-foreground">Title</p><p>{selectedExpert.title || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Email</p><p>{selectedExpert.email || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Phone</p><p>{selectedExpert.phone || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Company</p><p>{selectedExpert.company || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Location</p><p>{selectedExpert.location || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Experience</p><p>{selectedExpert.experience_years ? `${selectedExpert.experience_years} years` : 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">User ID</p><p className="text-xs font-mono">{selectedExpert.user_id || 'N/A (seeded)'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Submitted</p><p>{new Date(selectedExpert.created_at).toLocaleDateString()}</p></div>
+              </div>
 
-                  return (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium">{request.speaker_id || request.id}</TableCell>
-                      <TableCell>{request.status || "pending"}</TableCell>
-                      <TableCell>{formatDate(request.submitted_at)}</TableCell>
-                      <TableCell>
-                        {paths.length === 0 ? (
-                          <span className="text-sm text-muted-foreground">No documents</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {paths.map((path, index) => (
-                              <Button
-                                key={`${request.id}-${path}-${index}`}
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openDocument(path)}
-                              >
-                                <FileText className="mr-2 h-4 w-4" />
-                                Document {index + 1}
-                              </Button>
-                            ))}
-                          </div>
+              {selectedExpert.bio && (
+                <div><p className="text-sm font-medium text-muted-foreground">Bio</p><p className="text-sm mt-1">{selectedExpert.bio}</p></div>
+              )}
+
+              {getExpertise(selectedExpert).length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Expertise</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {getExpertise(selectedExpert).map((e, i) => <Badge key={i} variant="outline">{e}</Badge>)}
+                  </div>
+                </div>
+              )}
+
+              {selectedExpert.linkedin_url && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">LinkedIn</p>
+                  <a href={selectedExpert.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">{selectedExpert.linkedin_url}</a>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Verification Documents</p>
+                {getDocuments(selectedExpert).length > 0 ? (
+                  <div className="space-y-2">
+                    {getDocuments(selectedExpert).map((doc, i) => (
+                      <div key={i} className="flex items-center gap-2 p-2 border rounded">
+                        <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                        <span className="text-sm flex-1">{doc.name}</span>
+                        <span className="text-xs text-muted-foreground">{doc.type}</span>
+                        {doc.url && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => openDocument(doc.url)}
+                          >
+                            View
+                          </Button>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No documents uploaded</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-3 border rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">Verified badge</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedExpert.is_verified
+                      ? "This expert shows the Verified ✓ badge."
+                      : getDocuments(selectedExpert).length > 0
+                        ? "Documents uploaded — review and grant the badge."
+                        : "No documents uploaded. You can still grant the badge manually."}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={selectedExpert.is_verified ? "outline" : "default"}
+                  onClick={() => { handleToggleVerified(selectedExpert.id, !selectedExpert.is_verified); setSelectedExpert(null); }}
+                  disabled={actionLoading === selectedExpert.id}
+                >
+                  <BadgeCheck className="h-4 w-4 mr-1" />
+                  {selectedExpert.is_verified ? "Remove badge" : "Grant Verified"}
+                </Button>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Current Status</p>
+                <div className="mt-1">{getStatusBadge(selectedExpert.verification_status)}</div>
+              </div>
+
+              {selectedExpert.verification_status === 'pending' && (
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
+                    <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                  </Button>
+                  <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
+                    <X className="h-4 w-4 mr-2" /> Reject
+                  </Button>
+                </div>
+              )}
+              {selectedExpert.verification_status === 'rejected' && (
+                <div className="pt-4 border-t">
+                  <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                    <CheckCircle className="h-4 w-4 mr-2" /> Re-approve Expert
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

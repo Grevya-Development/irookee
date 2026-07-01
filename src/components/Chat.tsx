@@ -34,7 +34,7 @@ const Chat = () => {
     try {
       console.log('Sending chat request with message:', input);
       const response = await fetch(
-        'https://nkuplhtbnpnimghqcczz.supabase.co/functions/v1/chat',
+        import.meta.env.VITE_CHAT_FUNCTION_URL,
         {
           method: 'POST',
           headers: {

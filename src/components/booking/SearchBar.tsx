@@ -1,71 +1,79 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Sparkles } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Search, Sparkles, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { track } from '@/lib/analytics'
 
 interface SearchBarProps {
-  initialQuery?: string;
-  onSearchStateChange?: (hasSearched: boolean) => void;
+  initialQuery?: string
 }
 
-export function SearchBar({ initialQuery = "", onSearchStateChange }: SearchBarProps) {
-  const [query, setQuery] = useState(initialQuery);
-  const prevInitialQuery = useRef<string | null>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
+export function SearchBar({ initialQuery = '' }: SearchBarProps) {
+  const [query, setQuery] = useState(initialQuery)
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   useEffect(() => {
-    if (prevInitialQuery.current === null) {
-      prevInitialQuery.current = initialQuery;
-      onSearchStateChange?.(Boolean(initialQuery.trim()));
-      return;
-    }
+    setQuery(initialQuery)
+  }, [initialQuery])
 
-    if (initialQuery !== prevInitialQuery.current) {
-      prevInitialQuery.current = initialQuery;
-      setQuery(initialQuery);
-      onSearchStateChange?.(Boolean(initialQuery.trim()));
-    }
-  }, [initialQuery, onSearchStateChange]);
+  const updateUrl = (nextQuery: string) => {
+    const params = new URLSearchParams(searchParams)
+    const trimmed = nextQuery.trim()
 
-  const handleSearch = () => {
-    const nextParams = new URLSearchParams(searchParams);
-    const trimmedQuery = query.trim();
-
-    if (trimmedQuery) {
-      nextParams.set("q", trimmedQuery);
-      onSearchStateChange?.(true);
+    if (trimmed) {
+      params.set('q', trimmed)
+      track('search_performed', { query: trimmed, source: 'search_page' })
     } else {
-      nextParams.delete("q");
-      onSearchStateChange?.(false);
+      params.delete('q')
     }
 
-    const nextSearch = nextParams.toString();
-    const nextUrl = `/search${nextSearch ? `?${nextSearch}` : ""}`;
+    const pathname = location.pathname === '/experts' || location.pathname === '/speakers'
+      ? location.pathname
+      : '/search'
+    navigate({ pathname, search: params.toString() ? `?${params.toString()}` : '' })
+  }
 
-    navigate(nextUrl, { replace: location.pathname === "/search" });
-  };
+  const handleSearch = () => updateUrl(query)
+  const handleClear = () => {
+    setQuery('')
+    updateUrl('')
+  }
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row">
+    <div className="w-full max-w-3xl mx-auto">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder="Describe what you need help with..."
-            className="pl-10 pr-4 py-6 text-base sm:text-lg"
+            placeholder="Search by name, expertise, category, location..."
+            className="pl-10 pr-10 py-6 text-base sm:text-lg"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
           />
+          {query && (
+            <button
+              type="button"
+              onClick={handleClear}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        <Button size="lg" onClick={handleSearch} className="gap-2">
+        <Button
+          size="lg"
+          onClick={handleSearch}
+          className="gap-2 sm:min-w-36"
+        >
           <Sparkles className="h-4 w-4" />
           Find Experts
         </Button>
       </div>
     </div>
-  );
+  )
 }

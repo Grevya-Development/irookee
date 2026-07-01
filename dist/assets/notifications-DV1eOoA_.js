@@ -1,0 +1,1 @@
+﻿import{j as a}from"./index-h-z5SHZ8.js";const n=a,t=async i=>{const{error:o}=await n.functions.invoke("send-notification-email",{body:i});o&&console.error("Failed to send notification email:",o)};export{t as s};

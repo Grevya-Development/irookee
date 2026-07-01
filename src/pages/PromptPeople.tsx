@@ -7,34 +7,17 @@ import Navigation from "@/components/Navigation";
 import ExpertGrid from "@/components/ExpertGrid";
 import CategoryGrid from "@/components/CategoryGrid";
 import Footer from "@/components/sections/Footer";
-import { supabase } from "@/integrations/supabase/client";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "@/components/ExpertCard";
-import { withTimeout } from "@/lib/asyncTimeout";
-
-type SearchExpertResult = {
-  id: string;
-  user_id?: string | null;
-  title?: string | null;
-  profiles?: {
-    full_name?: string | null;
-    bio?: string | null;
-  } | null;
-  expertise_areas?: string[] | null;
-  experience_years?: number | null;
-  location?: string | null;
-  languages?: string[] | null;
-  hourly_rate?: number | null;
-  verification_status?: string | null;
-  rating?: number | null;
-  total_sessions?: number | null;
-  is_active?: boolean | null;
-  created_at?: string | null;
-};
+import { searchExperts } from "@/lib/searchExperts";
+import Seo from "@/components/Seo";
+import { usePlatformStats } from "@/hooks/usePlatformStats";
+import { track } from "@/lib/analytics";
 
 const PromptPeople = memo(() => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const { data: platformStats } = usePlatformStats();
   const [searchResults, setSearchResults] = useState<ExpertProfile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -45,98 +28,15 @@ const PromptPeople = memo(() => {
 
     setIsSearching(true);
     setHasSearched(true);
-    
+
     try {
-      // Try AI-powered search first (search-experts)
-      try {
-        const { data: aiData, error: aiError } = await withTimeout(
-          supabase.functions.invoke('search-experts', {
-            body: { query: searchQuery }
-          }),
-          10000,
-          'AI search timed out'
-        );
-
-        if (!aiError && aiData && aiData.experts && Array.isArray(aiData.experts) && aiData.experts.length > 0) {
-          // Transform expert_profiles format to ExpertProfile
-          const transformed: ExpertProfile[] = (aiData.experts as SearchExpertResult[]).map((expert) => ({
-            id: expert.id,
-            user_id: expert.user_id || '',
-            full_name: expert.profiles?.full_name || expert.title || 'Expert',
-            bio: expert.profiles?.bio || '',
-            industry_expertise: expert.expertise_areas || [],
-            years_experience: expert.experience_years,
-            location: expert.location,
-            languages: expert.languages || [],
-            hourly_rate: expert.hourly_rate || 0,
-            status: expert.verification_status === 'verified' ? 'approved' as const : 'pending' as const,
-            verification_level: expert.verification_status === 'verified' ? 'verified' as const : 'basic' as const,
-            rating: Number(expert.rating) || 0,
-            total_sessions: expert.total_sessions || 0,
-            intro_video_url: null,
-            kyc_documents: null,
-            availability_timezone: null,
-            is_instant_available: expert.is_active || false,
-            created_at: expert.created_at || new Date().toISOString(),
-            updated_at: expert.created_at || new Date().toISOString()
-          }));
-          setSearchResults(transformed);
-          setIsSearching(false);
-          return;
-        }
-      } catch (aiErr) {
-        console.log('AI search failed, falling back to database search:', aiErr);
-      }
-
-      // Fallback to direct database search on speakers table
-      const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
-      let query = supabase.from('speakers').select('*');
-
-      if (searchTerms.length > 0) {
-        const searchConditions: string[] = [];
-        searchTerms.forEach(term => {
-          searchConditions.push(
-            `name.ilike.%${term}%`,
-            `title.ilike.%${term}%`,
-            `bio.ilike.%${term}%`,
-            `location.ilike.%${term}%`
-          );
-        });
-        query = query.or(searchConditions.join(','));
-      }
-
-      const { data: speakers, error } = await withTimeout(
-        query.limit(20),
-        12000,
-        'Database search timed out'
-      );
-
-      if (error) throw error;
-
-      // Transform speakers data to match ExpertProfile interface
-      const transformedExperts: ExpertProfile[] = (speakers || []).map(speaker => ({
-        id: speaker.id,
-        user_id: speaker.user_id || '',
-        full_name: speaker.name,
-        bio: speaker.bio || '',
-        industry_expertise: speaker.expertise || [],
-        years_experience: null,
-        location: speaker.location,
-        languages: speaker.languages || [],
-        hourly_rate: speaker.hourly_rate,
-        status: 'approved' as const,
-        verification_level: speaker.is_verified ? 'verified' as const : 'basic' as const,
-        rating: Number(speaker.rating) || 0,
-        total_sessions: speaker.past_events || 0,
-        intro_video_url: speaker.video_url,
-        kyc_documents: null,
-        availability_timezone: null,
-        is_instant_available: true,
-        created_at: speaker.created_at,
-        updated_at: speaker.updated_at
-      }));
-
-      setSearchResults(transformedExperts);
+      const results = await searchExperts(searchQuery);
+      setSearchResults(results);
+      track("search_performed", {
+        query: searchQuery,
+        results_count: results.length,
+        source: "home_hero",
+      });
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -151,11 +51,30 @@ const PromptPeople = memo(() => {
     setSearchResults([]);
   }, []);
 
+  // Real, live stats from Supabase (falls back to a tasteful placeholder while
+  // loading). Replaces the previously hardcoded numbers so the social proof is
+  // accurate and grows with the platform.
+  const fmt = (n: number) => (n >= 10 ? `${Math.floor(n / 10) * 10}+` : `${n}`);
   const stats = [
-    { number: "5,000+", label: "Verified Experts", icon: Users },
-    { number: "50+", label: "Categories", icon: Globe },
-    { number: "4.9", label: "Average Rating", icon: Star },
-    { number: "24/7", label: "Instant Support", icon: Clock },
+    {
+      number: platformStats ? fmt(platformStats.expertCount) : "—",
+      label: "Verified Experts",
+      icon: Users,
+    },
+    {
+      number: platformStats ? fmt(platformStats.categoryCount) : "—",
+      label: "Categories",
+      icon: Globe,
+    },
+    {
+      number:
+        platformStats && platformStats.avgRating > 0
+          ? platformStats.avgRating.toFixed(1)
+          : "—",
+      label: "Average Rating",
+      icon: Star,
+    },
+    { number: "100%", label: "Free Platform", icon: Shield },
   ];
 
   const features = [
@@ -183,6 +102,11 @@ const PromptPeople = memo(() => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="irookee — Find verified experts, mentors & guides"
+        description="Connect instantly with verified professionals, mentors, and guides for any career, travel, or personal-growth situation. People for People."
+        path="/"
+      />
       <Navigation />
       
       {/* Hero Section */}
@@ -327,7 +251,7 @@ const PromptPeople = memo(() => {
           </div>
           <ExpertGrid limit={8} />
           <div className="text-center mt-12">
-            <Button size="lg" onClick={() => navigate("/speakers")}>
+            <Button size="lg" onClick={() => navigate("/experts")}>
               View All Experts
             </Button>
           </div>
@@ -368,14 +292,14 @@ const PromptPeople = memo(() => {
             Join thousands of people who have found the perfect expert for their needs
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" onClick={() => navigate("/speakers")}>
+            <Button size="lg" variant="secondary" onClick={() => navigate("/experts")}>
               Find an Expert
             </Button>
             <Button 
               size="lg" 
               variant="secondary" 
               className="bg-white/90 text-primary hover:bg-white"
-              onClick={() => navigate("/profile-setup")}
+              onClick={() => navigate("/expert/onboarding")}
             >
               Become an Expert
             </Button>

@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import type { Profile } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
+
+type Profile = {
+  id: string
+  email: string | null
+  full_name: string | null
+  avatar_url: string | null
+  bio: string | null
+  phone: string | null
+  user_type: string | null
+  created_at: string
+  updated_at: string
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -41,10 +52,10 @@ export function useAuth() {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) throw error
-      setProfile(data)
+      setProfile(data || null)
     } catch (error) {
       console.error('Error loading profile:', error)
     } finally {

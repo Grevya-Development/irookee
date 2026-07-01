@@ -4,163 +4,167 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { PaymentForm } from './PaymentForm'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, CheckCircle2 } from 'lucide-react'
 
 interface BookingConfirmationProps {
   expertId: string
   scheduledAt: string
   duration: number
-  rescheduleId?: string
+  bookingId?: string | null
 }
 
-export function BookingConfirmation({ expertId, scheduledAt, duration, rescheduleId }: BookingConfirmationProps) {
-  const [clientSecret, setClientSecret] = useState<string>('')
-  const [bookingId, setBookingId] = useState<string>('')
-  const [amount, setAmount] = useState<number>(0)
+export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId }: BookingConfirmationProps) {
   const [loading, setLoading] = useState(false)
   const [consumerNotes, setConsumerNotes] = useState('')
+  const [booked, setBooked] = useState(false)
   const navigate = useNavigate()
 
   const createBooking = async () => {
     setLoading(true)
     try {
-      if (new Date(scheduledAt).getTime() <= Date.now()) {
-        toast.error('Please choose a future time slot.')
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        toast.error('Please sign in to book a session')
+        navigate('/auth')
         return
       }
 
-      if (rescheduleId) {
-        const { error } = await supabase
-          .from('expertise_bookings' as never)
+      // Get expert name
+      const { data: expert } = await supabase
+        .from('speakers')
+        .select('name')
+        .eq('id', expertId)
+        .single()
+
+      let error
+
+      if (bookingId) {
+        const updateResult = await supabase
+          .from('expertise_bookings')
           .update({
-            scheduled_at: scheduledAt,
-            duration_minutes: duration,
-            consumer_notes: consumerNotes || null,
+            event_date: scheduledAt,
+            duration_hours: duration / 60,
+            notes: consumerNotes || null,
             status: 'confirmed',
-          } as never)
-          .eq('id', rescheduleId)
+          })
+          .eq('id', bookingId)
+          .eq('user_id', user.id)
           .eq('expert_id', expertId)
 
-        if (error) throw error
+        error = updateResult.error
+      } else {
+        const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
+        const meetingLink = `https://meet.jit.si/${roomId}`;
 
-        toast.success('Booking rescheduled.')
-        navigate('/dashboard')
-        return
+        const insertResult = await supabase
+          .from('expertise_bookings')
+          .insert({
+            expert_id: expertId,
+            user_id: user.id,
+            event_name: `Session with ${expert?.name || 'Expert'}`,
+            event_date: scheduledAt,
+            duration_hours: duration / 60,
+            total_amount: 0,
+            customer_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            customer_email: user.email,
+            notes: consumerNotes || null,
+            currency: 'INR',
+            status: 'confirmed',
+            meeting_link: meetingLink,
+          })
+
+        error = insertResult.error
       }
-
-      const { data, error } = await supabase.functions.invoke('create-booking', {
-        body: { 
-          expertId, 
-          scheduledAt, 
-          durationMinutes: duration,
-          consumerNotes: consumerNotes || undefined
-        }
-      })
 
       if (error) throw error
-      
-      if (data && data.booking && data.clientSecret) {
-        setClientSecret(data.clientSecret)
-        setBookingId(data.booking.id)
-        setAmount(data.booking.total_amount)
-      } else {
-        throw new Error('Invalid response from booking service')
-      }
+
+      setBooked(true)
+      toast.success(bookingId ? 'Session rescheduled successfully!' : 'Session booked successfully!')
     } catch (error) {
-      console.error('Booking creation error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create booking'
-      toast.error(errorMessage)
+      console.error('Booking error:', error)
+      toast.error('Failed to create booking. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handlePaymentSuccess = () => {
-    toast.success('Booking confirmed!')
-    navigate('/dashboard')
-  }
-
-  if (!clientSecret) {
+  if (booked) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>{rescheduleId ? 'Reschedule Confirmation' : 'Booking Confirmation'}</CardTitle>
-          <CardDescription>
-            {rescheduleId ? 'Review the new session time' : 'Review your booking details and proceed to payment'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Scheduled Time</p>
-            <p>{new Date(scheduledAt).toLocaleString()}</p>
+        <CardContent className="py-12 text-center space-y-4">
+          <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+          <h2 className="text-2xl font-bold">{bookingId ? 'Session Rescheduled!' : 'Session Booked!'}</h2>
+          <p className="text-muted-foreground">
+            Your free session is confirmed for{' '}
+            {new Date(scheduledAt).toLocaleString('en-IN', {
+              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            })}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            If you or the expert don't show up, the session will be marked as a no-show.
+          </p>
+          <div className="flex gap-3 justify-center pt-4">
+            <Button variant="outline" onClick={() => navigate('/experts')}>Browse More Experts</Button>
+            <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
           </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Duration</p>
-            <p>{duration} minutes</p>
-          </div>
-          <div>
-            <Label htmlFor="notes">Notes (optional)</Label>
-            <Textarea
-              id="notes"
-              value={consumerNotes}
-              onChange={(e) => setConsumerNotes(e.target.value)}
-              placeholder="Any specific topics or questions you'd like to discuss..."
-              className="mt-1"
-              rows={3}
-            />
-          </div>
-          <Button 
-            onClick={createBooking} 
-            disabled={loading}
-            className="w-full"
-            size="lg"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {rescheduleId ? 'Updating Booking...' : 'Creating Booking...'}
-              </>
-            ) : (
-              rescheduleId ? 'Confirm Reschedule' : 'Proceed to Payment'
-            )}
-          </Button>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Booking Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Scheduled Time</span>
-            <span>{new Date(scheduledAt).toLocaleString()}</span>
+    <Card>
+      <CardHeader>
+        <CardTitle>{bookingId ? 'Confirm New Session Time' : 'Confirm Your Session'}</CardTitle>
+        <CardDescription>{bookingId ? 'Review and confirm your rescheduled session' : 'Review and confirm your free session'}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Date & Time</p>
+            <p className="font-medium">{new Date(scheduledAt).toLocaleString('en-IN', {
+              weekday: 'short', month: 'short', day: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            })}</p>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Duration</span>
-            <span>{duration} minutes</span>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Duration</p>
+            <p className="font-medium">{duration} minutes</p>
           </div>
-          <div className="flex justify-between font-semibold text-lg pt-2 border-t">
-            <span>Total</span>
-            <span>${amount.toFixed(2)}</span>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Price</p>
+            <p className="font-medium text-green-600">Free</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <PaymentForm
-        clientSecret={clientSecret}
-        amount={amount}
-        bookingId={bookingId}
-        onSuccess={handlePaymentSuccess}
-      />
-    </div>
+        <div>
+          <Label htmlFor="notes">What would you like to discuss? (optional)</Label>
+          <Textarea
+            id="notes"
+            value={consumerNotes}
+            onChange={(e) => setConsumerNotes(e.target.value)}
+            placeholder="Share topics, questions, or context for the session..."
+            className="mt-1"
+            rows={3}
+          />
+        </div>
+
+        <Button
+          onClick={createBooking}
+          disabled={loading}
+          className="w-full"
+          size="lg"
+        >
+          {loading ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Booking...</>
+          ) : (
+            bookingId ? 'Confirm Reschedule' : 'Confirm Free Session'
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
-
