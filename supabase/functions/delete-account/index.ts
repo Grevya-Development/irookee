@@ -37,14 +37,75 @@ serve(async (req) => {
 
     const deletedEmail = `deleted-${user.id}@deleted.local`
 
-    await adminClient.from('notifications').delete().eq('user_id', user.id)
-    await adminClient.from('notification_preferences').delete().eq('user_id', user.id)
-    await adminClient.from('user_profiles').delete().eq('user_id', user.id)
-    await adminClient.from('guest_profiles').delete().eq('email', user.email)
-    await adminClient.from('bookings').update({ organizer_id: null }).eq('organizer_id', user.id)
-    await adminClient.from('reviews').update({ reviewer_id: null }).eq('reviewer_id', user.id)
-    await adminClient.from('speakers').update({ user_id: null }).eq('user_id', user.id)
+    // Helper to safely execute a delete or update on tables that might not exist or might fail
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const safeDelete = async (table: string, matchCol: string, val: any) => {
+      try {
+        const { error } = await adminClient.from(table).delete().eq(matchCol, val)
+        if (error) console.warn(`Warn: Safe delete on ${table} returned: ${error.message}`)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`Warn: Safe delete on ${table} failed: ${msg}`)
+      }
+    }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const safeUpdate = async (table: string, values: any, matchCol: string, val: any) => {
+      try {
+        const { error } = await adminClient.from(table).update(values).eq(matchCol, val)
+        if (error) console.warn(`Warn: Safe update on ${table} returned: ${error.message}`)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`Warn: Safe update on ${table} failed: ${msg}`)
+      }
+    }
+
+    // Clean user-specific notifications and settings
+    await safeDelete('notifications', 'user_id', user.id)
+    await safeDelete('notification_preferences', 'user_id', user.id)
+    await safeDelete('user_profiles', 'user_id', user.id)
+    if (user.email) {
+      await safeDelete('guest_profiles', 'email', user.email)
+    }
+
+    // Unlink organizer/reviewer IDs from bookings and reviews
+    await safeUpdate('bookings', { organizer_id: null }, 'organizer_id', user.id)
+    await safeUpdate('reviews', { reviewer_id: null }, 'reviewer_id', user.id)
+    await safeUpdate('expertise_reviews', { reviewer_id: null }, 'reviewer_id', user.id)
+
+    // Anonymize and unlink expert profiles
+    await safeUpdate(
+      'speakers',
+      {
+        user_id: null,
+        email: null,
+        phone: null,
+        name: 'Deleted Expert',
+        bio: 'This account has been deleted.',
+        profile_photo_url: null,
+        image_url: null,
+        linkedin_url: null,
+        website_url: null,
+        verification_status: 'deleted'
+      },
+      'user_id',
+      user.id
+    )
+
+    await safeUpdate(
+      'expert_profiles',
+      {
+        user_id: null,
+        bio: 'This account has been deleted.',
+        image_url: null,
+        video_url: null,
+        verification_status: 'deleted'
+      },
+      'user_id',
+      user.id
+    )
+
+    // Anonymize personal profile details
     await adminClient
       .from('profiles')
       .update({
@@ -58,6 +119,7 @@ serve(async (req) => {
       })
       .eq('id', user.id)
 
+    // Delete user from authentication
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
     if (deleteError) throw deleteError
 

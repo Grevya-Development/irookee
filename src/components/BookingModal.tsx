@@ -12,6 +12,8 @@ import { useNavigate } from "react-router-dom";
 import { BookingCalendar } from "@/components/booking/BookingCalendar";
 import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
 import { CheckCircle2, Copy, ExternalLink } from "lucide-react";
+import { buildBookingTimeFields } from "@/lib/bookingUtils";
+import { notifyBookingEvent } from "@/lib/notifications";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -67,24 +69,42 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         ? `[Format: ${sessionFormat}] ${notes}`
         : `[Format: ${sessionFormat}]`;
 
-      const { error } = await supabase
+      const bookingPayload = {
+        expert_id: speaker.id,
+        user_id: user.id,
+        event_name: `Session with ${speaker.name}`,
+        ...buildBookingTimeFields(selectedDateTime, selectedDuration),
+        total_amount: 0, // Free platform
+        customer_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+        customer_email: user.email,
+        notes: formattedNotes,
+        consumer_notes: formattedNotes,
+        currency: "INR",
+        status: "confirmed",
+        meeting_link: generatedMeetingLink,
+      };
+
+      const { data: booking, error } = await supabase
         .from("expertise_bookings")
-        .insert({
-          expert_id: speaker.id,
-          user_id: user.id,
-          event_name: `Session with ${speaker.name}`,
-          event_date: selectedDateTime,
-          duration_hours: selectedDuration / 60,
-          total_amount: 0, // Free platform
-          customer_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-          customer_email: user.email,
-          notes: formattedNotes,
-          currency: "INR",
-          status: "confirmed",
-          meeting_link: generatedMeetingLink,
-        });
+        .insert(bookingPayload as never)
+        .select("id")
+        .single();
 
       if (error) throw error;
+
+      await notifyBookingEvent({
+        bookingId: booking?.id,
+        eventType: "booking_created",
+        userId: user.id,
+        userEmail: user.email,
+        expertUserId: speaker.user_id,
+        expertEmail: (speaker as Expert & { email?: string | null }).email,
+        expertName: speaker.name,
+        customerName: bookingPayload.customer_name,
+        scheduledAt: selectedDateTime,
+        durationMinutes: selectedDuration,
+        meetingLink: generatedMeetingLink,
+      });
 
       setMeetingLink(generatedMeetingLink);
       setBookingSuccess(true);

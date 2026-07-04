@@ -184,7 +184,7 @@ export default function Settings() {
     setUploading(true)
     try {
       const fileExt = file.name.split('.').pop()
-      const filePath = `avatars/${user.id}/profile.${fileExt}`
+      const filePath = `${user.id}/avatars/profile.${fileExt}`
 
       // Try uploading to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -237,15 +237,37 @@ export default function Settings() {
 
   const saveProfile = async () => {
     if (!user) return
+
+    const nameTrimmed = profileData.full_name.trim()
+    if (!nameTrimmed) {
+      toast({ title: "Validation Error", description: "Full Name is required", variant: "destructive" })
+      return
+    }
+
+    const emailTrimmed = profileData.email.trim()
+    if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" })
+      return
+    }
+
+    const phoneTrimmed = profileData.phone.trim()
+    if (phoneTrimmed) {
+      const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
+      if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+        toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const { error } = await supabase.from('profiles').upsert({
         id: user.id,
-        full_name: profileData.full_name,
-        email: profileData.email,
-        phone: profileData.phone,
-        bio: profileData.bio,
-        avatar_url: profileData.avatar_url,
+        full_name: nameTrimmed,
+        email: emailTrimmed,
+        phone: phoneTrimmed || null,
+        bio: profileData.bio ? profileData.bio.trim() : null,
+        avatar_url: profileData.avatar_url || null,
       })
       if (error) throw error
       toast({ title: "Profile Saved", description: "Your personal information has been updated" })
@@ -259,18 +281,79 @@ export default function Settings() {
 
   const saveExpertProfile = async () => {
     if (!user || !expertData) return
+
+    const nameTrimmed = expertData.name.trim()
+    if (!nameTrimmed) {
+      toast({ title: "Validation Error", description: "Display Name is required", variant: "destructive" })
+      return
+    }
+
+    const titleTrimmed = expertData.title.trim()
+    if (!titleTrimmed) {
+      toast({ title: "Validation Error", description: "Professional Title is required", variant: "destructive" })
+      return
+    }
+
+    const emailTrimmed = expertData.email.trim()
+    if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" })
+      return
+    }
+
+    const phoneTrimmed = expertData.phone.trim()
+    if (!phoneTrimmed) {
+      toast({ title: "Validation Error", description: "Phone number is required", variant: "destructive" })
+      return
+    }
+    const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
+    if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+      toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
+      return
+    }
+
+    const companyTrimmed = expertData.company.trim()
+    if (companyTrimmed && /^\d+$/.test(companyTrimmed)) {
+      toast({ title: "Validation Error", description: "Company name cannot be numeric-only", variant: "destructive" })
+      return
+    }
+
+    const locationTrimmed = expertData.location.trim()
+    if (!locationTrimmed) {
+      toast({ title: "Validation Error", description: "Location is required", variant: "destructive" })
+      return
+    }
+    if (/^\d+$/.test(locationTrimmed) || locationTrimmed.length < 2) {
+      toast({ title: "Validation Error", description: "Please enter a valid location/country", variant: "destructive" })
+      return
+    }
+
+    if (expertData.experience_years !== null && (expertData.experience_years < 0 || !Number.isInteger(expertData.experience_years))) {
+      toast({ title: "Validation Error", description: "Years of experience must be a non-negative integer", variant: "destructive" })
+      return
+    }
+
+    if (expertData.languages.length === 0) {
+      toast({ title: "Validation Error", description: "Please specify at least one language", variant: "destructive" })
+      return
+    }
+    const invalidLangs = expertData.languages.some(lang => /^\d+$/.test(lang) || lang.length < 2)
+    if (invalidLangs) {
+      toast({ title: "Validation Error", description: "Please enter valid language names", variant: "destructive" })
+      return
+    }
+
     setSaving(true)
     try {
       const { error } = await supabase.from('speakers').update({
-        name: expertData.name,
-        title: expertData.title,
-        bio: expertData.bio,
-        location: expertData.location,
-        company: expertData.company,
-        phone: expertData.phone,
-        email: expertData.email,
-        linkedin_url: expertData.linkedin_url,
-        website_url: expertData.website_url,
+        name: nameTrimmed,
+        title: titleTrimmed,
+        bio: expertData.bio ? expertData.bio.trim() : '',
+        location: locationTrimmed,
+        company: companyTrimmed || null,
+        phone: phoneTrimmed,
+        email: emailTrimmed,
+        linkedin_url: expertData.linkedin_url ? expertData.linkedin_url.trim() : null,
+        website_url: expertData.website_url ? expertData.website_url.trim() : null,
         expertise: expertData.expertise,
         languages: expertData.languages,
         experience_years: expertData.experience_years,

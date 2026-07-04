@@ -13,7 +13,7 @@ export default function Terms() {
           <h2 className="text-2xl font-semibold mb-3">1. The irookee Marketplace</h2>
           <p>
             irookee acts as an intermediary infrastructure layer connecting users (Help-Seekers) with
-            verified experts across 200+ categories. We do not provide professional advice directly —
+            verified experts across 200+ categories. We do not provide professional advice directly  - 
             all consultations are guidance-based and do not constitute formal medical diagnosis,
             legal representation, financial advice, or any other professional service requiring
             statutory licensing.

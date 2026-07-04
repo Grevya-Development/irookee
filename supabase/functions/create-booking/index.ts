@@ -85,12 +85,37 @@ serve(async (req) => {
       )
     }
 
-    // Get expert details
-    const { data: expert, error: expertError } = await supabase
-      .from('expert_profiles')
-      .select('hourly_rate, commission_rate, user_id, is_active, verification_status')
+    // Get expert details - support both speakers and expert_profiles tables
+    let expert = null
+    let expertError = null
+
+    const { data: speakerData, error: speakerErr } = await supabase
+      .from('speakers')
+      .select('hourly_rate, user_id, verification_status')
       .eq('id', expertId)
-      .single()
+      .maybeSingle()
+
+    if (speakerData) {
+      expert = {
+        hourly_rate: speakerData.hourly_rate || 0,
+        commission_rate: 15.00,
+        user_id: speakerData.user_id,
+        is_active: true,
+        verification_status: speakerData.verification_status || 'verified'
+      }
+    } else {
+      const { data: profileData, error: profileErr } = await supabase
+        .from('expert_profiles')
+        .select('hourly_rate, commission_rate, user_id, is_active, verification_status')
+        .eq('id', expertId)
+        .maybeSingle()
+
+      if (profileData) {
+        expert = profileData
+      } else {
+        expertError = speakerErr || profileErr || new Error('Expert not found')
+      }
+    }
 
     if (expertError || !expert) {
       return new Response(
@@ -99,7 +124,7 @@ serve(async (req) => {
       )
     }
 
-    if (!expert.is_active || expert.verification_status !== 'verified') {
+    if (!expert.is_active || (expert.verification_status !== 'verified' && expert.verification_status !== 'pending')) {
       return new Response(
         JSON.stringify({ error: 'Expert is not available for booking' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -107,21 +132,44 @@ serve(async (req) => {
     }
 
     const requestedEnd = new Date(scheduledDate.getTime() + duration * 60 * 1000)
-    const { data: existingBookings, error: existingBookingsError } = await serviceSupabase
+
+    // Check overlaps across both expertise_bookings and bookings (legacy) tables
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allExisting: any[] = []
+
+    const { data: existingCurrent, error: existingBookingsError } = await serviceSupabase
       .from('expertise_bookings')
-      .select('id, scheduled_at, duration_minutes, status')
+      .select('id, scheduled_at, event_date, duration_minutes, duration_hours, status')
       .eq('expert_id', expertId)
       .in('status', activeStatuses)
 
     if (existingBookingsError) throw existingBookingsError
+    if (existingCurrent) {
+      allExisting.push(...existingCurrent)
+    }
 
-    const overlapsExistingBooking = (existingBookings || []).some((booking) => {
-      if (!booking.scheduled_at) return false
+    try {
+      const { data: existingLegacy } = await serviceSupabase
+        .from('bookings')
+        .select('id, scheduled_at, duration_minutes, status')
+        .eq('expert_id', expertId)
+        .in('status', ['pending', 'confirmed', 'in_progress'])
 
-      const existingStart = new Date(booking.scheduled_at)
+      if (existingLegacy) {
+        allExisting.push(...existingLegacy)
+      }
+    } catch (err) {
+      console.log('Failed to fetch legacy bookings in edge function:', err.message)
+    }
+
+    const overlapsExistingBooking = allExisting.some((booking) => {
+      const startVal = booking.scheduled_at || booking.event_date
+      if (!startVal) return false
+
+      const existingStart = new Date(startVal)
       if (Number.isNaN(existingStart.getTime())) return false
 
-      const existingDuration = Number(booking.duration_minutes) || 60
+      const existingDuration = Number(booking.duration_minutes) || Number(booking.duration_hours || 0) * 60 || 60
       const existingEnd = new Date(existingStart.getTime() + existingDuration * 60 * 1000)
       return rangesOverlap(scheduledDate, requestedEnd, existingStart, existingEnd)
     })
@@ -156,15 +204,17 @@ serve(async (req) => {
       }
     })
 
-    // Create booking
+    // Create booking - write BOTH schemas
     const { data: booking, error: bookingError } = await supabase
       .from('expertise_bookings')
       .insert({
         consumer_id: user.id,
         expert_id: expertId,
         scheduled_at: scheduledDate.toISOString(),
+        event_date: scheduledDate.toISOString(),
         original_scheduled_at: scheduledDate.toISOString(),
         duration_minutes: duration,
+        duration_hours: duration / 60,
         original_duration_minutes: duration,
         total_amount: sessionCost,
         platform_fee: platformFee,
@@ -188,6 +238,24 @@ serve(async (req) => {
       throw bookingError
     }
 
+    // Synchronize to legacy bookings table safely
+    try {
+      await serviceSupabase
+        .from('bookings')
+        .insert({
+          seeker_id: user.id,
+          expert_id: expertId,
+          scheduled_at: scheduledDate.toISOString(),
+          duration_minutes: duration,
+          total_amount: sessionCost,
+          status: 'pending',
+          meeting_link: booking.meeting_link,
+          notes: consumerNotes || null,
+        })
+    } catch (err) {
+      console.log('Failed to sync to legacy bookings table:', err.message)
+    }
+
     return new Response(
       JSON.stringify({ 
         booking, 
@@ -204,4 +272,3 @@ serve(async (req) => {
     )
   }
 })
-

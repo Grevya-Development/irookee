@@ -7,7 +7,7 @@ interface SeoProps {
   /** Path or absolute URL for the canonical/OG url. Defaults to current path. */
   path?: string;
   image?: string;
-  /** og:type — "website" (default) or "profile" for expert pages. */
+  /** og:type  -  "website" (default) or "profile" for expert pages. */
   type?: "website" | "profile" | "article";
 }
 
@@ -38,7 +38,7 @@ function setCanonical(href: string) {
 /**
  * Per-page SEO + social-share tags. The base index.html ships generic tags; this
  * overrides them per route so expert profiles and key pages are discoverable and
- * render proper cards when shared on social/messaging apps. No dependency needed —
+ * render proper cards when shared on social/messaging apps. No dependency needed  - 
  * it manages document.head directly.
  */
 const Seo = ({ title, description, path, image, type = "website" }: SeoProps) => {

@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { Loader2, CheckCircle2 } from 'lucide-react'
+import { buildBookingTimeFields } from '@/lib/bookingUtils'
+import { notifyBookingEvent } from '@/lib/notifications'
 
 interface BookingConfirmationProps {
   expertId: string
@@ -34,21 +36,34 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
       // Get expert name
       const { data: expert } = await supabase
         .from('speakers')
-        .select('name')
+        .select('name, user_id, email')
         .eq('id', expertId)
         .single()
 
+      const { data: existingBooking } = bookingId
+        ? await supabase
+            .from('expertise_bookings')
+            .select('*')
+            .eq('id', bookingId)
+            .eq('user_id', user.id)
+            .eq('expert_id', expertId)
+            .maybeSingle()
+        : { data: null }
+
       let error
+      let savedBookingId = bookingId
+      let meetingLink = existingBooking?.meeting_link || null
+      const timeFields = buildBookingTimeFields(scheduledAt, duration, existingBooking)
 
       if (bookingId) {
         const updateResult = await supabase
           .from('expertise_bookings')
           .update({
-            event_date: scheduledAt,
-            duration_hours: duration / 60,
+            ...timeFields,
             notes: consumerNotes || null,
+            consumer_notes: consumerNotes || null,
             status: 'confirmed',
-          })
+          } as never)
           .eq('id', bookingId)
           .eq('user_id', user.id)
           .eq('expert_id', expertId)
@@ -56,7 +71,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
         error = updateResult.error
       } else {
         const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
-        const meetingLink = `https://meet.jit.si/${roomId}`;
+        meetingLink = `https://meet.jit.si/${roomId}`;
 
         const insertResult = await supabase
           .from('expertise_bookings')
@@ -64,21 +79,38 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
             expert_id: expertId,
             user_id: user.id,
             event_name: `Session with ${expert?.name || 'Expert'}`,
-            event_date: scheduledAt,
-            duration_hours: duration / 60,
+            ...timeFields,
             total_amount: 0,
             customer_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
             customer_email: user.email,
             notes: consumerNotes || null,
+            consumer_notes: consumerNotes || null,
             currency: 'INR',
             status: 'confirmed',
             meeting_link: meetingLink,
-          })
+          } as never)
+          .select('id')
+          .single()
 
         error = insertResult.error
+        savedBookingId = insertResult.data?.id || null
       }
 
       if (error) throw error
+
+      await notifyBookingEvent({
+        bookingId: savedBookingId,
+        eventType: bookingId ? 'booking_rescheduled' : 'booking_created',
+        userId: user.id,
+        userEmail: user.email,
+        expertUserId: expert?.user_id,
+        expertEmail: expert?.email,
+        expertName: expert?.name,
+        customerName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        scheduledAt,
+        durationMinutes: duration,
+        meetingLink,
+      })
 
       setBooked(true)
       toast.success(bookingId ? 'Session rescheduled successfully!' : 'Session booked successfully!')

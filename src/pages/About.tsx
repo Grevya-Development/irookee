@@ -17,11 +17,11 @@ const About = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center max-w-4xl">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">About irookee</h1>
           <p className="text-xl text-muted-foreground mb-6">
-            A world where every person — regardless of geography, income, language, or background —
+            A world where every person  -  regardless of geography, income, language, or background  - 
             can access the right human expertise for any situation in their life, instantly.
           </p>
           <p className="text-lg text-muted-foreground italic">
-            "The right person, for any situation, available to everyone — not just the privileged few."
+            "The right person, for any situation, available to everyone  -  not just the privileged few."
           </p>
         </div>
       </section>
@@ -37,7 +37,7 @@ const About = () => {
                 <p className="text-muted-foreground">
                   To build the world's most trusted, accessible, and comprehensive human expertise
                   marketplace that connects people to verified professionals across every domain of human life.
-                  From a cardiologist at midnight to a startup mentor before your investor pitch — irookee
+                  From a cardiologist at midnight to a startup mentor before your investor pitch  -  irookee
                   makes it possible.
                 </p>
               </CardContent>
@@ -62,9 +62,9 @@ const About = () => {
               { icon: Heart, title: "Democratisation", desc: "Breaking down barriers to quality expertise. 207+ categories, from healthcare to dating coaching." },
               { icon: Shield, title: "Trust & Safety", desc: "Every expert goes through rigorous KYC and document verification. No shortcuts on trust." },
               { icon: Users, title: "Inclusivity", desc: "Built for Bharat and beyond. Multilingual support, accessible design, and fair platform for all." },
-              { icon: Sparkles, title: "AI-Powered", desc: "Our Prompt Engine matches you with the perfect expert using natural language — describe your problem, we find the person." },
+              { icon: Sparkles, title: "AI-Powered", desc: "Our Prompt Engine matches you with the perfect expert using natural language  -  describe your problem, we find the person." },
               { icon: Target, title: "Impact", desc: "Every successful connection improves someone's life. We measure success in lives changed, not just sessions booked." },
-              { icon: Globe, title: "Global Reach", desc: "Connecting experts and users across borders, cultures, and industries — starting from India, expanding worldwide." },
+              { icon: Globe, title: "Global Reach", desc: "Connecting experts and users across borders, cultures, and industries  -  starting from India, expanding worldwide." },
             ].map(v => (
               <Card key={v.title} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
@@ -95,7 +95,7 @@ const About = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Whether you need expert guidance or want to share your expertise with the world —
+            Whether you need expert guidance or want to share your expertise with the world  - 
             irookee is the place for you.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">

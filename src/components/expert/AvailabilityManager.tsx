@@ -146,7 +146,7 @@ export function AvailabilityManager({ expertId }: { expertId: string }) {
                 ) : (
                   day.slots.map(slot => (
                     <div key={slot.id} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-sm font-medium rounded-full px-3 py-1">
-                      {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
+                      {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                       <button onClick={() => deleteSlot(slot.id)} className="ml-1 hover:text-destructive">
                         <Trash2 className="h-3 w-3" />
                       </button>

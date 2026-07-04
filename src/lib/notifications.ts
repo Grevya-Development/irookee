@@ -8,6 +8,27 @@ type NotificationPayload = {
   relatedId?: string | null
 }
 
+type NotificationPreferences = {
+  email_booking_confirmed?: boolean | null
+  email_expert_application?: boolean | null
+  email_expert_approved?: boolean | null
+  in_app_notifications?: boolean | null
+}
+
+type BookingNotificationPayload = {
+  bookingId?: string | null
+  eventType: 'booking_created' | 'booking_confirmed' | 'booking_cancelled' | 'booking_rescheduled'
+  userId?: string | null
+  userEmail?: string | null
+  expertUserId?: string | null
+  expertEmail?: string | null
+  expertName?: string | null
+  customerName?: string | null
+  scheduledAt?: string | null
+  durationMinutes?: number | null
+  meetingLink?: string | null
+}
+
 export const createInAppNotification = async ({
   userId,
   title,
@@ -32,6 +53,31 @@ export const createInAppNotification = async ({
   }
 }
 
+const getNotificationPreferences = async (userId?: string | null) => {
+  if (!userId) return null
+
+  const { data, error } = await supabase
+    .from('notification_preferences' as never)
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Failed to load notification preferences:', error)
+    return null
+  }
+
+  return data as NotificationPreferences | null
+}
+
+const allowsInApp = (preferences: NotificationPreferences | null) =>
+  preferences?.in_app_notifications !== false
+
+const allowsEmail = (
+  preferences: NotificationPreferences | null,
+  key: keyof Pick<NotificationPreferences, 'email_booking_confirmed' | 'email_expert_application' | 'email_expert_approved'>
+) => preferences?.[key] !== false
+
 export const sendNotificationEmail = async (payload: {
   to: string
   subject: string
@@ -46,4 +92,137 @@ export const sendNotificationEmail = async (payload: {
   if (error) {
     console.error('Failed to send notification email:', error)
   }
+}
+
+export const notifyAdmins = async ({
+  title,
+  body,
+  type,
+  relatedId,
+}: Omit<NotificationPayload, 'userId'>) => {
+  const { data, error } = await supabase
+    .from('user_roles' as never)
+    .select('user_id')
+    .eq('role', 'admin')
+
+  if (error) {
+    console.error('Failed to load admin users for notification:', error)
+    return
+  }
+
+  await Promise.all(
+    ((data || []) as { user_id?: string | null }[]).map((admin) =>
+      createInAppNotification({
+        userId: admin.user_id,
+        title,
+        body,
+        type,
+        relatedId,
+      })
+    )
+  )
+}
+
+export const notifyBookingEvent = async ({
+  bookingId,
+  eventType,
+  userId,
+  userEmail,
+  expertUserId,
+  expertEmail,
+  expertName,
+  customerName,
+  scheduledAt,
+  durationMinutes,
+  meetingLink,
+}: BookingNotificationPayload) => {
+  const userPreferences = await getNotificationPreferences(userId)
+  const expertPreferences = await getNotificationPreferences(expertUserId)
+  const dateText = scheduledAt
+    ? new Date(scheduledAt).toLocaleString('en-IN', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'the selected time'
+  const durationText = durationMinutes ? `${durationMinutes} minutes` : 'the selected duration'
+  const readableType = eventType.replace('booking_', '').replace('_', ' ')
+
+  const userTitle =
+    eventType === 'booking_cancelled'
+      ? 'Booking cancelled'
+      : eventType === 'booking_rescheduled'
+        ? 'Booking rescheduled'
+        : 'Booking confirmed'
+  const userBody =
+    eventType === 'booking_cancelled'
+      ? `Your session with ${expertName || 'the expert'} has been cancelled.`
+      : eventType === 'booking_rescheduled'
+        ? `Your session with ${expertName || 'the expert'} has been rescheduled to ${dateText} (${durationText}).`
+        : `Your session with ${expertName || 'the expert'} is set for ${dateText} (${durationText}).`
+  const expertTitle =
+    eventType === 'booking_cancelled'
+      ? 'Session cancelled'
+      : eventType === 'booking_rescheduled'
+        ? 'Session rescheduled'
+        : 'New confirmed booking'
+  const expertBody =
+    eventType === 'booking_cancelled'
+      ? `${customerName || 'A client'} cancelled their session.`
+      : eventType === 'booking_rescheduled'
+        ? `${customerName || 'A client'} has rescheduled their session to ${dateText} (${durationText}).`
+        : `${customerName || 'A client'} has a session scheduled for ${dateText} (${durationText}).`
+
+  const tasks: Promise<unknown>[] = []
+
+  if (allowsInApp(userPreferences)) {
+    tasks.push(createInAppNotification({
+      userId,
+      title: userTitle,
+      body: userBody,
+      type: eventType,
+      relatedId: bookingId,
+    }))
+  }
+
+  if (allowsInApp(expertPreferences)) {
+    tasks.push(createInAppNotification({
+      userId: expertUserId,
+      title: expertTitle,
+      body: expertBody,
+      type: eventType,
+      relatedId: bookingId,
+    }))
+  }
+
+  const emailHtml = `
+    <p>Your Irookee booking was ${readableType}.</p>
+    <p><strong>When:</strong> ${dateText}</p>
+    <p><strong>Duration:</strong> ${durationText}</p>
+    ${meetingLink ? `<p><strong>Meeting link:</strong> ${meetingLink}</p>` : ''}
+  `
+
+  if (userEmail && allowsEmail(userPreferences, 'email_booking_confirmed')) {
+    tasks.push(sendNotificationEmail({
+      to: userEmail,
+      subject: `Irookee booking ${readableType}`,
+      html: emailHtml,
+      eventType,
+      userId,
+    }))
+  }
+
+  if (expertEmail && allowsEmail(expertPreferences, 'email_booking_confirmed')) {
+    tasks.push(sendNotificationEmail({
+      to: expertEmail,
+      subject: `Irookee booking ${readableType}`,
+      html: emailHtml,
+      eventType,
+      userId: expertUserId,
+    }))
+  }
+
+  await Promise.all(tasks)
 }

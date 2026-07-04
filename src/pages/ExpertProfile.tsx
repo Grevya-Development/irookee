@@ -135,7 +135,7 @@ export default function ExpertProfile() {
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
       <Seo
-        title={`${expert.name}${expert.title ? ` — ${expert.title}` : ''}`}
+        title={`${expert.name}${expert.title ? `  -  ${expert.title}` : ''}`}
         description={seoDescription}
         path={`/expert/${expert.id}`}
         image={expert.image_url || undefined}
@@ -329,7 +329,7 @@ export default function ExpertProfile() {
         </div>
       </div>
 
-      {/* Mobile sticky booking bar — the sidebar card is far down the page on
+      {/* Mobile sticky booking bar  -  the sidebar card is far down the page on
           small screens, so this keeps the primary CTA always reachable. */}
       <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur border-t p-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">

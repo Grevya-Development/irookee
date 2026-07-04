@@ -74,17 +74,32 @@ serve(async (req) => {
       .eq('id', booking.consumer_id)
       .maybeSingle()
 
-    const { data: expertProfile } = await supabase
-      .from('expert_profiles')
-      .select('id, user_id, title')
+    // Support both speakers and expert_profiles tables for notification routing
+    let expertUserId = null
+    const { data: speakerData } = await supabase
+      .from('speakers')
+      .select('user_id')
       .eq('id', booking.expert_id)
       .maybeSingle()
 
-    const { data: expertUser } = expertProfile?.user_id
+    if (speakerData) {
+      expertUserId = speakerData.user_id
+    } else {
+      const { data: expertProfile } = await supabase
+        .from('expert_profiles')
+        .select('user_id')
+        .eq('id', booking.expert_id)
+        .maybeSingle()
+      if (expertProfile) {
+        expertUserId = expertProfile.user_id
+      }
+    }
+
+    const { data: expertUser } = expertUserId
       ? await supabase
           .from('profiles')
           .select('id, email, full_name')
-          .eq('id', expertProfile.user_id)
+          .eq('id', expertUserId)
           .maybeSingle()
       : { data: null }
 
@@ -97,7 +112,8 @@ serve(async (req) => {
       (preferences || []).map((preference) => [preference.user_id, preference])
     )
 
-    const sessionDate = new Date(booking.scheduled_at)
+    const startVal = booking.scheduled_at || booking.event_date
+    const sessionDate = new Date(startVal)
     const sessionDateText = sessionDate.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -107,7 +123,8 @@ serve(async (req) => {
       hour: '2-digit',
       minute: '2-digit',
     })
-    const durationText = `${booking.duration_minutes || 60} minutes`
+    const durationMinutes = booking.duration_minutes || (booking.duration_hours ? booking.duration_hours * 60 : 60)
+    const durationText = `${durationMinutes} minutes`
     const meetingLink = booking.meeting_link || 'Meeting link will be shared before the session.'
 
     const html = `

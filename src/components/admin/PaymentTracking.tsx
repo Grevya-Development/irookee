@@ -9,12 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle, Clock, XCircle, Loader2, UserX, Video, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { formatBookingDuration, getBookingStart } from "@/lib/bookingUtils";
 
 interface BookingRow {
   id: string;
   event_name: string;
   event_date: string | null;
+  scheduled_at?: string | null;
   duration_hours: number | null;
+  duration_minutes?: number | null;
   status: string | null;
   customer_name: string | null;
   customer_email: string | null;
@@ -83,7 +86,9 @@ const PaymentTracking = () => {
         id: b.id,
         event_name: b.event_name || 'Session',
         event_date: b.event_date,
+        scheduled_at: b.scheduled_at,
         duration_hours: b.duration_hours,
+        duration_minutes: b.duration_minutes,
         status: b.status,
         customer_name: b.customer_name,
         customer_email: b.customer_email,
@@ -208,7 +213,7 @@ const PaymentTracking = () => {
                     <TableCell className="font-medium">{b.event_name}</TableCell>
                     <TableCell>{b.expert_name}</TableCell>
                     <TableCell>{b.customer_name || 'N/A'}</TableCell>
-                    <TableCell>{b.event_date ? new Date(b.event_date).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell>{getBookingStart(b) ? new Date(getBookingStart(b)!).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>{getStatusBadge(b.status)}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" onClick={() => setSelectedBooking(b)}>View</Button>
@@ -232,8 +237,8 @@ const PaymentTracking = () => {
                 <div><p className="font-medium text-muted-foreground">Expert</p><p>{selectedBooking.expert_name}</p></div>
                 <div><p className="font-medium text-muted-foreground">Client</p><p>{selectedBooking.customer_name || 'N/A'}</p></div>
                 <div><p className="font-medium text-muted-foreground">Email</p><p>{selectedBooking.customer_email || 'N/A'}</p></div>
-                <div><p className="font-medium text-muted-foreground">Date</p><p>{selectedBooking.event_date ? new Date(selectedBooking.event_date).toLocaleString() : 'N/A'}</p></div>
-                <div><p className="font-medium text-muted-foreground">Duration</p><p>{selectedBooking.duration_hours ? `${selectedBooking.duration_hours}h` : 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Date</p><p>{getBookingStart(selectedBooking) ? new Date(getBookingStart(selectedBooking)!).toLocaleString() : 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Duration</p><p>{formatBookingDuration(selectedBooking)}</p></div>
               </div>
               {selectedBooking.notes && (
                 <div><p className="text-sm font-medium text-muted-foreground">Notes</p><p className="text-sm">{selectedBooking.notes}</p></div>

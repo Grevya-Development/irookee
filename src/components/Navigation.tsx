@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Menu, X, User, LogOut, LogIn, Settings } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -51,6 +52,7 @@ const Navigation = () => {
             </Link>
             {user ? (
               <div className="flex items-center space-x-1">
+                <NotificationCenter />
                 <Link
                   to="/dashboard"
                   className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
@@ -124,6 +126,10 @@ const Navigation = () => {
               </Link>
               {user ? (
                 <>
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-base font-medium text-gray-700">Notifications</span>
+                    <NotificationCenter />
+                  </div>
                   <Link
                     to="/dashboard"
                     className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"

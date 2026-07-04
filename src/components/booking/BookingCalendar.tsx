@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Loader2 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
-import { ACTIVE_BOOKING_STATUSES, rangesOverlap } from '@/lib/bookingUtils'
+import { ACTIVE_BOOKING_STATUSES, getBookingEnd, getBookingStart, rangesOverlap } from '@/lib/bookingUtils'
 
 interface AvailabilitySlot {
   id: string
@@ -21,17 +21,19 @@ interface AvailabilitySlot {
 interface BookingCalendarProps {
   onDateTimeSelect: (dateTime: string, duration: number) => void
   expertId?: string
+  excludeBookingId?: string | null
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-export function BookingCalendar({ onDateTimeSelect, expertId }: BookingCalendarProps) {
+export function BookingCalendar({ onDateTimeSelect, expertId, excludeBookingId }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [duration, setDuration] = useState<number>(30)
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
   const [loading, setLoading] = useState(false)
   const [existingBookings, setExistingBookings] = useState<{
+    id: string
     event_date: string | null
     scheduled_at?: string | null
     duration_hours?: number | null
@@ -43,7 +45,7 @@ export function BookingCalendar({ onDateTimeSelect, expertId }: BookingCalendarP
       fetchAvailability()
       fetchExistingBookings()
     }
-  }, [expertId])
+  }, [expertId, excludeBookingId])
 
   const fetchAvailability = async () => {
     if (!expertId) return
@@ -67,14 +69,47 @@ export function BookingCalendar({ onDateTimeSelect, expertId }: BookingCalendarP
   const fetchExistingBookings = async () => {
     if (!expertId) return
     try {
-      const { data } = await supabase
+      const combinedBookings: typeof existingBookings = []
+
+      // 1. Fetch current bookings
+      const { data: currentData } = await supabase
         .from('expertise_bookings')
-        .select('event_date, scheduled_at, duration_hours, duration_minutes')
+        .select('id, event_date, scheduled_at, duration_hours, duration_minutes')
         .eq('expert_id', expertId)
         .in('status', Array.from(ACTIVE_BOOKING_STATUSES))
-        .gte('event_date', new Date().toISOString())
 
-      setExistingBookings((data || []) as typeof existingBookings)
+      if (currentData) {
+        combinedBookings.push(...currentData)
+      }
+
+      // 2. Fetch legacy bookings (safely)
+      try {
+        const { data: legacyData } = await supabase
+          .from('bookings')
+          .select('id, scheduled_at, duration_minutes, status')
+          .eq('expert_id', expertId)
+          .in('status', ['pending', 'confirmed', 'in_progress'])
+
+        if (legacyData) {
+          const mappedLegacy = legacyData.map((b) => ({
+            id: b.id,
+            scheduled_at: b.scheduled_at,
+            event_date: b.scheduled_at,
+            duration_hours: b.duration_minutes ? b.duration_minutes / 60 : null,
+            duration_minutes: b.duration_minutes,
+          }))
+          combinedBookings.push(...mappedLegacy)
+        }
+      } catch (err) {
+        console.warn('Failed to fetch legacy bookings for overlap checks:', err)
+      }
+
+      const now = new Date()
+      setExistingBookings(combinedBookings.filter((booking) => {
+        if (excludeBookingId && booking.id === excludeBookingId) return false
+        const end = getBookingEnd(booking)
+        return Boolean(end && end.getTime() > now.getTime())
+      }))
     } catch (error) {
       console.error('Error fetching bookings:', error)
     }

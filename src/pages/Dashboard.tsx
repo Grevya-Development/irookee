@@ -17,7 +17,8 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import UserLoyaltyCard from '@/components/gamification/UserLoyaltyCard'
 import ReviewForm from '@/components/ReviewForm'
-import { formatBookingDuration, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
+import { formatBookingDuration, getBookingDurationMinutes, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
+import { notifyBookingEvent } from '@/lib/notifications'
 
 const getExpertName = (booking: {
   speakers?: { name?: string | null; full_name?: string | null } | null
@@ -35,6 +36,7 @@ export default function Dashboard() {
 
   const handleCancelBooking = async () => {
     if (!cancelBookingId) return
+    const booking = bookings.find((item) => item.id === cancelBookingId)
     setCancelling(true)
     const { error } = await supabase
       .from('expertise_bookings')
@@ -45,6 +47,27 @@ export default function Dashboard() {
     if (error) {
       toast({ title: 'Could not cancel', description: error.message, variant: 'destructive' })
     } else {
+      if (booking) {
+        const { data: expert } = await supabase
+          .from('speakers')
+          .select('name, user_id, email')
+          .eq('id', booking.expert_id)
+          .maybeSingle()
+
+        await notifyBookingEvent({
+          bookingId: booking.id,
+          eventType: 'booking_cancelled',
+          userId: user.id,
+          userEmail: user.email,
+          expertUserId: expert?.user_id,
+          expertEmail: expert?.email,
+          expertName: expert?.name || getExpertName(booking),
+          customerName: booking.customer_name || profile?.full_name || user.email,
+          scheduledAt: getBookingStart(booking),
+          durationMinutes: getBookingDurationMinutes(booking),
+          meetingLink: booking.meeting_link,
+        })
+      }
       toast({ title: 'Booking cancelled', description: 'Your session has been cancelled.' })
       refetch()
     }

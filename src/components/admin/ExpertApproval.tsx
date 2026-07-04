@@ -9,7 +9,7 @@ import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, Ba
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { sendNotificationEmail } from "@/lib/notifications";
+import { createInAppNotification, sendNotificationEmail } from "@/lib/notifications";
 
 interface ExpertRow {
   id: string;
@@ -121,6 +121,13 @@ const ExpertApproval = () => {
           html: "<p>Your Irookee expert profile was approved.</p><p>You can now receive bookings from users.</p>",
         });
       }
+      await createInAppNotification({
+        userId: expert?.user_id,
+        title: "Expert profile approved",
+        body: "Your Irookee expert profile is now live and ready to receive bookings.",
+        type: "expert_approved",
+        relatedId: expertId,
+      });
 
       toast({ title: "Expert Approved", description: "Profile is now live on the platform" });
       fetchExperts();
@@ -157,7 +164,7 @@ const ExpertApproval = () => {
       toast({
         title: value ? "Verified badge granted" : "Verified badge removed",
         description: value
-          ? "This expert now shows the Verified ✓ badge."
+          ? "This expert now shows the Verified badge."
           : "The Verified badge has been removed.",
       });
       fetchExperts();
@@ -185,6 +192,23 @@ const ExpertApproval = () => {
         .eq('speaker_id', expertId)
         .then(() => {})
         .catch(() => {});
+
+      const expert = experts.find((item) => item.id === expertId);
+      if (expert?.email) {
+        await sendNotificationEmail({
+          to: expert.email,
+          subject: "Your Irookee expert profile needs changes",
+          eventType: "expert_rejected",
+          html: "<p>Your Irookee expert profile was not approved yet.</p><p>Please review your profile details and submit again.</p>",
+        });
+      }
+      await createInAppNotification({
+        userId: expert?.user_id,
+        title: "Expert profile not approved",
+        body: "Your expert profile needs changes before it can go live.",
+        type: "expert_rejected",
+        relatedId: expertId,
+      });
 
       toast({ title: "Expert Rejected", description: "Profile has been rejected" });
       fetchExperts();
@@ -316,7 +340,7 @@ const ExpertApproval = () => {
                           <BadgeCheck className="h-3 w-3 mr-1" />Verified
                         </Badge>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -432,9 +456,9 @@ const ExpertApproval = () => {
                   <p className="text-sm font-medium">Verified badge</p>
                   <p className="text-xs text-muted-foreground">
                     {selectedExpert.is_verified
-                      ? "This expert shows the Verified ✓ badge."
+                      ? "This expert shows the Verified badge."
                       : getDocuments(selectedExpert).length > 0
-                        ? "Documents uploaded — review and grant the badge."
+                        ? "Documents uploaded - review and grant the badge."
                         : "No documents uploaded. You can still grant the badge manually."}
                   </p>
                 </div>

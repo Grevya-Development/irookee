@@ -161,8 +161,45 @@ export function ExpertOnboarding() {
   }
 
   const onSubmit = async (data: ExpertOnboardingForm) => {
+    const nameTrimmed = data.full_name.trim()
+    if (!nameTrimmed) { toast.error('Full Name is required'); return }
+
+    const emailTrimmed = data.email.trim()
+    if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
+      toast.error('Please enter a valid email address')
+      return
+    }
+
+    const phoneTrimmed = data.phone.trim()
+    if (!phoneTrimmed) { toast.error('Phone number is required'); return }
+    const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
+    if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+      toast.error('Please enter a valid phone number')
+      return
+    }
+
+    const companyTrimmed = data.company?.trim()
+    if (companyTrimmed && /^\d+$/.test(companyTrimmed)) {
+      toast.error('Company name cannot be numeric-only')
+      return
+    }
+
+    const locTrimmed = locationValue.trim()
+    if (!locTrimmed) { toast.error('Please enter your location'); return }
+    if (/^\d+$/.test(locTrimmed) || locTrimmed.length < 2) {
+      toast.error('Please enter a valid location/country')
+      return
+    }
+
+    if (data.experience_years === undefined || data.experience_years === null || data.experience_years < 0 || !Number.isInteger(data.experience_years)) {
+      toast.error('Years of experience must be a non-negative integer')
+      return
+    }
+
+    if (!data.title.trim()) { toast.error('Professional title is required'); return }
+    if (!data.expertise_areas.trim()) { toast.error('Expertise areas are required'); return }
+
     if (selectedLanguages.length === 0) { toast.error('Select at least one language'); return }
-    if (!locationValue.trim()) { toast.error('Please enter your location'); return }
     if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
     // Verification documents are optional. Uploading them lets an admin grant the
     // "Verified" badge; without them the expert still goes live once approved.
@@ -302,7 +339,7 @@ export function ExpertOnboarding() {
           <div className="flex items-center gap-2 justify-center">
             <StepIcon className="h-5 w-5 text-primary" />
             <span className="font-semibold">{STEP_INFO[step - 1].title}</span>
-            <span className="text-muted-foreground">— {STEP_INFO[step - 1].subtitle}</span>
+            <span className="text-muted-foreground"> -  {STEP_INFO[step - 1].subtitle}</span>
           </div>
         </div>
 
@@ -442,7 +479,7 @@ export function ExpertOnboarding() {
           {step === 3 && (
             <Card className="shadow-lg border-0">
               <CardContent className="p-6 md:p-8 space-y-5">
-                <p className="text-muted-foreground">Pick all that apply — this helps people find you.</p>
+                <p className="text-muted-foreground">Pick all that apply  -  this helps people find you.</p>
                 <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
                   {categories.map(cat => (
                     <button
@@ -491,7 +528,7 @@ export function ExpertOnboarding() {
                       <p className="text-sm text-amber-700 mt-1">
                         Uploading proof documents lets our team review and grant you a
                         <span className="font-medium"> Verified ✓ </span>
-                        badge — it builds trust and helps you get booked. You can skip this
+                        badge  -  it builds trust and helps you get booked. You can skip this
                         and still go live; add documents anytime later.
                       </p>
                       <ul className="text-sm text-amber-700 mt-2 list-disc list-inside space-y-0.5">
@@ -506,7 +543,7 @@ export function ExpertOnboarding() {
                 <label className="block border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors">
                   <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground mb-1">Click to upload or drag files</p>
-                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG — up to 10MB each</p>
+                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG  -  up to 10MB each</p>
                   <Input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleFileUpload} className="hidden" />
                 </label>
 

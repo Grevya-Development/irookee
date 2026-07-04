@@ -121,4 +121,16 @@ BEGIN
         AND public.has_role(auth.uid(), 'admin')
       );
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Anyone can read avatars'
+  ) THEN
+    CREATE POLICY "Anyone can read avatars"
+      ON storage.objects FOR SELECT
+      USING (
+        bucket_id = 'verification-documents'
+        AND (storage.foldername(name))[2] = 'avatars'
+      );
+  END IF;
 END $$;
