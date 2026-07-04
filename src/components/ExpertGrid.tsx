@@ -73,7 +73,11 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const { category, language, location, minRating, sortBy } = filters || {};
+  const category = filters?.category;
+  const language = filters?.language;
+  const location = filters?.location;
+  const minRating = filters?.minRating;
+  const sortBy = filters?.sortBy;
 
   const fetchExperts = useCallback(async () => {
     try {
@@ -86,8 +90,11 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
 
       if (useSearchEngine) {
         const results = await searchExperts({
-          ...(filters as SearchFiltersType),
           category: category || categoryId,
+          language,
+          location,
+          minRating,
+          sortBy,
           query: searchQuery,
           limit,
         });
@@ -143,7 +150,7 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, limit, category, categoryId, language, location, minRating, sortBy, filters]);
+  }, [searchQuery, limit, category, categoryId, language, location, minRating, sortBy]);
 
   useEffect(() => {
     fetchExperts();
