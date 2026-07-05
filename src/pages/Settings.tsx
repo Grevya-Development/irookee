@@ -184,7 +184,7 @@ export default function Settings() {
     setUploading(true)
     try {
       const fileExt = file.name.split('.').pop()
-      const filePath = `${user.id}/avatars/profile.${fileExt}`
+      const filePath = `${user.id}/avatars/profile_${Date.now()}.${fileExt}`
 
       // Try uploading to Supabase Storage
       const { error: uploadError } = await supabase.storage
