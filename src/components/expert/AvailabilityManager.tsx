@@ -55,6 +55,24 @@ export function AvailabilityManager({ expertId }: { expertId: string }) {
 
   const addSlot = async () => {
     if (startTime >= endTime) { toast.error('End time must be after start time'); return }
+
+    // Check for overlap locally in current slots state first
+    const hasOverlap = slots.some(slot => {
+      if (slot.day_of_week !== selectedDay) return false
+
+      const sStart = startTime.slice(0, 5)
+      const sEnd = endTime.slice(0, 5)
+      const oStart = slot.start_time.slice(0, 5)
+      const oEnd = slot.end_time.slice(0, 5)
+
+      return sStart < oEnd && oStart < sEnd
+    })
+
+    if (hasOverlap) {
+      toast.error('This slot overlaps with an existing availability slot.')
+      return
+    }
+
     setLoading(true)
     try {
       const { error } = await supabase.from('availability_slots').insert({
