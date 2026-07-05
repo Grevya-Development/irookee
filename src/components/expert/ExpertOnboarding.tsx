@@ -173,7 +173,7 @@ export function ExpertOnboarding() {
     const phoneTrimmed = data.phone.trim()
     if (!phoneTrimmed) { toast.error('Phone number is required'); return }
     const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
-    if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+    if (!/^\+?[1-9]\d{9,14}$/.test(phoneClean)) {
       toast.error('Please enter a valid phone number')
       return
     }
@@ -376,7 +376,7 @@ export function ExpertOnboarding() {
                         required: 'Required',
                         validate: value => {
                           const phone = value.replace(/[\s()-]/g, '')
-                          return /^\+?[1-9]\d{7,14}$/.test(phone) || 'Invalid phone number'
+                          return /^\+?[1-9]\d{9,14}$/.test(phone) || 'Invalid phone number'
                         }
                       })}
                       placeholder="+91 98765 43210"
