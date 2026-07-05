@@ -68,10 +68,15 @@ serve(async (req) => {
       await safeDelete('guest_profiles', 'email', user.email)
     }
 
-    // Unlink organizer/reviewer IDs from bookings and reviews
+    // Unlink organizer/reviewer/seeker/consumer IDs from bookings and reviews
     await safeUpdate('bookings', { organizer_id: null }, 'organizer_id', user.id)
+    await safeUpdate('bookings', { seeker_id: null }, 'seeker_id', user.id)
+    await safeUpdate('bookings', { user_id: null }, 'user_id', user.id)
+    await safeUpdate('expertise_bookings', { consumer_id: null }, 'consumer_id', user.id)
+    await safeUpdate('expertise_bookings', { user_id: null }, 'user_id', user.id)
     await safeUpdate('reviews', { reviewer_id: null }, 'reviewer_id', user.id)
     await safeUpdate('expertise_reviews', { reviewer_id: null }, 'reviewer_id', user.id)
+    await safeDelete('user_roles', 'user_id', user.id)
 
     // Anonymize and unlink expert profiles
     await safeUpdate(

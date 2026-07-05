@@ -31,15 +31,14 @@ export const getBookingEnd = (booking: BookingLike) => {
 }
 
 export const isUpcomingBooking = (booking: BookingLike, now = new Date()) => {
-  const start = getBookingStart(booking)
-  if (!start || !booking.status || !ACTIVE_BOOKING_STATUSES.has(booking.status)) return false
+  const end = getBookingEnd(booking)
+  if (!end || !booking.status || !ACTIVE_BOOKING_STATUSES.has(booking.status)) return false
 
-  const startDate = new Date(start)
-  return !Number.isNaN(startDate.getTime()) && startDate.getTime() > now.getTime()
+  return end.getTime() > now.getTime()
 }
 
 export const isPastBooking = (booking: BookingLike, now = new Date()) => {
-  if (booking.status === 'completed') return true
+  if (booking.status === 'completed' || booking.status === 'no_show') return true
   if (booking.status === 'cancelled') return false
 
   const end = getBookingEnd(booking)

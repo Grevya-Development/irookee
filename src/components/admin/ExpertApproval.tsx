@@ -83,7 +83,12 @@ const ExpertApproval = () => {
         return;
       }
 
-      const normalizedPath = url.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
+      let normalizedPath = url;
+      if (url.includes("/" + VERIFICATION_BUCKET + "/")) {
+        normalizedPath = url.split("/" + VERIFICATION_BUCKET + "/")[1];
+      } else {
+        normalizedPath = url.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
+      }
       const { data, error } = await supabase.storage
         .from(VERIFICATION_BUCKET)
         .createSignedUrl(normalizedPath, 300);

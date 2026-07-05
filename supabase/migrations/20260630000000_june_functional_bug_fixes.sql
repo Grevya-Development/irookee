@@ -134,3 +134,106 @@ BEGIN
       );
   END IF;
 END $$;
+
+-- Triggers to enforce double-booking overlap checks at the database query level (prevents race conditions)
+CREATE OR REPLACE FUNCTION public.check_booking_overlap()
+RETURNS TRIGGER AS $$
+DECLARE
+  overlap_exists BOOLEAN;
+  new_start TIMESTAMPTZ;
+  new_end TIMESTAMPTZ;
+  new_duration_min INTEGER;
+  new_expert_id UUID;
+  new_id UUID;
+BEGIN
+  new_id := NEW.id;
+  new_expert_id := NEW.expert_id;
+  new_start := COALESCE(NEW.scheduled_at, NEW.event_date);
+  new_duration_min := COALESCE(NEW.duration_minutes, (NEW.duration_hours * 60)::INTEGER, 60);
+  new_end := new_start + (new_duration_min * INTERVAL '1 minute');
+
+  -- Check overlaps in public.expertise_bookings
+  SELECT EXISTS (
+    SELECT 1 FROM public.expertise_bookings
+    WHERE expert_id = new_expert_id
+      AND id <> new_id
+      AND status IN ('pending', 'confirmed', 'in_progress')
+      AND COALESCE(scheduled_at, event_date) < new_end
+      AND new_start < (COALESCE(scheduled_at, event_date) + (COALESCE(duration_minutes, (duration_hours * 60)::INTEGER, 60) * INTERVAL '1 minute'))
+  ) INTO overlap_exists;
+
+  IF NOT overlap_exists THEN
+    -- Check overlaps in public.bookings
+    SELECT EXISTS (
+      SELECT 1 FROM public.bookings
+      WHERE expert_id = new_expert_id
+        AND status IN ('pending', 'confirmed', 'in_progress')
+        AND scheduled_at < new_end
+        AND new_start < (scheduled_at + (COALESCE(duration_minutes, 60) * INTERVAL '1 minute'))
+    ) INTO overlap_exists;
+  END IF;
+
+  IF overlap_exists THEN
+    RAISE EXCEPTION 'Double booking error: The expert is already booked for this time range.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_check_booking_overlap ON public.expertise_bookings;
+CREATE TRIGGER trg_check_booking_overlap
+BEFORE INSERT OR UPDATE ON public.expertise_bookings
+FOR EACH ROW
+EXECUTE FUNCTION public.check_booking_overlap();
+
+CREATE OR REPLACE FUNCTION public.check_legacy_booking_overlap()
+RETURNS TRIGGER AS $$
+DECLARE
+  overlap_exists BOOLEAN;
+  new_start TIMESTAMPTZ;
+  new_end TIMESTAMPTZ;
+  new_duration_min INTEGER;
+  new_expert_id UUID;
+  new_id UUID;
+BEGIN
+  new_id := NEW.id;
+  new_expert_id := NEW.expert_id;
+  new_start := NEW.scheduled_at;
+  new_duration_min := COALESCE(NEW.duration_minutes, 60);
+  new_end := new_start + (new_duration_min * INTERVAL '1 minute');
+
+  -- Check overlaps in public.bookings
+  SELECT EXISTS (
+    SELECT 1 FROM public.bookings
+    WHERE expert_id = new_expert_id
+      AND id <> new_id
+      AND status IN ('pending', 'confirmed', 'in_progress')
+      AND scheduled_at < new_end
+      AND new_start < (scheduled_at + (COALESCE(duration_minutes, 60) * INTERVAL '1 minute'))
+  ) INTO overlap_exists;
+
+  IF NOT overlap_exists THEN
+    -- Check overlaps in public.expertise_bookings
+    SELECT EXISTS (
+      SELECT 1 FROM public.expertise_bookings
+      WHERE expert_id = new_expert_id
+        AND status IN ('pending', 'confirmed', 'in_progress')
+        AND COALESCE(scheduled_at, event_date) < new_end
+        AND new_start < (COALESCE(scheduled_at, event_date) + (COALESCE(duration_minutes, (duration_hours * 60)::INTEGER, 60) * INTERVAL '1 minute'))
+    ) INTO overlap_exists;
+  END IF;
+
+  IF overlap_exists THEN
+    RAISE EXCEPTION 'Double booking error: The expert is already booked for this time range.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_check_legacy_booking_overlap ON public.bookings;
+CREATE TRIGGER trg_check_legacy_booking_overlap
+BEFORE INSERT OR UPDATE ON public.bookings
+FOR EACH ROW
+EXECUTE FUNCTION public.check_legacy_booking_overlap();

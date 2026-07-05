@@ -14,6 +14,7 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { LocationInput } from '@/components/ui/location-input'
+import { createInAppNotification, sendNotificationEmail, notifyAdmins } from '@/lib/notifications'
 
 const LANGUAGE_OPTIONS = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali',
@@ -285,6 +286,34 @@ export function ExpertOnboarding() {
         id: user.id, full_name: data.full_name.trim(), email: user.email,
         user_type: 'expert', bio: data.bio || '', phone: data.phone || null,
       })
+
+      // Send notifications for expert application submission (email, user confirmation, admin alert)
+      if (user.email) {
+        await sendNotificationEmail({
+          to: user.email,
+          subject: "Your Irookee expert application has been received",
+          eventType: "email_expert_application",
+          html: `<p>Dear ${data.full_name.trim()},</p><p>Thank you for applying to become an expert on Irookee! We have received your application and it is currently pending review.</p>`,
+          userId: user.id
+        }).catch(err => console.error("Failed to send notification email:", err))
+      }
+
+      await createInAppNotification({
+        userId: user.id,
+        title: "Expert application submitted",
+        body: "Your application to become an expert has been received and is pending admin review.",
+        type: "expert_application"
+      }).catch(err => console.error("Failed to create in-app notification:", err))
+
+      if (expertData) {
+        // Notify admins
+        await notifyAdmins({
+          title: "New Expert Application",
+          body: `${data.full_name.trim()} (${data.title}) has submitted a new expert application.`,
+          type: "expert_application",
+          relatedId: expertData.id
+        }).catch(err => console.error("Failed to notify admins:", err))
+      }
 
       toast.success(
         hasDocs
