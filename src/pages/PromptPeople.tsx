@@ -57,12 +57,12 @@ const PromptPeople = memo(() => {
   const fmt = (n: number) => (n >= 10 ? `${Math.floor(n / 10) * 10}+` : `${n}`);
   const stats = [
     {
-      number: platformStats ? fmt(platformStats.expertCount) : "—",
+      number: platformStats ? fmt(platformStats.expertCount) : " - ",
       label: "Verified Experts",
       icon: Users,
     },
     {
-      number: platformStats ? fmt(platformStats.categoryCount) : "—",
+      number: platformStats ? fmt(platformStats.categoryCount) : " - ",
       label: "Categories",
       icon: Globe,
     },
@@ -70,7 +70,7 @@ const PromptPeople = memo(() => {
       number:
         platformStats && platformStats.avgRating > 0
           ? platformStats.avgRating.toFixed(1)
-          : "—",
+          : " - ",
       label: "Average Rating",
       icon: Star,
     },
@@ -103,7 +103,7 @@ const PromptPeople = memo(() => {
   return (
     <div className="min-h-screen bg-background">
       <Seo
-        title="irookee — Find verified experts, mentors & guides"
+        title="irookee  -  Find verified experts, mentors & guides"
         description="Connect instantly with verified professionals, mentors, and guides for any career, travel, or personal-growth situation. People for People."
         path="/"
       />

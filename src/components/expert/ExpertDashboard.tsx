@@ -13,12 +13,17 @@ import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
+import { formatBookingDuration, getBookingDurationMinutes, getBookingStart, isUpcomingBooking } from '@/lib/bookingUtils'
+import { notifyBookingEvent } from '@/lib/notifications'
 
 interface BookingRow {
   id: string
+  user_id?: string | null
   event_name: string
   event_date: string | null
+  scheduled_at?: string | null
   duration_hours: number | null
+  duration_minutes?: number | null
   status: string | null
   customer_name: string | null
   customer_email: string | null
@@ -92,9 +97,7 @@ export function ExpertDashboard() {
       const allBookings = bookings || []
       const completed = allBookings.filter(b => b.status === 'completed').length
       const noShows = allBookings.filter(b => b.status === 'no_show').length
-      const upcoming = allBookings.filter(b => {
-        return b.status === 'confirmed' && b.event_date && new Date(b.event_date) > new Date()
-      }).length
+      const upcoming = allBookings.filter(b => isUpcomingBooking(b)).length
 
       const { data: expertData } = await supabase
         .from('speakers')
@@ -307,6 +310,7 @@ export function ExpertDashboard() {
 }
 
 function BookingsList({ expertId }: { expertId: string }) {
+  const { user } = useAuth()
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [loading, setLoading] = useState(true)
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set())
@@ -352,6 +356,7 @@ function BookingsList({ expertId }: { expertId: string }) {
   }
 
   const updateStatus = async (bookingId: string, status: string) => {
+    const booking = bookings.find((item) => item.id === bookingId)
     const { error } = await supabase
       .from('expertise_bookings')
       .update({ status })
@@ -360,6 +365,21 @@ function BookingsList({ expertId }: { expertId: string }) {
     if (error) {
       toast({ title: "Error", description: "Failed to update booking", variant: "destructive" })
     } else {
+      if (booking && (status === 'confirmed' || status === 'cancelled')) {
+        await notifyBookingEvent({
+          bookingId,
+          eventType: status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled',
+          userId: booking.user_id,
+          userEmail: booking.customer_email,
+          expertUserId: user?.id,
+          expertEmail: user?.email,
+          expertName: 'Your expert',
+          customerName: booking.customer_name,
+          scheduledAt: getBookingStart(booking),
+          durationMinutes: getBookingDurationMinutes(booking),
+          meetingLink: booking.meeting_link,
+        })
+      }
       toast({ title: "Updated", description: `Booking marked as ${status}` })
       fetchBookings()
     }
@@ -378,7 +398,7 @@ function BookingsList({ expertId }: { expertId: string }) {
   }
 
   const pending = bookings.filter(b => b.status === 'pending')
-  const upcoming = bookings.filter(b => b.status === 'confirmed' && b.event_date && new Date(b.event_date) > new Date())
+  const upcoming = bookings.filter(b => isUpcomingBooking(b))
   const past = bookings.filter(b => b.status === 'completed')
   const cancelled = bookings.filter(b => b.status === 'cancelled')
 
@@ -399,11 +419,11 @@ function BookingsList({ expertId }: { expertId: string }) {
                         {booking.customer_name} ({booking.customer_email})
                       </p>
                       <p className="text-sm font-medium mt-1">
-                        {booking.event_date && new Date(booking.event_date).toLocaleString('en-IN', {
+                        {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
                           weekday: 'short', month: 'short', day: 'numeric',
                           hour: '2-digit', minute: '2-digit'
                         })}
-                        {booking.duration_hours && ` - ${booking.duration_hours}h`}
+                        {` - ${formatBookingDuration(booking)}`}
                       </p>
                       {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
                       {booking.meeting_link && (
@@ -446,11 +466,11 @@ function BookingsList({ expertId }: { expertId: string }) {
                         {booking.customer_name} ({booking.customer_email})
                       </p>
                       <p className="text-sm font-medium mt-1">
-                        {booking.event_date && new Date(booking.event_date).toLocaleString('en-IN', {
+                        {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
                           weekday: 'short', month: 'short', day: 'numeric',
                           hour: '2-digit', minute: '2-digit'
                         })}
-                        {booking.duration_hours && ` - ${booking.duration_hours}h`}
+                        {` - ${formatBookingDuration(booking)}`}
                       </p>
                       {booking.meeting_link && (
                         <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">
@@ -486,7 +506,7 @@ function BookingsList({ expertId }: { expertId: string }) {
                     <div>
                       <p className="font-medium">{booking.event_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {booking.customer_name} - {booking.event_date && new Date(booking.event_date).toLocaleDateString()}
+                        {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
                       </p>
                       {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
                         <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
@@ -523,7 +543,7 @@ function BookingsList({ expertId }: { expertId: string }) {
                     <div>
                       <p className="font-medium">{booking.event_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {booking.customer_name} - {booking.event_date && new Date(booking.event_date).toLocaleDateString()}
+                        {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
                       </p>
                     </div>
                     <Badge variant="destructive">cancelled</Badge>

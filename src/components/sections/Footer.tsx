@@ -22,7 +22,7 @@ const Footer = () => {
           {/* Brand */}
           <div>
             <div className="bg-white rounded-xl p-4 mb-4 inline-block">
-              <img src="/irookee.svg" alt="irookee — Find people, get connected." className="h-28 w-auto object-contain" />
+              <img src="/irookee.svg" alt="irookee  -  Find people, get connected." className="h-28 w-auto object-contain" />
             </div>
             <p className="text-lg font-semibold text-purple-400 mb-3">People for People</p>
             <p className="text-gray-400 text-sm mb-4">

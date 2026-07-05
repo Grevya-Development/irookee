@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -42,6 +43,20 @@ interface ExpertData {
   image_url: string | null
 }
 
+type NotificationPreferences = {
+  email_booking_confirmed: boolean
+  email_expert_application: boolean
+  email_expert_approved: boolean
+  in_app_notifications: boolean
+}
+
+const defaultNotificationPreferences: NotificationPreferences = {
+  email_booking_confirmed: true,
+  email_expert_application: true,
+  email_expert_approved: true,
+  in_app_notifications: true,
+}
+
 export default function Settings() {
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
@@ -58,6 +73,7 @@ export default function Settings() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [isExpert, setIsExpert] = useState(false)
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,6 +81,7 @@ export default function Settings() {
     } else if (user) {
       loadProfile()
       loadExpertProfile()
+      loadNotificationPreferences()
     }
   }, [user, authLoading])
 
@@ -119,6 +136,47 @@ export default function Settings() {
     }
   }
 
+  const loadNotificationPreferences = async () => {
+    if (!user) return
+
+    const { data } = await supabase
+      .from('notification_preferences' as never)
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (data) {
+      const prefs = data as NotificationPreferences
+      setNotificationPreferences({
+        email_booking_confirmed: Boolean(prefs.email_booking_confirmed),
+        email_expert_application: Boolean(prefs.email_expert_application),
+        email_expert_approved: Boolean(prefs.email_expert_approved),
+        in_app_notifications: Boolean(prefs.in_app_notifications),
+      })
+    }
+  }
+
+  const saveNotificationPreferences = async () => {
+    if (!user) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('notification_preferences' as never)
+        .upsert({
+          user_id: user.id,
+          ...notificationPreferences,
+        } as never)
+
+      if (error) throw error
+      toast({ title: "Notification Preferences Saved", description: "Your notification settings have been updated" })
+    } catch (error) {
+      console.error('Notification preference save error:', error)
+      toast({ title: "Save Failed", description: "Could not save notification preferences", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !user) return
@@ -126,7 +184,7 @@ export default function Settings() {
     setUploading(true)
     try {
       const fileExt = file.name.split('.').pop()
-      const filePath = `avatars/${user.id}/profile.${fileExt}`
+      const filePath = `${user.id}/avatars/profile.${fileExt}`
 
       // Try uploading to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -179,15 +237,37 @@ export default function Settings() {
 
   const saveProfile = async () => {
     if (!user) return
+
+    const nameTrimmed = profileData.full_name.trim()
+    if (!nameTrimmed) {
+      toast({ title: "Validation Error", description: "Full Name is required", variant: "destructive" })
+      return
+    }
+
+    const emailTrimmed = profileData.email.trim()
+    if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" })
+      return
+    }
+
+    const phoneTrimmed = profileData.phone.trim()
+    if (phoneTrimmed) {
+      const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
+      if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+        toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const { error } = await supabase.from('profiles').upsert({
         id: user.id,
-        full_name: profileData.full_name,
-        email: profileData.email,
-        phone: profileData.phone,
-        bio: profileData.bio,
-        avatar_url: profileData.avatar_url,
+        full_name: nameTrimmed,
+        email: emailTrimmed,
+        phone: phoneTrimmed || null,
+        bio: profileData.bio ? profileData.bio.trim() : null,
+        avatar_url: profileData.avatar_url || null,
       })
       if (error) throw error
       toast({ title: "Profile Saved", description: "Your personal information has been updated" })
@@ -201,18 +281,79 @@ export default function Settings() {
 
   const saveExpertProfile = async () => {
     if (!user || !expertData) return
+
+    const nameTrimmed = expertData.name.trim()
+    if (!nameTrimmed) {
+      toast({ title: "Validation Error", description: "Display Name is required", variant: "destructive" })
+      return
+    }
+
+    const titleTrimmed = expertData.title.trim()
+    if (!titleTrimmed) {
+      toast({ title: "Validation Error", description: "Professional Title is required", variant: "destructive" })
+      return
+    }
+
+    const emailTrimmed = expertData.email.trim()
+    if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" })
+      return
+    }
+
+    const phoneTrimmed = expertData.phone.trim()
+    if (!phoneTrimmed) {
+      toast({ title: "Validation Error", description: "Phone number is required", variant: "destructive" })
+      return
+    }
+    const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
+    if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+      toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
+      return
+    }
+
+    const companyTrimmed = expertData.company.trim()
+    if (companyTrimmed && /^\d+$/.test(companyTrimmed)) {
+      toast({ title: "Validation Error", description: "Company name cannot be numeric-only", variant: "destructive" })
+      return
+    }
+
+    const locationTrimmed = expertData.location.trim()
+    if (!locationTrimmed) {
+      toast({ title: "Validation Error", description: "Location is required", variant: "destructive" })
+      return
+    }
+    if (/^\d+$/.test(locationTrimmed) || locationTrimmed.length < 2) {
+      toast({ title: "Validation Error", description: "Please enter a valid location/country", variant: "destructive" })
+      return
+    }
+
+    if (expertData.experience_years !== null && (expertData.experience_years < 0 || !Number.isInteger(expertData.experience_years))) {
+      toast({ title: "Validation Error", description: "Years of experience must be a non-negative integer", variant: "destructive" })
+      return
+    }
+
+    if (expertData.languages.length === 0) {
+      toast({ title: "Validation Error", description: "Please specify at least one language", variant: "destructive" })
+      return
+    }
+    const invalidLangs = expertData.languages.some(lang => /^\d+$/.test(lang) || lang.length < 2)
+    if (invalidLangs) {
+      toast({ title: "Validation Error", description: "Please enter valid language names", variant: "destructive" })
+      return
+    }
+
     setSaving(true)
     try {
       const { error } = await supabase.from('speakers').update({
-        name: expertData.name,
-        title: expertData.title,
-        bio: expertData.bio,
-        location: expertData.location,
-        company: expertData.company,
-        phone: expertData.phone,
-        email: expertData.email,
-        linkedin_url: expertData.linkedin_url,
-        website_url: expertData.website_url,
+        name: nameTrimmed,
+        title: titleTrimmed,
+        bio: expertData.bio ? expertData.bio.trim() : '',
+        location: locationTrimmed,
+        company: companyTrimmed || null,
+        phone: phoneTrimmed,
+        email: emailTrimmed,
+        linkedin_url: expertData.linkedin_url ? expertData.linkedin_url.trim() : null,
+        website_url: expertData.website_url ? expertData.website_url.trim() : null,
         expertise: expertData.expertise,
         languages: expertData.languages,
         experience_years: expertData.experience_years,
@@ -232,20 +373,12 @@ export default function Settings() {
     if (!user || deleteConfirm !== 'DELETE') return
     setDeleting(true)
     try {
-      // Delete expert profile if exists
-      if (expertData) {
-        await supabase.from('availability_slots').delete().eq('expert_id', expertData.id)
-        await supabase.from('speaker_categories').delete().eq('speaker_id', expertData.id)
-        await supabase.from('speakers').delete().eq('id', expertData.id)
-      }
+      const { error } = await supabase.functions.invoke('delete-account')
+      if (error) throw error
 
-      // Delete user profile
-      await supabase.from('profiles').delete().eq('id', user.id)
-
-      // Sign out (actual auth.users row deletion requires admin/service role)
       await supabase.auth.signOut()
 
-      toast({ title: "Account Deleted", description: "Your profile data has been removed" })
+      toast({ title: "Account Deleted", description: "Your account and profile data have been removed" })
       navigate('/')
     } catch (error) {
       console.error('Delete error:', error)
@@ -283,6 +416,7 @@ export default function Settings() {
           <TabsList>
             <TabsTrigger value="profile"><User className="h-4 w-4 mr-1" /> Profile</TabsTrigger>
             {isExpert && <TabsTrigger value="expert"><Shield className="h-4 w-4 mr-1" /> Expert Profile</TabsTrigger>}
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="account"><Trash2 className="h-4 w-4 mr-1" /> Account</TabsTrigger>
           </TabsList>
 
@@ -500,6 +634,37 @@ export default function Settings() {
               </Card>
             </TabsContent>
           )}
+
+          <TabsContent value="notifications">
+            <Card>
+              <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>Choose which Irookee updates you want to receive.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {[
+                  ['email_booking_confirmed', 'Booking confirmation emails'],
+                  ['email_expert_application', 'Expert application emails'],
+                  ['email_expert_approved', 'Expert approval emails'],
+                  ['in_app_notifications', 'In-app notifications'],
+                ].map(([key, label]) => (
+                  <div key={key} className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                    <Label htmlFor={key}>{label}</Label>
+                    <Switch
+                      id={key}
+                      checked={notificationPreferences[key as keyof NotificationPreferences]}
+                      onCheckedChange={(checked) =>
+                        setNotificationPreferences(prev => ({ ...prev, [key]: checked }))
+                      }
+                    />
+                  </div>
+                ))}
+                <Button onClick={saveNotificationPreferences} disabled={saving}>
+                  {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save Notifications</>}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Account / Danger Zone Tab */}
           <TabsContent value="account">

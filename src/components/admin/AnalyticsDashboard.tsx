@@ -22,13 +22,17 @@ const AnalyticsDashboard = () => {
   const [categoryStats, setCategoryStats] = useState<{ name: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
+  type CategoryStatRow = {
+    categories?: { name?: string | null } | null;
+  };
+
   useEffect(() => {
     fetchAnalytics();
   }, []);
 
   const safeCount = async (table: string, filters?: Record<string, string>) => {
     try {
-      let query = supabase.from(table as any).select('id', { count: 'exact', head: true });
+      let query = supabase.from(table as never).select('id', { count: 'exact', head: true });
       if (filters) {
         Object.entries(filters).forEach(([key, val]) => {
           query = query.eq(key, val);
@@ -73,9 +77,9 @@ const AnalyticsDashboard = () => {
 
       // Category distribution
       try {
-        const { data: catData } = await supabase.from('speaker_categories' as any).select('category_id, categories ( name )');
+        const { data: catData } = await supabase.from('speaker_categories' as never).select('category_id, categories ( name )');
         const catCounts: Record<string, number> = {};
-        (catData || []).forEach((row: any) => {
+        ((catData || []) as CategoryStatRow[]).forEach((row) => {
           const name = row.categories?.name || 'Unknown';
           catCounts[name] = (catCounts[name] || 0) + 1;
         });

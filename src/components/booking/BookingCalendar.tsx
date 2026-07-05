@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Loader2 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
+import { ACTIVE_BOOKING_STATUSES, getBookingEnd, getBookingStart, rangesOverlap } from '@/lib/bookingUtils'
 
 interface AvailabilitySlot {
   id: string
@@ -20,24 +21,31 @@ interface AvailabilitySlot {
 interface BookingCalendarProps {
   onDateTimeSelect: (dateTime: string, duration: number) => void
   expertId?: string
+  excludeBookingId?: string | null
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-export function BookingCalendar({ onDateTimeSelect, expertId }: BookingCalendarProps) {
+export function BookingCalendar({ onDateTimeSelect, expertId, excludeBookingId }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [duration, setDuration] = useState<number>(30)
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
   const [loading, setLoading] = useState(false)
-  const [existingBookings, setExistingBookings] = useState<{ event_date: string; duration_hours: number }[]>([])
+  const [existingBookings, setExistingBookings] = useState<{
+    id: string
+    event_date: string | null
+    scheduled_at?: string | null
+    duration_hours?: number | null
+    duration_minutes?: number | null
+  }[]>([])
 
   useEffect(() => {
     if (expertId) {
       fetchAvailability()
       fetchExistingBookings()
     }
-  }, [expertId])
+  }, [expertId, excludeBookingId])
 
   const fetchAvailability = async () => {
     if (!expertId) return
@@ -61,14 +69,47 @@ export function BookingCalendar({ onDateTimeSelect, expertId }: BookingCalendarP
   const fetchExistingBookings = async () => {
     if (!expertId) return
     try {
-      const { data } = await supabase
-        .from('expertise_bookings')
-        .select('event_date, duration_hours')
-        .eq('expert_id', expertId)
-        .in('status', ['pending', 'confirmed'])
-        .gte('event_date', new Date().toISOString())
+      const combinedBookings: typeof existingBookings = []
 
-      setExistingBookings(data || [])
+      // 1. Fetch current bookings
+      const { data: currentData } = await supabase
+        .from('expertise_bookings')
+        .select('id, event_date, scheduled_at, duration_hours, duration_minutes')
+        .eq('expert_id', expertId)
+        .in('status', Array.from(ACTIVE_BOOKING_STATUSES))
+
+      if (currentData) {
+        combinedBookings.push(...currentData)
+      }
+
+      // 2. Fetch legacy bookings (safely)
+      try {
+        const { data: legacyData } = await supabase
+          .from('bookings')
+          .select('id, scheduled_at, duration_minutes, status')
+          .eq('expert_id', expertId)
+          .in('status', ['pending', 'confirmed', 'in_progress'])
+
+        if (legacyData) {
+          const mappedLegacy = legacyData.map((b) => ({
+            id: b.id,
+            scheduled_at: b.scheduled_at,
+            event_date: b.scheduled_at,
+            duration_hours: b.duration_minutes ? b.duration_minutes / 60 : null,
+            duration_minutes: b.duration_minutes,
+          }))
+          combinedBookings.push(...mappedLegacy)
+        }
+      } catch (err) {
+        console.warn('Failed to fetch legacy bookings for overlap checks:', err)
+      }
+
+      const now = new Date()
+      setExistingBookings(combinedBookings.filter((booking) => {
+        if (excludeBookingId && booking.id === excludeBookingId) return false
+        const end = getBookingEnd(booking)
+        return Boolean(end && end.getTime() > now.getTime())
+      }))
     } catch (error) {
       console.error('Error fetching bookings:', error)
     }
@@ -105,16 +146,27 @@ export function BookingCalendar({ onDateTimeSelect, expertId }: BookingCalendarP
       while (currentHour < endHour || (currentHour === endHour && currentMin < endMin)) {
         const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`
 
-        // Check if this slot is already booked
+        const slotStart = new Date(date)
+        slotStart.setHours(currentHour, currentMin, 0, 0)
+        const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000)
+
         const isBooked = existingBookings.some(booking => {
-          if (!booking.event_date) return false
-          const bookingDate = new Date(booking.event_date)
-          return bookingDate.toDateString() === date.toDateString() &&
-            bookingDate.getHours() === currentHour &&
-            bookingDate.getMinutes() === currentMin
+          const bookingStartValue = booking.scheduled_at || booking.event_date
+          if (!bookingStartValue) return false
+
+          const bookingStart = new Date(bookingStartValue)
+          if (Number.isNaN(bookingStart.getTime())) return false
+
+          const bookingDuration =
+            Number(booking.duration_minutes) ||
+            Number(booking.duration_hours || 0) * 60 ||
+            60
+          const bookingEnd = new Date(bookingStart.getTime() + bookingDuration * 60 * 1000)
+
+          return rangesOverlap(slotStart, slotEnd, bookingStart, bookingEnd)
         })
 
-        if (!isBooked) {
+        if (!isBooked && slotStart.getTime() > Date.now()) {
           timeSlots.push(timeStr)
         }
 

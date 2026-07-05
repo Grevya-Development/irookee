@@ -71,6 +71,7 @@ export default function Booking() {
             {!selectedDateTime ? (
               <BookingCalendar
                 expertId={expertId}
+                excludeBookingId={bookingId}
                 onDateTimeSelect={(dt, dur) => { setSelectedDateTime(dt); setSelectedDuration(dur); }}
               />
             ) : (

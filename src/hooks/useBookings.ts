@@ -8,6 +8,8 @@ export interface BookingWithExpert {
   event_name: string
   event_date: string | null
   duration_hours: number | null
+  duration_minutes?: number | null
+  scheduled_at?: string | null
   total_amount: number | null
   customer_name: string | null
   customer_email: string | null
@@ -19,8 +21,13 @@ export interface BookingWithExpert {
   created_at: string
   speakers: {
     name: string | null
+    full_name?: string | null
     title: string | null
   } | null
+  expert_profile?: {
+    full_name: string
+    title: string
+  }
 }
 
 export function useBookings(userId?: string) {
@@ -47,7 +54,16 @@ export function useBookings(userId?: string) {
         .order('created_at', { ascending: false })
 
       if (fetchError) throw fetchError
-      setBookings((data || []) as BookingWithExpert[])
+      const rows = (data || []) as BookingWithExpert[]
+      setBookings(rows.map((booking) => ({
+        ...booking,
+        event_date: booking.event_date || booking.scheduled_at || null,
+        duration_hours: booking.duration_hours ?? ((booking.duration_minutes || 0) / 60),
+        expert_profile: {
+          full_name: booking.speakers?.full_name || booking.speakers?.name || 'Expert',
+          title: booking.speakers?.title || '',
+        },
+      })))
     } catch (err) {
       console.error('Error fetching bookings:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch bookings')

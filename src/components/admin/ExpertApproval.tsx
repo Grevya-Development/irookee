@@ -9,6 +9,7 @@ import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, Ba
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createInAppNotification, sendNotificationEmail } from "@/lib/notifications";
 
 interface ExpertRow {
   id: string;
@@ -29,6 +30,11 @@ interface ExpertRow {
   linkedin_url: string | null;
   user_id: string | null;
 }
+
+const VERIFICATION_BUCKET = "verification-documents";
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 const ExpertApproval = () => {
   const [experts, setExperts] = useState<ExpertRow[]>([]);
@@ -68,6 +74,32 @@ const ExpertApproval = () => {
     }
   };
 
+  const openDocument = async (url: string) => {
+    try {
+      if (!url || url.startsWith('local://')) return;
+
+      if (/^https?:\/\//i.test(url)) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      const normalizedPath = url.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
+      const { data, error } = await supabase.storage
+        .from(VERIFICATION_BUCKET)
+        .createSignedUrl(normalizedPath, 300);
+
+      if (error || !data?.signedUrl) throw error || new Error("Document URL could not be created");
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error opening verification document:", error);
+      toast({
+        title: "Unable to open document",
+        description: "The verification document path or storage permissions need attention.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Approve = make the profile live (listed). The "Verified" badge is a separate,
   // deliberate decision (handleToggleVerified) so docs are optional.
   const handleApprove = async (expertId: string) => {
@@ -80,11 +112,28 @@ const ExpertApproval = () => {
 
       if (error) throw error;
 
+      const expert = experts.find((item) => item.id === expertId);
+      if (expert?.email) {
+        await sendNotificationEmail({
+          to: expert.email,
+          subject: "Your Irookee expert profile was approved",
+          eventType: "expert_approved",
+          html: "<p>Your Irookee expert profile was approved.</p><p>You can now receive bookings from users.</p>",
+        });
+      }
+      await createInAppNotification({
+        userId: expert?.user_id,
+        title: "Expert profile approved",
+        body: "Your Irookee expert profile is now live and ready to receive bookings.",
+        type: "expert_approved",
+        relatedId: expertId,
+      });
+
       toast({ title: "Expert Approved", description: "Profile is now live on the platform" });
       fetchExperts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Approve error:', error);
-      toast({ title: "Error", description: error?.message || "Failed to approve", variant: "destructive" });
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to approve"), variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -105,7 +154,7 @@ const ExpertApproval = () => {
       // because the table may not exist in every environment.
       try {
         await supabase
-          .from('verification_requests' as any)
+          .from('verification_requests' as never)
           .update({ status: value ? 'approved' : 'pending', reviewed_at: new Date().toISOString() })
           .eq('speaker_id', expertId);
       } catch {
@@ -115,13 +164,13 @@ const ExpertApproval = () => {
       toast({
         title: value ? "Verified badge granted" : "Verified badge removed",
         description: value
-          ? "This expert now shows the Verified ✓ badge."
+          ? "This expert now shows the Verified badge."
           : "The Verified badge has been removed.",
       });
       fetchExperts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Verify toggle error:', error);
-      toast({ title: "Error", description: error?.message || "Failed to update", variant: "destructive" });
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to update"), variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -138,17 +187,34 @@ const ExpertApproval = () => {
       if (error) throw error;
 
       await supabase
-        .from('verification_requests' as any)
+        .from('verification_requests' as never)
         .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
         .eq('speaker_id', expertId)
         .then(() => {})
         .catch(() => {});
 
+      const expert = experts.find((item) => item.id === expertId);
+      if (expert?.email) {
+        await sendNotificationEmail({
+          to: expert.email,
+          subject: "Your Irookee expert profile needs changes",
+          eventType: "expert_rejected",
+          html: "<p>Your Irookee expert profile was not approved yet.</p><p>Please review your profile details and submit again.</p>",
+        });
+      }
+      await createInAppNotification({
+        userId: expert?.user_id,
+        title: "Expert profile not approved",
+        body: "Your expert profile needs changes before it can go live.",
+        type: "expert_rejected",
+        relatedId: expertId,
+      });
+
       toast({ title: "Expert Rejected", description: "Profile has been rejected" });
       fetchExperts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reject error:', error);
-      toast({ title: "Error", description: error?.message || "Failed to reject", variant: "destructive" });
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to reject"), variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -274,7 +340,7 @@ const ExpertApproval = () => {
                           <BadgeCheck className="h-3 w-3 mr-1" />Verified
                         </Badge>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -366,8 +432,16 @@ const ExpertApproval = () => {
                         <FileText className="h-4 w-4 text-blue-600 shrink-0" />
                         <span className="text-sm flex-1">{doc.name}</span>
                         <span className="text-xs text-muted-foreground">{doc.type}</span>
-                        {doc.url && !doc.url.startsWith('local://') && (
-                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View</a>
+                        {doc.url && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => openDocument(doc.url)}
+                          >
+                            View
+                          </Button>
                         )}
                       </div>
                     ))}
@@ -382,9 +456,9 @@ const ExpertApproval = () => {
                   <p className="text-sm font-medium">Verified badge</p>
                   <p className="text-xs text-muted-foreground">
                     {selectedExpert.is_verified
-                      ? "This expert shows the Verified ✓ badge."
+                      ? "This expert shows the Verified badge."
                       : getDocuments(selectedExpert).length > 0
-                        ? "Documents uploaded — review and grant the badge."
+                        ? "Documents uploaded - review and grant the badge."
                         : "No documents uploaded. You can still grant the badge manually."}
                   </p>
                 </div>

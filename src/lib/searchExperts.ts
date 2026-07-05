@@ -9,6 +9,7 @@ interface SpeakerCategoryRow {
 interface SpeakerSearchRow {
   id: string
   user_id: string | null
+  full_name?: string | null
   name: string | null
   title: string | null
   bio: string | null
@@ -31,6 +32,7 @@ interface SpeakerSearchRow {
 
 export interface SearchExpertsOptions extends SearchFilters {
   query?: string
+  categoryId?: string
   limit?: number
 }
 
@@ -86,7 +88,7 @@ const getExpertise = (expert: SpeakerSearchRow) =>
 const toExpertProfile = (expert: SpeakerSearchRow): ExpertProfile => ({
   id: expert.id,
   user_id: expert.user_id || '',
-  full_name: expert.name || 'Expert',
+  full_name: expert.full_name || expert.name || 'Expert',
   title: expert.title || '',
   bio: expert.bio || '',
   industry_expertise: getExpertise(expert),
@@ -107,12 +109,12 @@ const toExpertProfile = (expert: SpeakerSearchRow): ExpertProfile => ({
 })
 
 const matchesFilters = (expert: SpeakerSearchRow, options: SearchExpertsOptions) => {
-  const category = normalize(options.category)
+  const category = normalize(options.category || options.categoryId)
   const location = normalize(options.location)
   const language = normalize(options.language)
   const minRating = Number(options.minRating) || 0
 
-  if (category) {
+  if (category && category !== 'all') {
     const categoryIds = getCategoryIds(expert).map(normalize)
     const categoryNames = getCategoryNames(expert).map(normalize)
     const categoryMatches =
@@ -133,7 +135,7 @@ const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) =
   if (!query && terms.length === 0) return 0
 
   let score = 0
-  const name = normalize(expert.name)
+  const name = normalize(expert.full_name || expert.name)
   const title = normalize(expert.title)
   const bio = normalize(expert.bio)
   const location = normalize(expert.location)

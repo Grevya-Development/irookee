@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/asyncTimeout";
 
 interface Person {
   id: string;
@@ -82,9 +83,13 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
       // Try AI-powered search first
       try {
         console.log('Using AI-powered search...');
-        const { data: aiResults, error: aiError } = await supabase.functions.invoke('search', {
-          body: { query: searchQuery }
-        });
+        const { data: aiResults, error: aiError } = await withTimeout(
+          supabase.functions.invoke('search', {
+            body: { query: searchQuery }
+          }),
+          10000,
+          'AI search timed out'
+        );
 
         if (aiError) {
           console.error('AI search error:', aiError);
@@ -172,7 +177,11 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
         query = query.or(searchConditions.join(','));
       }
 
-      const { data: speakers, error } = await query.limit(20);
+      const { data: speakers, error } = await withTimeout(
+        query.limit(20),
+        12000,
+        'Database search timed out'
+      );
 
       if (error) throw error;
 

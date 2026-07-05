@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { sendNotificationEmail } from "@/lib/notifications";
 
 const GuestProfileForm = () => {
   const [loading, setLoading] = useState(false);
@@ -21,12 +22,65 @@ const GuestProfileForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneDigits = formData.phone.replace(/\D/g, "");
+
+    if (!formData.full_name.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.message.trim()) {
+      toast({
+        title: "Missing details",
+        description: "Please complete all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!emailPattern.test(formData.email.trim())) {
+      toast({
+        title: "Invalid email",
+        description: "Enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (phoneDigits.length < 10) {
+      toast({
+        title: "Invalid phone number",
+        description: "Enter a valid phone number with at least 10 digits.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (/^\d+$/.test(formData.company.trim())) {
+      toast({
+        title: "Invalid company",
+        description: "Company name cannot be numbers only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("guest_profiles").insert([formData]);
+      const { error } = await supabase.from("guest_profiles").insert([{
+        ...formData,
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        company: formData.company.trim(),
+        message: formData.message.trim(),
+      }]);
 
       if (error) throw error;
+
+      await sendNotificationEmail({
+        to: formData.email.trim(),
+        subject: "We received your Irookee expert application",
+        eventType: "expert_application_submitted",
+        html: `<p>Thanks for applying to become an Irookee expert.</p><p>Your application has been submitted for review.</p>`,
+      });
 
       toast({
         title: "Success!",

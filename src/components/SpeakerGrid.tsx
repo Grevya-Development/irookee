@@ -3,6 +3,7 @@ import ExpertCard from "./SpeakerCard";
 import IntelligentSearch from "./IntelligentSearch";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/asyncTimeout";
 
 interface Person {
   id: string;
@@ -19,6 +20,8 @@ interface Person {
   location: string;
   pastEvents: number;
   type: string;
+  languages: string[];
+  badges: string[];
 }
 
 interface SpeakerGridProps {
@@ -49,7 +52,11 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
           query = query.or(`name.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,bio.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`);
         }
 
-        const { data: speakers, error } = await query;
+        const { data: speakers, error } = await withTimeout(
+          query,
+          12000,
+          'Browse experts request timed out'
+        );
 
         if (error) {
           throw error;
@@ -58,7 +65,7 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
         // Transform speakers data to match the expected Person interface
         const transformedPeople: Person[] = (speakers || []).map(speaker => ({
           id: speaker.id,
-          name: speaker.full_name ?? "Expert",
+          name: speaker.name || "Expert",
           title: speaker.title,
           bio: speaker.bio || '',
           expertise: speaker.expertise || [],
@@ -70,7 +77,9 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
           },
           location: speaker.location || '',
           pastEvents: speaker.past_events || 0,
-          type: 'speaker'
+          type: 'speaker',
+          languages: speaker.languages || [],
+          badges: speaker.badges || ['Expert'],
         }));
 
         setPeople(transformedPeople);
@@ -168,9 +177,9 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
                   user_id: null,
                   availability_start: null,
                   availability_end: null,
-                  languages: [],
+                  languages: person.languages || [],
                   is_verified: true,
-                  badges: ['Expert'],
+                  badges: person.badges || ['Expert'],
                   social_links: {},
                   video_url: null,
                   topics: [],

@@ -17,6 +17,13 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import UserLoyaltyCard from '@/components/gamification/UserLoyaltyCard'
 import ReviewForm from '@/components/ReviewForm'
+import { formatBookingDuration, getBookingDurationMinutes, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
+import { notifyBookingEvent } from '@/lib/notifications'
+
+const getExpertName = (booking: {
+  speakers?: { name?: string | null; full_name?: string | null } | null
+  expert_profile?: { full_name?: string | null } | null
+}) => booking.expert_profile?.full_name || booking.speakers?.full_name || booking.speakers?.name || 'Expert'
 
 export default function Dashboard() {
   const { user, profile, loading: authLoading } = useAuth()
@@ -29,6 +36,7 @@ export default function Dashboard() {
 
   const handleCancelBooking = async () => {
     if (!cancelBookingId) return
+    const booking = bookings.find((item) => item.id === cancelBookingId)
     setCancelling(true)
     const { error } = await supabase
       .from('expertise_bookings')
@@ -39,6 +47,27 @@ export default function Dashboard() {
     if (error) {
       toast({ title: 'Could not cancel', description: error.message, variant: 'destructive' })
     } else {
+      if (booking) {
+        const { data: expert } = await supabase
+          .from('speakers')
+          .select('name, user_id, email')
+          .eq('id', booking.expert_id)
+          .maybeSingle()
+
+        await notifyBookingEvent({
+          bookingId: booking.id,
+          eventType: 'booking_cancelled',
+          userId: user.id,
+          userEmail: user.email,
+          expertUserId: expert?.user_id,
+          expertEmail: expert?.email,
+          expertName: expert?.name || getExpertName(booking),
+          customerName: booking.customer_name || profile?.full_name || user.email,
+          scheduledAt: getBookingStart(booking),
+          durationMinutes: getBookingDurationMinutes(booking),
+          meetingLink: booking.meeting_link,
+        })
+      }
       toast({ title: 'Booking cancelled', description: 'Your session has been cancelled.' })
       refetch()
     }
@@ -59,18 +88,9 @@ export default function Dashboard() {
     return null
   }
 
-  const upcomingBookings = bookings.filter(b => {
-    const date = b.event_date
-    return (
-      (b.status === 'pending' || b.status === 'confirmed') &&
-      date &&
-      new Date(date).getTime() > Date.now()
-    )
-  })
+  const upcomingBookings = bookings.filter(b => isUpcomingBooking(b))
 
-  const pastBookings = bookings.filter(b => {
-    return b.status === 'completed'
-  })
+  const pastBookings = bookings.filter(b => isPastBooking(b))
 
   const cancelledBookings = bookings.filter(b => b.status === 'cancelled')
 
@@ -171,7 +191,7 @@ export default function Dashboard() {
                   <Card key={booking.id}>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle>{booking.speakers?.name || 'Expert'}</CardTitle>
+                        <CardTitle>{getExpertName(booking)}</CardTitle>
                         {getStatusBadge(booking.status)}
                       </div>
                       <CardDescription>{booking.speakers?.title}</CardDescription>
@@ -180,8 +200,8 @@ export default function Dashboard() {
                       <div className="flex flex-wrap gap-4 text-sm">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {booking.event_date
-                            ? new Date(booking.event_date).toLocaleString('en-IN', {
+                          {getBookingStart(booking)
+                            ? new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
                                 weekday: 'short', month: 'short', day: 'numeric',
                                 hour: '2-digit', minute: '2-digit'
                               })
@@ -190,9 +210,7 @@ export default function Dashboard() {
                         {booking.duration_hours && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            {booking.duration_hours < 1
-                              ? `${Math.round(booking.duration_hours * 60)} min`
-                              : `${booking.duration_hours}h`}
+                            {formatBookingDuration(booking)}
                           </div>
                         )}
                         <Badge variant="outline" className="text-green-600">Free</Badge>
@@ -265,10 +283,10 @@ export default function Dashboard() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{booking.speakers?.name || 'Expert'}</p>
+                          <p className="font-medium">{getExpertName(booking)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {booking.event_date
-                              ? new Date(booking.event_date).toLocaleDateString('en-IN', {
+                            {getBookingStart(booking)
+                              ? new Date(getBookingStart(booking)!).toLocaleDateString('en-IN', {
                                   month: 'short', day: 'numeric', year: 'numeric'
                                 })
                               : 'Date not set'}
@@ -283,7 +301,7 @@ export default function Dashboard() {
                               onClick={() => setReviewBooking({
                                 id: booking.id,
                                 expertId: booking.expert_id,
-                                expertName: booking.speakers?.name || 'Expert'
+                                expertName: getExpertName(booking)
                               })}
                             >
                               <Star className="h-3 w-3 mr-1" /> Review
@@ -317,10 +335,10 @@ export default function Dashboard() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <p className="font-medium">{booking.speakers?.name || 'Expert'}</p>
+                          <p className="font-medium">{getExpertName(booking)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {booking.event_date
-                              ? new Date(booking.event_date).toLocaleDateString('en-IN', {
+                            {getBookingStart(booking)
+                              ? new Date(getBookingStart(booking)!).toLocaleDateString('en-IN', {
                                   month: 'short', day: 'numeric', year: 'numeric'
                                 })
                               : 'Date not set'}

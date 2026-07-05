@@ -15,6 +15,9 @@ interface ExpertCardProps {
 export function ExpertCard({ expert, onBook }: ExpertCardProps) {
   const navigate = useNavigate()
   const profile = expert.profiles
+  const avatarUrl = profile?.avatar_url
+    ? `${profile.avatar_url}${profile.avatar_url.includes('?') ? '&' : '?'}v=${encodeURIComponent(profile.updated_at || '')}`
+    : undefined
 
   const handleBook = () => {
     if (onBook) {
@@ -40,7 +43,7 @@ export function ExpertCard({ expert, onBook }: ExpertCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={profile?.avatar_url || undefined} />
+              <AvatarImage src={avatarUrl} />
               <AvatarFallback>{getInitials(profile?.full_name || null)}</AvatarFallback>
             </Avatar>
             <div>

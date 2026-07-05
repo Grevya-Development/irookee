@@ -39,8 +39,12 @@ export type Booking = {
   user_id: string
   expert_id: string
   event_name: string
-  event_date: string
-  duration_hours: number
+  event_date: string | null
+  scheduled_at?: string | null
+  duration_hours: number | null
+  duration_minutes?: number | null
+  original_scheduled_at?: string | null
+  original_duration_minutes?: number | null
   total_amount: number
   customer_name: string
   customer_email: string
@@ -51,6 +55,11 @@ export type Booking = {
   created_at: string
 
   speakers?: {
+    name?: string | null
+    full_name?: string | null
+    title?: string | null
+  } | null
+  expert_profile?: {
     full_name: string
     title: string
   }
