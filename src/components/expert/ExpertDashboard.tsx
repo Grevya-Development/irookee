@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
-import { formatBookingDuration, getBookingDurationMinutes, getBookingStart, isUpcomingBooking } from '@/lib/bookingUtils'
+import { formatBookingDuration, getBookingDurationMinutes, getBookingStart, isUpcomingBooking, isPastBooking } from '@/lib/bookingUtils'
 import { notifyBookingEvent } from '@/lib/notifications'
 
 interface BookingRow {
@@ -399,7 +399,7 @@ function BookingsList({ expertId }: { expertId: string }) {
 
   const pending = bookings.filter(b => b.status === 'pending')
   const upcoming = bookings.filter(b => isUpcomingBooking(b))
-  const past = bookings.filter(b => b.status === 'completed')
+  const past = bookings.filter(b => isPastBooking(b))
   const cancelled = bookings.filter(b => b.status === 'cancelled')
 
   return (
@@ -451,109 +451,131 @@ function BookingsList({ expertId }: { expertId: string }) {
         </div>
       )}
 
-      {/* Upcoming Confirmed */}
-      {upcoming.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-lg mb-3">Upcoming Sessions ({upcoming.length})</h3>
-          <div className="space-y-3">
-            {upcoming.map(booking => (
-              <Card key={booking.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{booking.event_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {booking.customer_name} ({booking.customer_email})
-                      </p>
-                      <p className="text-sm font-medium mt-1">
-                        {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
-                          weekday: 'short', month: 'short', day: 'numeric',
-                          hour: '2-digit', minute: '2-digit'
-                        })}
-                        {` - ${formatBookingDuration(booking)}`}
-                      </p>
-                      {booking.meeting_link && (
-                        <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">
-                          <ExternalLink className="h-3 w-3" /> Join Meeting
-                        </a>
-                      )}
-                      {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button size="sm" onClick={() => updateStatus(booking.id, 'completed')}>
-                        <CheckCircle className="h-3 w-3 mr-1" /> Complete
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-orange-600" onClick={() => updateStatus(booking.id, 'no_show')}>
-                        <UserX className="h-3 w-3 mr-1" /> No Show
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+      <Tabs defaultValue="upcoming" className="space-y-4">
+        <TabsList className="h-auto flex flex-wrap justify-start">
+          <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled ({cancelled.length})</TabsTrigger>
+        </TabsList>
 
-      {past.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-lg mb-3">Past Sessions ({past.length})</h3>
-          <div className="space-y-2">
-            {past.map(booking => (
-              <Card key={booking.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{booking.event_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
-                      </p>
-                      {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
-                        <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" /> No review received yet
+        <TabsContent value="upcoming">
+          {upcoming.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No upcoming sessions
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {upcoming.map(booking => (
+                <Card key={booking.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{booking.event_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.customer_name} ({booking.customer_email})
                         </p>
-                      )}
+                        <p className="text-sm font-medium mt-1">
+                          {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
+                            weekday: 'short', month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                          {` - ${formatBookingDuration(booking)}`}
+                        </p>
+                        {booking.meeting_link && (
+                          <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" /> Join Meeting
+                          </a>
+                        )}
+                        {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Button size="sm" onClick={() => updateStatus(booking.id, 'completed')}>
+                          <CheckCircle className="h-3 w-3 mr-1" /> Complete
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-orange-600" onClick={() => updateStatus(booking.id, 'no_show')}>
+                          <UserX className="h-3 w-3 mr-1" /> No Show
+                        </Button>
+                      </div>
                     </div>
-                    <Badge
-                      variant={
-                        booking.status === 'completed' ? 'default' :
-                        booking.status === 'no_show' ? 'destructive' :
-                        booking.status === 'cancelled' ? 'destructive' :
-                        'secondary'
-                      }
-                    >
-                      {booking.status}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
-      {cancelled.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-lg mb-3">Cancelled Sessions ({cancelled.length})</h3>
-          <div className="space-y-2">
-            {cancelled.map(booking => (
-              <Card key={booking.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{booking.event_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
-                      </p>
+        <TabsContent value="past">
+          {past.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No past sessions
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {past.map(booking => (
+                <Card key={booking.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{booking.event_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
+                        </p>
+                        {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
+                          <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" /> No review received yet
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        variant={
+                          booking.status === 'completed' ? 'default' :
+                          booking.status === 'no_show' ? 'destructive' :
+                          booking.status === 'cancelled' ? 'destructive' :
+                          'secondary'
+                        }
+                      >
+                        {booking.status}
+                      </Badge>
                     </div>
-                    <Badge variant="destructive">cancelled</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="cancelled">
+          {cancelled.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No cancelled sessions
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {cancelled.map(booking => (
+                <Card key={booking.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{booking.event_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant="destructive">cancelled</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

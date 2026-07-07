@@ -184,7 +184,7 @@ export default function Settings() {
     setUploading(true)
     try {
       const fileExt = file.name.split('.').pop()
-      const filePath = `${user.id}/avatars/profile.${fileExt}`
+      const filePath = `${user.id}/avatars/profile_${Date.now()}.${fileExt}`
 
       // Try uploading to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -217,12 +217,13 @@ export default function Settings() {
         .getPublicUrl(filePath)
 
       const publicUrl = urlData.publicUrl
-      setProfileData(prev => ({ ...prev, avatar_url: publicUrl }))
+      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`
+      setProfileData(prev => ({ ...prev, avatar_url: cacheBustedUrl }))
 
       await supabase.from('profiles').upsert({ id: user.id, avatar_url: publicUrl })
       if (isExpert && expertData) {
         await supabase.from('speakers').update({ image_url: publicUrl }).eq('id', expertData.id)
-        setExpertData(prev => prev ? { ...prev, image_url: publicUrl } : prev)
+        setExpertData(prev => prev ? { ...prev, image_url: cacheBustedUrl } : prev)
       }
 
       toast({ title: "Photo Updated", description: "Profile photo uploaded" })
@@ -253,7 +254,7 @@ export default function Settings() {
     const phoneTrimmed = profileData.phone.trim()
     if (phoneTrimmed) {
       const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
-      if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+      if (!/^\+?[1-9]\d{9,14}$/.test(phoneClean)) {
         toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
         return
       }
@@ -261,13 +262,14 @@ export default function Settings() {
 
     setSaving(true)
     try {
+      const cleanAvatarUrl = profileData.avatar_url ? profileData.avatar_url.split('?')[0] : null
       const { error } = await supabase.from('profiles').upsert({
         id: user.id,
         full_name: nameTrimmed,
         email: emailTrimmed,
         phone: phoneTrimmed || null,
         bio: profileData.bio ? profileData.bio.trim() : null,
-        avatar_url: profileData.avatar_url || null,
+        avatar_url: cleanAvatarUrl,
       })
       if (error) throw error
       toast({ title: "Profile Saved", description: "Your personal information has been updated" })
@@ -306,7 +308,7 @@ export default function Settings() {
       return
     }
     const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
-    if (!/^\+?[1-9]\d{7,14}$/.test(phoneClean)) {
+    if (!/^\+?[1-9]\d{9,14}$/.test(phoneClean)) {
       toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
       return
     }

@@ -73,77 +73,35 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const { category, language, location, minRating, sortBy } = filters || {};
+  const category = filters?.category;
+  const language = filters?.language;
+  const location = filters?.location;
+  const minRating = filters?.minRating;
+  const sortBy = filters?.sortBy;
 
   const fetchExperts = useCallback(async () => {
     try {
       setLoading(true);
       setError(false);
 
-      const useSearchEngine =
-        Boolean(searchQuery?.trim()) ||
-        Boolean(category || categoryId || language || location || minRating || sortBy);
-
-      if (useSearchEngine) {
-        const results = await searchExperts({
-          ...(filters as SearchFiltersType),
-          category: category || categoryId,
-          query: searchQuery,
-          limit,
-        });
-        setExperts(results);
-        return;
-      }
-
-      const { data, error: dbError } = await supabase
-        .from("speakers")
-        .select("*, speaker_categories(categories(id, name))")
-        .eq("verification_status", "verified");
-
-      if (dbError) throw dbError;
-
-      let rows = (data || []) as unknown as RawSpeaker[];
-
-      // Apply filters client-side (small dataset; keeps filtering robust).
-      if (category) {
-        const cat = category.toLowerCase();
-        rows = rows.filter((r) =>
-          (r.speaker_categories || []).some(
-            (sc) =>
-              sc.categories?.id === category ||
-              sc.categories?.name?.toLowerCase() === cat
-          )
-        );
-      }
-      if (language) {
-        const l = language.toLowerCase();
-        rows = rows.filter((r) =>
-          (r.languages || []).some((lang) => lang.toLowerCase().includes(l))
-        );
-      }
-      if (location) {
-        const loc = location.toLowerCase();
-        rows = rows.filter((r) => (r.location || "").toLowerCase().includes(loc));
-      }
-      if (minRating) {
-        rows = rows.filter((r) => (Number(r.rating) || 0) >= minRating);
-      }
-
-      rows.sort((a, b) => {
-        if (sortBy === "sessions") return (b.past_events || 0) - (a.past_events || 0);
-        if (sortBy === "experience")
-          return (b.experience_years || 0) - (a.experience_years || 0);
-        return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+      const results = await searchExperts({
+        category: category || categoryId,
+        language,
+        location,
+        minRating,
+        sortBy,
+        query: searchQuery,
+        limit,
       });
 
-      setExperts(rows.slice(0, limit).map(transform));
+      setExperts(results);
     } catch (e) {
       console.error("Error fetching experts:", e);
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, limit, category, categoryId, language, location, minRating, sortBy, filters]);
+  }, [searchQuery, limit, category, categoryId, language, location, minRating, sortBy]);
 
   useEffect(() => {
     fetchExperts();
