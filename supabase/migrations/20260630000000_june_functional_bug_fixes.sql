@@ -166,10 +166,10 @@ BEGIN
     -- Check overlaps in public.bookings
     SELECT EXISTS (
       SELECT 1 FROM public.bookings
-      WHERE expert_id = new_expert_id
+      WHERE speaker_id = new_expert_id
         AND status IN ('pending', 'confirmed', 'in_progress')
-        AND scheduled_at < new_end
-        AND new_start < (scheduled_at + (COALESCE(duration_minutes, 60) * INTERVAL '1 minute'))
+        AND event_date < new_end
+        AND new_start < (event_date + (COALESCE(duration_hours, 1) * 60 * INTERVAL '1 minute'))
     ) INTO overlap_exists;
   END IF;
 
@@ -194,30 +194,30 @@ DECLARE
   new_start TIMESTAMPTZ;
   new_end TIMESTAMPTZ;
   new_duration_min INTEGER;
-  new_expert_id UUID;
+  new_speaker_id UUID;
   new_id UUID;
 BEGIN
   new_id := NEW.id;
-  new_expert_id := NEW.expert_id;
-  new_start := NEW.scheduled_at;
-  new_duration_min := COALESCE(NEW.duration_minutes, 60);
+  new_speaker_id := NEW.speaker_id;
+  new_start := NEW.event_date;
+  new_duration_min := COALESCE((NEW.duration_hours * 60)::INTEGER, 60);
   new_end := new_start + (new_duration_min * INTERVAL '1 minute');
 
   -- Check overlaps in public.bookings
   SELECT EXISTS (
     SELECT 1 FROM public.bookings
-    WHERE expert_id = new_expert_id
+    WHERE speaker_id = new_speaker_id
       AND id <> new_id
       AND status IN ('pending', 'confirmed', 'in_progress')
-      AND scheduled_at < new_end
-      AND new_start < (scheduled_at + (COALESCE(duration_minutes, 60) * INTERVAL '1 minute'))
+      AND event_date < new_end
+      AND new_start < (event_date + (COALESCE(duration_hours, 1) * 60 * INTERVAL '1 minute'))
   ) INTO overlap_exists;
 
   IF NOT overlap_exists THEN
     -- Check overlaps in public.expertise_bookings
     SELECT EXISTS (
       SELECT 1 FROM public.expertise_bookings
-      WHERE expert_id = new_expert_id
+      WHERE expert_id = new_speaker_id
         AND status IN ('pending', 'confirmed', 'in_progress')
         AND COALESCE(scheduled_at, event_date) < new_end
         AND new_start < (COALESCE(scheduled_at, event_date) + (COALESCE(duration_minutes, (duration_hours * 60)::INTEGER, 60) * INTERVAL '1 minute'))
