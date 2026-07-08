@@ -69,6 +69,55 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         ? `[Format: ${sessionFormat}] ${notes}`
         : `[Format: ${sessionFormat}]`;
 
+      // Check for overlapping bookings in public.expertise_bookings
+      const scheduledStart = new Date(selectedDateTime);
+      const scheduledEnd = new Date(scheduledStart.getTime() + selectedDuration * 60 * 1000);
+
+      // Query database for overlapping active bookings
+      const { data: conflicts, error: conflictErr } = await supabase
+        .from("expertise_bookings")
+        .select("scheduled_at, event_date, duration_minutes, duration_hours, status")
+        .eq("expert_id", speaker.id)
+        .in("status", ["pending", "confirmed", "in_progress"]);
+
+      if (conflictErr) throw conflictErr;
+
+      // We also check legacy bookings table
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let legacyConflicts: any[] = [];
+      try {
+        const { data: legacyData } = await supabase
+          .from("bookings")
+          .select("scheduled_at, duration_minutes, status")
+          .eq("expert_id", speaker.id)
+          .in("status", ["pending", "confirmed", "in_progress"]);
+        if (legacyData) legacyConflicts = legacyData;
+      } catch (e) {
+        console.warn("Failed to check legacy conflicts:", e);
+      }
+
+      const allConflicts = [...(conflicts || []), ...legacyConflicts];
+      const hasOverlap = allConflicts.some((booking) => {
+        const startVal = booking.scheduled_at || booking.event_date;
+        if (!startVal) return false;
+        const bStart = new Date(startVal);
+        if (Number.isNaN(bStart.getTime())) return false;
+        const bDuration = Number(booking.duration_minutes) || Number(booking.duration_hours || 0) * 60 || 60;
+        const bEnd = new Date(bStart.getTime() + bDuration * 60 * 1000);
+        
+        return scheduledStart < bEnd && bStart < scheduledEnd;
+      });
+
+      if (hasOverlap) {
+        toast({
+          title: "Time Slot Unavailable",
+          description: "This time slot is already booked. Please choose another slot.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const bookingPayload = {
         expert_id: speaker.id,
         user_id: user.id,

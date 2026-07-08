@@ -106,6 +106,24 @@ const Auth = () => {
       setLoading(true);
       if (isSignUp) {
         const emailValidation = validateEmailInput(email);
+        
+        // Check if email already exists in public.profiles to display correct error
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', emailValidation.email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (existingProfile) {
+          toast({
+            title: "Email already registered",
+            description: "An account with this email address already exists. Please sign in instead.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           email: emailValidation.email, password,
           options: { emailRedirectTo: getSiteUrl() },

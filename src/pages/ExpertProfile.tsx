@@ -297,8 +297,8 @@ export default function ExpertProfile() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6 min-w-0">
-            <Card className="lg:sticky lg:top-24">
+          <div className="space-y-6 min-w-0 lg:sticky lg:top-24">
+            <Card>
               <CardHeader>
                 <CardTitle>Book a Free Session</CardTitle>
               </CardHeader>
