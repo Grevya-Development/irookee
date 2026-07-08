@@ -131,6 +131,21 @@ const matchesFilters = (expert: SpeakerSearchRow, options: SearchExpertsOptions)
   return true
 }
 
+const SYNONYMS: Record<string, string[]> = {
+  tech: ['technology', 'software', 'developer', 'engineer', 'programming', 'code', 'coding', 'data', 'computer', 'it', 'web', 'frontend', 'backend', 'fullstack'],
+  mentor: ['coach', 'mentorship', 'guide', 'advisor', 'consultant', 'teacher', 'instructor', 'trainer', 'guru'],
+  design: ['ui', 'ux', 'product', 'creative', 'graphic', 'designer', 'artist', 'styling'],
+  startup: ['entrepreneur', 'business', 'founder', 'co-founder', 'funding', 'seed', 'angel', 'venture'],
+  career: ['resume', 'interview', 'hr', 'job', 'hiring', 'recruiting']
+};
+
+const matchTermOrSynonyms = (text: string, term: string) => {
+  if (text.includes(term)) return true;
+  const syns = SYNONYMS[term];
+  if (syns && syns.some(syn => text.includes(syn))) return true;
+  return false;
+};
+
 const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) => {
   if (!query && terms.length === 0) return 0
 
@@ -151,16 +166,35 @@ const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) =
   if (categoryNames.some(c => c.includes(query))) score += 40
   if (topicsArr.some(t => t.includes(query))) score += 35
 
+  let matchedTermsCount = 0;
+
   for (const term of terms) {
-    if (name.includes(term)) score += 15
-    if (title.includes(term)) score += 20
-    if (expertiseArr.some(e => e.includes(term))) score += 25
-    if (topicsArr.some(t => t.includes(term))) score += 20
-    if (categoryNames.some(c => c.includes(term))) score += 20
-    if (bio.includes(term)) score += 8
-    if (location.includes(term)) score += 12
-    if (company.includes(term)) score += 10
-    if (languagesArr.some(l => l.includes(term))) score += 10
+    let termMatched = false;
+    const fieldsToSearch = [name, title, bio, location, company, ...expertiseArr, ...topicsArr, ...languagesArr, ...categoryNames];
+    if (fieldsToSearch.some(field => matchTermOrSynonyms(field, term))) {
+      termMatched = true;
+    }
+
+    if (termMatched) {
+      matchedTermsCount++;
+      if (matchTermOrSynonyms(name, term)) score += 15
+      if (matchTermOrSynonyms(title, term)) score += 20
+      if (expertiseArr.some(e => matchTermOrSynonyms(e, term))) score += 25
+      if (topicsArr.some(t => matchTermOrSynonyms(t, term))) score += 20
+      if (categoryNames.some(c => matchTermOrSynonyms(c, term))) score += 20
+      if (matchTermOrSynonyms(bio, term)) score += 8
+      if (matchTermOrSynonyms(location, term)) score += 12
+      if (matchTermOrSynonyms(company, term)) score += 10
+      if (languagesArr.some(l => matchTermOrSynonyms(l, term))) score += 10
+    }
+  }
+
+  if (terms.length > 0) {
+    const coverage = matchedTermsCount / terms.length;
+    score = score * (coverage * coverage);
+    if (terms.length >= 2 && coverage < 0.5) {
+      score = 0;
+    }
   }
 
   return score
