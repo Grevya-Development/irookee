@@ -236,12 +236,24 @@ export default function Settings() {
     }
   }
 
+  const nameRegex = /^[\p{L}\s\-'.]+$/u;
+  const invalidSymbolsRegex = /[<>={}[\]/\\^%$@#*]/;
+  const numericOnlyRegex = /^[0-9\s\-_, .()]+$/;
+
   const saveProfile = async () => {
     if (!user) return
 
     const nameTrimmed = profileData.full_name.trim()
     if (!nameTrimmed) {
       toast({ title: "Validation Error", description: "Full Name is required", variant: "destructive" })
+      return
+    }
+    if (!nameRegex.test(nameTrimmed)) {
+      toast({ title: "Validation Error", description: "Full Name contains invalid characters or symbols", variant: "destructive" })
+      return
+    }
+    if (numericOnlyRegex.test(nameTrimmed)) {
+      toast({ title: "Validation Error", description: "Full Name cannot be numeric-only", variant: "destructive" })
       return
     }
 
@@ -260,6 +272,18 @@ export default function Settings() {
       }
     }
 
+    const bioTrimmed = profileData.bio ? profileData.bio.trim() : ""
+    if (bioTrimmed) {
+      if (numericOnlyRegex.test(bioTrimmed)) {
+        toast({ title: "Validation Error", description: "Bio cannot be numeric-only", variant: "destructive" })
+        return
+      }
+      if (invalidSymbolsRegex.test(bioTrimmed)) {
+        toast({ title: "Validation Error", description: "Bio contains invalid symbols", variant: "destructive" })
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const cleanAvatarUrl = profileData.avatar_url ? profileData.avatar_url.split('?')[0] : null
@@ -268,7 +292,7 @@ export default function Settings() {
         full_name: nameTrimmed,
         email: emailTrimmed,
         phone: phoneTrimmed || null,
-        bio: profileData.bio ? profileData.bio.trim() : null,
+        bio: bioTrimmed || null,
         avatar_url: cleanAvatarUrl,
       })
       if (error) throw error
@@ -289,10 +313,26 @@ export default function Settings() {
       toast({ title: "Validation Error", description: "Display Name is required", variant: "destructive" })
       return
     }
+    if (!nameRegex.test(nameTrimmed)) {
+      toast({ title: "Validation Error", description: "Display Name contains invalid characters or symbols", variant: "destructive" })
+      return
+    }
+    if (numericOnlyRegex.test(nameTrimmed)) {
+      toast({ title: "Validation Error", description: "Display Name cannot be numeric-only", variant: "destructive" })
+      return
+    }
 
     const titleTrimmed = expertData.title.trim()
     if (!titleTrimmed) {
       toast({ title: "Validation Error", description: "Professional Title is required", variant: "destructive" })
+      return
+    }
+    if (numericOnlyRegex.test(titleTrimmed)) {
+      toast({ title: "Validation Error", description: "Professional Title cannot be numeric-only", variant: "destructive" })
+      return
+    }
+    if (invalidSymbolsRegex.test(titleTrimmed)) {
+      toast({ title: "Validation Error", description: "Professional Title contains invalid symbols", variant: "destructive" })
       return
     }
 
@@ -314,9 +354,15 @@ export default function Settings() {
     }
 
     const companyTrimmed = expertData.company.trim()
-    if (companyTrimmed && /^\d+$/.test(companyTrimmed)) {
-      toast({ title: "Validation Error", description: "Company name cannot be numeric-only", variant: "destructive" })
-      return
+    if (companyTrimmed) {
+      if (numericOnlyRegex.test(companyTrimmed)) {
+        toast({ title: "Validation Error", description: "Company name cannot be numeric-only", variant: "destructive" })
+        return
+      }
+      if (invalidSymbolsRegex.test(companyTrimmed)) {
+        toast({ title: "Validation Error", description: "Company name contains invalid symbols", variant: "destructive" })
+        return
+      }
     }
 
     const locationTrimmed = expertData.location.trim()
@@ -324,23 +370,55 @@ export default function Settings() {
       toast({ title: "Validation Error", description: "Location is required", variant: "destructive" })
       return
     }
-    if (/^\d+$/.test(locationTrimmed) || locationTrimmed.length < 2) {
+    if (numericOnlyRegex.test(locationTrimmed) || locationTrimmed.length < 2) {
       toast({ title: "Validation Error", description: "Please enter a valid location/country", variant: "destructive" })
       return
     }
+    if (invalidSymbolsRegex.test(locationTrimmed)) {
+      toast({ title: "Validation Error", description: "Location contains invalid symbols", variant: "destructive" })
+      return
+    }
 
-    if (expertData.experience_years !== null && (expertData.experience_years < 0 || !Number.isInteger(expertData.experience_years))) {
+    const bioTrimmed = expertData.bio ? expertData.bio.trim() : ""
+    if (!bioTrimmed) {
+      toast({ title: "Validation Error", description: "Bio is required", variant: "destructive" })
+      return
+    }
+    if (numericOnlyRegex.test(bioTrimmed)) {
+      toast({ title: "Validation Error", description: "Bio cannot be numeric-only", variant: "destructive" })
+      return
+    }
+    if (invalidSymbolsRegex.test(bioTrimmed)) {
+      toast({ title: "Validation Error", description: "Bio contains invalid symbols", variant: "destructive" })
+      return
+    }
+
+    if (expertData.experience_years === null || expertData.experience_years === undefined || Number.isNaN(expertData.experience_years)) {
+      toast({ title: "Validation Error", description: "Experience years is required and must be a valid number", variant: "destructive" })
+      return
+    }
+    if (expertData.experience_years < 0 || !Number.isInteger(expertData.experience_years)) {
       toast({ title: "Validation Error", description: "Years of experience must be a non-negative integer", variant: "destructive" })
       return
     }
 
-    if (expertData.languages.length === 0) {
+    if (!expertData.languages || expertData.languages.length === 0) {
       toast({ title: "Validation Error", description: "Please specify at least one language", variant: "destructive" })
       return
     }
-    const invalidLangs = expertData.languages.some(lang => /^\d+$/.test(lang) || lang.length < 2)
+    const invalidLangs = expertData.languages.some(lang => numericOnlyRegex.test(lang) || lang.length < 2 || invalidSymbolsRegex.test(lang))
     if (invalidLangs) {
       toast({ title: "Validation Error", description: "Please enter valid language names", variant: "destructive" })
+      return
+    }
+
+    if (!expertData.expertise || expertData.expertise.length === 0) {
+      toast({ title: "Validation Error", description: "Please specify at least one expertise area", variant: "destructive" })
+      return
+    }
+    const invalidExpertise = expertData.expertise.some(exp => numericOnlyRegex.test(exp) || exp.length < 2 || invalidSymbolsRegex.test(exp))
+    if (invalidExpertise) {
+      toast({ title: "Validation Error", description: "Please enter valid expertise names", variant: "destructive" })
       return
     }
 
@@ -349,7 +427,7 @@ export default function Settings() {
       const { error } = await supabase.from('speakers').update({
         name: nameTrimmed,
         title: titleTrimmed,
-        bio: expertData.bio ? expertData.bio.trim() : '',
+        bio: bioTrimmed,
         location: locationTrimmed,
         company: companyTrimmed || null,
         phone: phoneTrimmed,

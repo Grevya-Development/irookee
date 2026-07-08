@@ -162,8 +162,14 @@ export function ExpertOnboarding() {
   }
 
   const onSubmit = async (data: ExpertOnboardingForm) => {
+    const nameRegex = /^[\p{L}\s\-'.]+$/u;
+    const invalidSymbolsRegex = /[<>={}[\]/\\^%$@#*]/;
+    const numericOnlyRegex = /^[0-9\s\-_, .()]+$/;
+
     const nameTrimmed = data.full_name.trim()
     if (!nameTrimmed) { toast.error('Full Name is required'); return }
+    if (!nameRegex.test(nameTrimmed)) { toast.error('Full Name contains invalid characters or symbols'); return }
+    if (numericOnlyRegex.test(nameTrimmed)) { toast.error('Full Name cannot be numeric-only'); return }
 
     const emailTrimmed = data.email.trim()
     if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
@@ -180,27 +186,75 @@ export function ExpertOnboarding() {
     }
 
     const companyTrimmed = data.company?.trim()
-    if (companyTrimmed && /^\d+$/.test(companyTrimmed)) {
-      toast.error('Company name cannot be numeric-only')
-      return
+    if (companyTrimmed) {
+      if (numericOnlyRegex.test(companyTrimmed)) {
+        toast.error('Company name cannot be numeric-only')
+        return
+      }
+      if (invalidSymbolsRegex.test(companyTrimmed)) {
+        toast.error('Company name contains invalid symbols')
+        return
+      }
     }
 
     const locTrimmed = locationValue.trim()
     if (!locTrimmed) { toast.error('Please enter your location'); return }
-    if (/^\d+$/.test(locTrimmed) || locTrimmed.length < 2) {
+    if (numericOnlyRegex.test(locTrimmed) || locTrimmed.length < 2) {
       toast.error('Please enter a valid location/country')
       return
     }
+    if (invalidSymbolsRegex.test(locTrimmed)) {
+      toast.error('Location contains invalid symbols')
+      return
+    }
 
-    if (data.experience_years === undefined || data.experience_years === null || data.experience_years < 0 || !Number.isInteger(data.experience_years)) {
+    const bioTrimmed = data.bio?.trim()
+    if (!bioTrimmed) { toast.error('Bio is required'); return }
+    if (numericOnlyRegex.test(bioTrimmed)) {
+      toast.error('Bio cannot be numeric-only')
+      return
+    }
+    if (invalidSymbolsRegex.test(bioTrimmed)) {
+      toast.error('Bio contains invalid symbols')
+      return
+    }
+
+    if (data.experience_years === undefined || data.experience_years === null || Number.isNaN(data.experience_years)) {
+      toast.error('Years of experience is required')
+      return
+    }
+    if (data.experience_years < 0 || !Number.isInteger(data.experience_years)) {
       toast.error('Years of experience must be a non-negative integer')
       return
     }
 
-    if (!data.title.trim()) { toast.error('Professional title is required'); return }
-    if (!data.expertise_areas.trim()) { toast.error('Expertise areas are required'); return }
+    const titleTrimmed = data.title.trim()
+    if (!titleTrimmed) { toast.error('Professional title is required'); return }
+    if (numericOnlyRegex.test(titleTrimmed)) {
+      toast.error('Professional title cannot be numeric-only'); return
+    }
+    if (invalidSymbolsRegex.test(titleTrimmed)) {
+      toast.error('Professional title contains invalid symbols'); return
+    }
+
+    const expertiseTrimmed = data.expertise_areas.trim()
+    if (!expertiseTrimmed) { toast.error('Expertise areas are required'); return }
+
+    const expertiseAreas = expertiseTrimmed.split(',').map(s => s.trim()).filter(Boolean)
+    if (expertiseAreas.length === 0) { toast.error('Please specify at least one expertise area'); return }
+    const invalidExpertise = expertiseAreas.some(exp => numericOnlyRegex.test(exp) || exp.length < 2 || invalidSymbolsRegex.test(exp))
+    if (invalidExpertise) {
+      toast.error('Please enter valid expertise names')
+      return
+    }
 
     if (selectedLanguages.length === 0) { toast.error('Select at least one language'); return }
+    const invalidLangs = selectedLanguages.some(lang => numericOnlyRegex.test(lang) || lang.length < 2 || invalidSymbolsRegex.test(lang))
+    if (invalidLangs) {
+      toast.error('Please select valid languages')
+      return
+    }
+
     if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
     // Verification documents are optional. Uploading them lets an admin grant the
     // "Verified" badge; without them the expert still goes live once approved.

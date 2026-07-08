@@ -78,7 +78,7 @@ const ExpertApproval = () => {
     try {
       if (!url || url.startsWith('local://')) return;
 
-      if (/^https?:\/\//i.test(url)) {
+      if (/^https?:\/\//i.test(url) && !url.includes(`/${VERIFICATION_BUCKET}/`)) {
         window.open(url, "_blank", "noopener,noreferrer");
         return;
       }
