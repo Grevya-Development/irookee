@@ -35,11 +35,35 @@ serve(async (req) => {
       )
     }
 
+    // Check if caller is admin
+    const { data: roleData } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle()
+
+    const isAdmin = !!roleData;
+
+    let targetUserId = user.id;
+    let targetUserEmail = user.email;
+
+    try {
+      const body = await req.json();
+      if (isAdmin && body?.target_user_id) {
+        targetUserId = body.target_user_id;
+        const { data: targetUser } = await adminClient.auth.admin.getUserById(targetUserId);
+        targetUserEmail = targetUser?.user?.email || null;
+      }
+    } catch (_) {
+      // no body or invalid json
+    }
+
     // Find speaker profile ID for this user if it exists
     const { data: speaker } = await adminClient
       .from('speakers')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .maybeSingle()
 
     const speakerId = speaker?.id
@@ -57,17 +81,17 @@ serve(async (req) => {
     }
 
     // Clean user-specific notifications and preferences
-    await safeDelete('notifications', 'user_id', user.id)
-    await safeDelete('notification_preferences', 'user_id', user.id)
-    await safeDelete('user_profiles', 'user_id', user.id)
-    await safeDelete('user_roles', 'user_id', user.id)
-    if (user.email) {
-      await safeDelete('guest_profiles', 'email', user.email)
+    await safeDelete('notifications', 'user_id', targetUserId)
+    await safeDelete('notification_preferences', 'user_id', targetUserId)
+    await safeDelete('user_profiles', 'user_id', targetUserId)
+    await safeDelete('user_roles', 'user_id', targetUserId)
+    if (targetUserEmail) {
+      await safeDelete('guest_profiles', 'email', targetUserEmail)
     }
 
     // Delete reviews associated with this user (either as reviewer or for their expert profile)
-    await safeDelete('expertise_reviews', 'reviewer_id', user.id)
-    await safeDelete('reviews', 'reviewer_id', user.id)
+    await safeDelete('expertise_reviews', 'reviewer_id', targetUserId)
+    await safeDelete('reviews', 'reviewer_id', targetUserId)
 
     if (speakerId) {
       await safeDelete('expertise_reviews', 'expert_id', speakerId)
@@ -86,16 +110,16 @@ serve(async (req) => {
       await safeDelete('bookings', 'expert_id', speakerId) // support both column names
     }
 
-    await safeDelete('expertise_bookings', 'user_id', user.id)
-    await safeDelete('bookings', 'seeker_id', user.id)
-    await safeDelete('bookings', 'organizer_id', user.id)
+    await safeDelete('expertise_bookings', 'user_id', targetUserId)
+    await safeDelete('bookings', 'seeker_id', targetUserId)
+    await safeDelete('bookings', 'organizer_id', targetUserId)
 
     // Delete the expert profiles completely
-    await safeDelete('speakers', 'user_id', user.id)
-    await safeDelete('expert_profiles', 'user_id', user.id)
+    await safeDelete('speakers', 'user_id', targetUserId)
+    await safeDelete('expert_profiles', 'user_id', targetUserId)
 
     // Delete user from authentication - this will cascade and delete from profiles table too
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId)
     if (deleteError) throw deleteError
 
     return new Response(

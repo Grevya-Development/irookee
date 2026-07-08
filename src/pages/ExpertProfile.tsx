@@ -151,7 +151,7 @@ export default function ExpertProfile() {
               <CardHeader>
                 <div className="flex items-start gap-4">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src={expert.image_url || undefined} />
+                    <AvatarImage src={expert.image_url ? `${expert.image_url}?t=${new Date(expert.updated_at || '').getTime()}` : undefined} />
                     <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                       {expert.name?.charAt(0) || 'E'}
                     </AvatarFallback>

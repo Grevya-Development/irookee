@@ -127,6 +127,7 @@ const ExpertApproval = () => {
           subject: "Your Irookee expert profile was approved",
           eventType: "expert_approved",
           html: "<p>Your Irookee expert profile was approved.</p><p>You can now receive bookings from users.</p>",
+          userId: expert.user_id,
         });
       }
       await createInAppNotification({
@@ -208,6 +209,7 @@ const ExpertApproval = () => {
           subject: "Your Irookee expert profile needs changes",
           eventType: "expert_rejected",
           html: "<p>Your Irookee expert profile was not approved yet.</p><p>Please review your profile details and submit again.</p>",
+          userId: expert.user_id,
         });
       }
       await createInAppNotification({
