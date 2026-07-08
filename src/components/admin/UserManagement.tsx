@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Loader2, Eye } from "lucide-react";
+import { Search, Loader2, Eye, Edit, Trash2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserRow {
   id: string;
@@ -24,6 +26,13 @@ const UserManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchUsers();
@@ -60,6 +69,91 @@ const UserManagement = () => {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditUser = async () => {
+    if (!editingUser) return;
+    setActionLoading(editingUser.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: editName.trim(), user_type: editType })
+        .eq('id', editingUser.id);
+      if (error) throw error;
+      toast({ title: "User Updated", description: "The user details have been updated." });
+      setIsEditDialogOpen(false);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Update Failed",
+        description: "Could not update user details",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleSuspend = async (user: UserRow) => {
+    setActionLoading(user.id);
+    const nextType = user.user_type === 'suspended' ? 'consumer' : 'suspended';
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ user_type: nextType })
+        .eq('id', user.id);
+      if (error) throw error;
+      toast({
+        title: nextType === 'suspended' ? "User Suspended" : "User Unsuspended",
+        description: `User role has been updated to ${nextType}`,
+      });
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Action Failed",
+        description: "Could not update user suspension status",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Are you absolutely sure you want to delete this user? This will delete all of their bookings, reviews, and profile data permanently!")) return;
+    setActionLoading(userId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ target_user_id: userId }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || resData.error) {
+        throw new Error(resData.error || "Failed to delete account");
+      }
+
+      toast({ title: "User Deleted", description: "User account and all associated data have been permanently deleted." });
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Delete Failed",
+        description: err instanceof Error ? err.message : "Could not delete user account",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -107,6 +201,7 @@ const UserManagement = () => {
               <SelectItem value="consumer">Consumers</SelectItem>
               <SelectItem value="expert">Experts</SelectItem>
               <SelectItem value="admin">Admins</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -133,16 +228,54 @@ const UserManagement = () => {
                   <TableCell className="font-medium">{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email || 'N/A'}</TableCell>
                   <TableCell>
-                    <Badge variant={user.user_type === 'expert' ? 'default' : 'secondary'}>
+                    <Badge variant={user.user_type === 'expert' ? 'default' : user.user_type === 'suspended' ? 'destructive' : 'secondary'}>
                       {user.user_type || 'consumer'}
                     </Badge>
                   </TableCell>
                   <TableCell>{user.bookings_count || 0} booking(s)</TableCell>
                   <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedUser(user)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex space-x-1">
+                      <Button size="sm" variant="outline" title="View details" onClick={() => setSelectedUser(user)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Edit User"
+                        onClick={() => {
+                          setEditingUser(user);
+                          setEditName(user.full_name || "");
+                          setEditType(user.user_type || "consumer");
+                          setIsEditDialogOpen(true);
+                        }}
+                        disabled={actionLoading === user.id}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={user.user_type === 'suspended' ? 'default' : 'outline'}
+                        title={user.user_type === 'suspended' ? 'Unsuspend User' : 'Suspend User'}
+                        onClick={() => handleToggleSuspend(user)}
+                        disabled={actionLoading === user.id}
+                      >
+                        <ShieldAlert className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        title="Delete User"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={actionLoading === user.id}
+                      >
+                        {actionLoading === user.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -152,6 +285,7 @@ const UserManagement = () => {
         )}
       </CardContent>
     </Card>
+
     <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
       <DialogContent>
         <DialogHeader>
@@ -167,6 +301,45 @@ const UserManagement = () => {
             <div><p className="font-medium text-muted-foreground">User ID</p><p className="font-mono text-xs break-all">{selectedUser.id}</p></div>
           </div>
         )}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit User Profile</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="edit-name">Full Name</Label>
+            <Input
+              id="edit-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-type">User Type</Label>
+            <Select value={editType} onValueChange={setEditType}>
+              <SelectTrigger id="edit-type">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="consumer">Consumer</SelectItem>
+                <SelectItem value="expert">Expert</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleEditUser} disabled={!!actionLoading}>
+            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Save Changes
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
     </>

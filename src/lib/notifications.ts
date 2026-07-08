@@ -85,6 +85,25 @@ export const sendNotificationEmail = async (payload: {
   eventType: string
   userId?: string | null
 }) => {
+  if (payload.userId) {
+    const preferences = await getNotificationPreferences(payload.userId)
+    if (preferences) {
+      let allowed = true
+      if (payload.eventType === 'email_expert_application') {
+        allowed = allowsEmail(preferences, 'email_expert_application')
+      } else if (payload.eventType === 'email_expert_approved' || payload.eventType === 'expert_approved') {
+        allowed = allowsEmail(preferences, 'email_expert_approved')
+      } else if (payload.eventType === 'email_booking_confirmed' || payload.eventType.startsWith('booking_')) {
+        allowed = allowsEmail(preferences, 'email_booking_confirmed')
+      }
+      
+      if (!allowed) {
+        console.log(`Skipping notification email ${payload.eventType} as user disabled it in preferences`)
+        return
+      }
+    }
+  }
+
   const { error } = await supabase.functions.invoke('send-notification-email', {
     body: payload,
   })
