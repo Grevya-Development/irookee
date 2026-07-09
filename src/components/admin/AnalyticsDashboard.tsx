@@ -18,6 +18,7 @@ const AnalyticsDashboard = () => {
     avgRating: 0,
     totalReviews: 0,
     totalUsers: 0,
+    totalReports: 0,
   });
   const [categoryStats, setCategoryStats] = useState<{ name: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +51,7 @@ const AnalyticsDashboard = () => {
       const [
         totalExperts, verifiedExperts, pendingExperts, rejectedExperts,
         totalBookings, completedBookings, confirmedBookings, noShowBookings, cancelledBookings,
-        totalCategories, totalReviews, totalUsers,
+        totalCategories, totalReviews, totalUsers, totalReports,
       ] = await Promise.all([
         safeCount('speakers'),
         safeCount('speakers', { verification_status: 'verified' }),
@@ -64,6 +65,7 @@ const AnalyticsDashboard = () => {
         safeCount('categories'),
         safeCount('reviews'),
         safeCount('profiles'),
+        safeCount('expert_reports'),
       ]);
 
       // Average rating
@@ -94,7 +96,7 @@ const AnalyticsDashboard = () => {
       setStats({
         totalExperts, verifiedExperts, pendingExperts, rejectedExperts,
         totalBookings, completedBookings, confirmedBookings, noShowBookings, cancelledBookings,
-        totalCategories, avgRating, totalReviews, totalUsers,
+        totalCategories, avgRating, totalReviews, totalUsers, totalReports,
       });
     } catch (error) {
       console.error('Analytics error:', error);
@@ -112,11 +114,12 @@ const AnalyticsDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Platform Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard value={stats.totalUsers} label="Total Users" color="text-blue-600" />
         <MetricCard value={stats.totalExperts} label="Total Experts" color="text-indigo-600" />
         <MetricCard value={stats.verifiedExperts} label="Verified" color="text-green-600" />
         <MetricCard value={stats.pendingExperts} label="Pending Review" color="text-yellow-600" />
+        <MetricCard value={stats.totalReports} label="Total Reports" color="text-red-600" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

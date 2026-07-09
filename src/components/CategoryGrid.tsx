@@ -89,7 +89,7 @@ const CategoryGrid = memo(() => {
         <button
           key={cat.id}
           onClick={() => handleCategoryClick(cat.name)}
-          className="group flex flex-col items-center text-center p-4 rounded-xl border bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200"
+          className="group flex flex-col items-center text-center p-4 rounded-xl border bg-card hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300 ease-out"
         >
           <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">
             {getEmoji(cat.icon)}
