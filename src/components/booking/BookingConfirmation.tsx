@@ -169,9 +169,10 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
 
       setBooked(true)
       toast.success(bookingId ? 'Session rescheduled successfully!' : 'Session booked successfully!')
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Booking error:', error)
-      toast.error('Failed to create booking. Please try again.')
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create booking. Please try again.'
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
