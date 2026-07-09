@@ -11,6 +11,7 @@ import UserManagement from "./UserManagement";
 import ExpertApproval from "./ExpertApproval";
 import PaymentTracking from "./PaymentTracking";
 import AnalyticsDashboard from "./AnalyticsDashboard";
+import PlatformModeration from "./PlatformModeration";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -21,6 +22,7 @@ const AdminDashboard = () => {
     pendingVerifications: 0,
     revenue: 0,
     databaseOnline: false,
+    pendingReports: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -33,16 +35,17 @@ const AdminDashboard = () => {
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const [profilesRes, totalExpertsRes, verifiedExpertsRes, bookingsRes, pendingRes, revenueRes] = await Promise.all([
+      const [profilesRes, totalExpertsRes, verifiedExpertsRes, bookingsRes, pendingRes, revenueRes, reportsRes] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('speakers').select('id', { count: 'exact', head: true }),
         supabase.from('speakers').select('id', { count: 'exact', head: true }).eq('verification_status', 'verified'),
         supabase.from('expertise_bookings').select('id', { count: 'exact', head: true }),
         supabase.from('speakers').select('id', { count: 'exact', head: true }).eq('verification_status', 'pending'),
         supabase.from('expertise_bookings').select('total_amount').neq('status', 'cancelled'),
+        supabase.from('expert_reports' as never).select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ]);
 
-      const firstError = profilesRes.error || totalExpertsRes.error || verifiedExpertsRes.error || bookingsRes.error || pendingRes.error || revenueRes.error;
+      const firstError = profilesRes.error || totalExpertsRes.error || verifiedExpertsRes.error || bookingsRes.error || pendingRes.error || revenueRes.error || (reportsRes && reportsRes.error);
       if (firstError) throw firstError;
 
       const revenue = (revenueRes.data || []).reduce((sum, booking) => sum + (Number(booking.total_amount) || 0), 0);
@@ -55,6 +58,7 @@ const AdminDashboard = () => {
         pendingVerifications: pendingRes.count || 0,
         revenue,
         databaseOnline: true,
+        pendingReports: reportsRes?.count || 0,
       });
     } catch (error) {
       console.error('Error fetching admin stats:', error);
@@ -88,13 +92,14 @@ const AdminDashboard = () => {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-4 mb-8">
           <StatCard title="Total Users" value={stats.totalUsers} description="Registered users" icon={<Users className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
           <StatCard title="Total Experts" value={stats.totalExperts} description="All expert profiles" icon={<Users className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
           <StatCard title="Verified Experts" value={stats.activeExperts} description="Approved & active" icon={<UserCheck className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
           <StatCard title="Pending Experts" value={stats.pendingVerifications} description="Awaiting review" icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
           <StatCard title="Total Bookings" value={stats.totalBookings} description="All-time sessions" icon={<Calendar className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
           <StatCard title="Revenue" value={`INR ${stats.revenue.toLocaleString('en-IN')}`} description="Recorded bookings" icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
+          <StatCard title="Pending Reports" value={stats.pendingReports} description="Awaiting action" icon={<ShieldAlert className="h-4 w-4 text-destructive" />} loading={statsLoading} />
           <StatCard title="Health" value={stats.databaseOnline ? "OK" : "Down"} description="Platform checks" icon={<Database className="h-4 w-4 text-muted-foreground" />} loading={statsLoading} />
         </div>
 
@@ -166,36 +171,7 @@ function StatCard({
   );
 }
 
-function PlatformModeration() {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5" /> Reported Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">No active user reports found.</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5" /> Reported Experts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">No active expert reports found.</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Suspicious Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Future-ready queue for fraud, spam, and abuse signals.</p>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+
 
 function SystemHealth({ databaseOnline, statsError }: { databaseOnline: boolean; statsError: string | null }) {
   return (

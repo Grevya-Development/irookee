@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Star, MapPin, Languages, Calendar, Briefcase, ExternalLink, MessageSquare, BadgeCheck } from 'lucide-react'
+import { Star, MapPin, Languages, Calendar, Briefcase, ExternalLink, MessageSquare, BadgeCheck, Flag } from 'lucide-react'
 import BookingModal from '@/components/BookingModal'
 import { Expert } from '@/types/speaker'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
@@ -14,6 +14,11 @@ import Navigation from '@/components/Navigation'
 import Seo from '@/components/Seo'
 import { supabase } from '@/integrations/supabase/client'
 import { track } from '@/lib/analytics'
+import { useAuth } from '@/components/AuthProvider'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface ReviewRow {
   id: string
@@ -26,10 +31,51 @@ interface ReviewRow {
 export default function ExpertProfile() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { expert, loading } = useExperts(id)
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [isReportOpen, setIsReportOpen] = useState(false)
+  const [reportCategory, setReportCategory] = useState("spam")
+  const [reportDescription, setReportDescription] = useState("")
+  const [submittingReport, setSubmittingReport] = useState(false)
+
+  const handleReportExpert = async () => {
+    if (!user) {
+      toast.error("Please log in to report an expert.")
+      navigate(`/auth?redirect=/expert/${expert?.id}`)
+      return
+    }
+    if (!reportDescription.trim()) {
+      toast.error("Please provide a description of the issue.")
+      return
+    }
+
+    setSubmittingReport(true)
+    try {
+      const { error } = await supabase
+        .from("expert_reports")
+        .insert({
+          reporter_id: user.id,
+          expert_id: expert?.id,
+          category: reportCategory,
+          description: reportDescription.trim(),
+          status: "pending",
+        })
+
+      if (error) throw error
+
+      toast.success("Report submitted. Thank you for keeping our community safe!")
+      setIsReportOpen(false)
+      setReportDescription("")
+    } catch (err: unknown) {
+      console.error(err)
+      toast.error(err instanceof Error ? err.message : "Could not submit report")
+    } finally {
+      setSubmittingReport(false)
+    }
+  }
 
   useEffect(() => {
     if (id) fetchReviews(id)
@@ -321,6 +367,9 @@ export default function ExpertProfile() {
                 <Button variant="outline" className="w-full" onClick={() => navigate(`/booking?expertId=${expert.id}`)}>
                   View Calendar
                 </Button>
+                <Button variant="ghost" className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive text-xs" onClick={() => setIsReportOpen(true)}>
+                  <Flag className="h-3 w-3 mr-2" /> Report Expert Profile
+                </Button>
               </CardContent>
             </Card>
 
@@ -347,6 +396,54 @@ export default function ExpertProfile() {
         onClose={() => setIsBookingOpen(false)}
         speaker={expertForBooking}
       />
+
+      <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Flag className="h-5 w-5 fill-destructive/10" /> Report Expert Profile
+            </DialogTitle>
+            <DialogDescription>
+              Help us understand what's wrong with this expert's profile or behavior. All reports are reviewed by our moderation team.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="category">Report Reason</Label>
+              <Select value={reportCategory} onValueChange={setReportCategory}>
+                <SelectTrigger id="category" className="w-full">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spam">Spam / Promotion</SelectItem>
+                  <SelectItem value="abuse">Abusive / Inappropriate Behavior</SelectItem>
+                  <SelectItem value="harassment">Harassment</SelectItem>
+                  <SelectItem value="misleading">Misleading Profile / Information</SelectItem>
+                  <SelectItem value="other">Other Violation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Detailed Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe the issue in detail..."
+                className="min-h-[120px]"
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReportOpen(false)} disabled={submittingReport}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleReportExpert} disabled={submittingReport}>
+              {submittingReport ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
