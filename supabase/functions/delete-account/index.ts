@@ -89,11 +89,13 @@ serve(async (req) => {
       await safeDelete('guest_profiles', 'email', targetUserEmail)
     }
 
-    // Delete reviews associated with this user (either as reviewer or for their expert profile)
+    // Clean user-specific messages and reviews
+    await safeDelete('expertise_messages', 'sender_id', targetUserId)
     await safeDelete('expertise_reviews', 'reviewer_id', targetUserId)
     await safeDelete('reviews', 'reviewer_id', targetUserId)
 
     if (speakerId) {
+      await safeDelete('achievements', 'speaker_id', speakerId)
       await safeDelete('expertise_reviews', 'expert_id', speakerId)
       await safeDelete('reviews', 'expert_id', speakerId)
       await safeDelete('testimonials', 'speaker_id', speakerId)
@@ -111,6 +113,7 @@ serve(async (req) => {
     }
 
     await safeDelete('expertise_bookings', 'user_id', targetUserId)
+    await safeDelete('expertise_bookings', 'consumer_id', targetUserId)
     await safeDelete('bookings', 'seeker_id', targetUserId)
     await safeDelete('bookings', 'organizer_id', targetUserId)
 

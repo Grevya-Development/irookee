@@ -76,7 +76,7 @@ const Auth = () => {
   const redirect = searchParams.get('redirect') || '/dashboard';
   const { toast } = useToast();
   const mode = searchParams.get('mode');
-  const isResetMode = mode === 'reset';
+  const isResetMode = mode === 'reset' || window.location.hash.includes('type=recovery');
   const [newPassword, setNewPassword] = useState("");
 
   const handleResetPassword = async (e: React.FormEvent) => {

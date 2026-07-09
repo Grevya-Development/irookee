@@ -85,7 +85,6 @@ DECLARE
   new_duration_min INTEGER;
   new_speaker_id UUID;
   new_id UUID;
-END_VAR BOOLEAN; -- not needed
 BEGIN
   -- If the booking status is not active, skip overlap checks entirely
   IF NEW.status NOT IN ('pending', 'confirmed', 'in_progress') THEN
@@ -137,3 +136,31 @@ CREATE TRIGGER trg_check_legacy_booking_overlap
 BEFORE INSERT OR UPDATE ON public.bookings
 FOR EACH ROW
 EXECUTE FUNCTION public.check_legacy_booking_overlap();
+
+-- Fix foreign key constraints on availability_slots, expertise_bookings, and expertise_reviews to point to speakers table
+ALTER TABLE public.availability_slots
+  DROP CONSTRAINT IF EXISTS availability_slots_expert_id_fkey;
+
+ALTER TABLE public.availability_slots
+  ADD CONSTRAINT availability_slots_expert_id_fkey
+  FOREIGN KEY (expert_id) REFERENCES public.speakers(id) ON DELETE CASCADE;
+
+ALTER TABLE public.expertise_bookings
+  DROP CONSTRAINT IF EXISTS expertise_bookings_expert_id_fkey;
+
+ALTER TABLE public.expertise_bookings
+  ADD CONSTRAINT expertise_bookings_expert_id_fkey
+  FOREIGN KEY (expert_id) REFERENCES public.speakers(id) ON DELETE CASCADE;
+
+ALTER TABLE public.expertise_reviews
+  DROP CONSTRAINT IF EXISTS expertise_reviews_expert_id_fkey;
+
+ALTER TABLE public.expertise_reviews
+  ADD CONSTRAINT expertise_reviews_expert_id_fkey
+  FOREIGN KEY (expert_id) REFERENCES public.speakers(id) ON DELETE CASCADE;
+
+-- Make platform_fee and expert_payout nullable on expertise_bookings
+ALTER TABLE public.expertise_bookings
+  ALTER COLUMN platform_fee DROP NOT NULL,
+  ALTER COLUMN expert_payout DROP NOT NULL;
+

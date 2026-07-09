@@ -137,7 +137,7 @@ const PromptPeople = memo(() => {
                 <button
                   type="button"
                   onClick={handleClearSearch}
-                  className="absolute right-32 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-[96px] top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
