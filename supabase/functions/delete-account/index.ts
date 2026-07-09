@@ -35,7 +35,38 @@ serve(async (req) => {
       )
     }
 
-    const deletedEmail = `deleted-${user.id}@deleted.local`
+    // Check if caller is admin
+    const { data: roleData } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle()
+
+    const isAdmin = !!roleData;
+
+    let targetUserId = user.id;
+    let targetUserEmail = user.email;
+
+    try {
+      const body = await req.json();
+      if (isAdmin && body?.target_user_id) {
+        targetUserId = body.target_user_id;
+        const { data: targetUser } = await adminClient.auth.admin.getUserById(targetUserId);
+        targetUserEmail = targetUser?.user?.email || null;
+      }
+    } catch (_) {
+      // no body or invalid json
+    }
+
+    // Find speaker profile ID for this user if it exists
+    const { data: speaker } = await adminClient
+      .from('speakers')
+      .select('id')
+      .eq('user_id', targetUserId)
+      .maybeSingle()
+
+    const speakerId = speaker?.id
 
     // Helper to safely execute a delete or update on tables that might not exist or might fail
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,83 +80,49 @@ serve(async (req) => {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const safeUpdate = async (table: string, values: any, matchCol: string, val: any) => {
-      try {
-        const { error } = await adminClient.from(table).update(values).eq(matchCol, val)
-        if (error) console.warn(`Warn: Safe update on ${table} returned: ${error.message}`)
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.warn(`Warn: Safe update on ${table} failed: ${msg}`)
-      }
+    // Clean user-specific notifications and preferences
+    await safeDelete('notifications', 'user_id', targetUserId)
+    await safeDelete('notification_preferences', 'user_id', targetUserId)
+    await safeDelete('user_profiles', 'user_id', targetUserId)
+    await safeDelete('user_roles', 'user_id', targetUserId)
+    if (targetUserEmail) {
+      await safeDelete('guest_profiles', 'email', targetUserEmail)
     }
 
-    // Clean user-specific notifications and settings
-    await safeDelete('notifications', 'user_id', user.id)
-    await safeDelete('notification_preferences', 'user_id', user.id)
-    await safeDelete('user_profiles', 'user_id', user.id)
-    if (user.email) {
-      await safeDelete('guest_profiles', 'email', user.email)
+    // Clean user-specific messages and reviews
+    await safeDelete('expertise_messages', 'sender_id', targetUserId)
+    await safeDelete('expertise_reviews', 'reviewer_id', targetUserId)
+    await safeDelete('reviews', 'reviewer_id', targetUserId)
+
+    if (speakerId) {
+      await safeDelete('achievements', 'speaker_id', speakerId)
+      await safeDelete('expertise_reviews', 'expert_id', speakerId)
+      await safeDelete('reviews', 'expert_id', speakerId)
+      await safeDelete('testimonials', 'speaker_id', speakerId)
+      await safeDelete('verification_requests', 'speaker_id', speakerId)
+      await safeDelete('availability_slots', 'expert_id', speakerId)
+      await safeDelete('speaker_availability', 'speaker_id', speakerId)
+      await safeDelete('speaker_categories', 'expert_id', speakerId)
     }
 
-    // Unlink organizer/reviewer/seeker/consumer IDs from bookings and reviews
-    await safeUpdate('bookings', { organizer_id: null }, 'organizer_id', user.id)
-    await safeUpdate('bookings', { seeker_id: null }, 'seeker_id', user.id)
-    await safeUpdate('bookings', { user_id: null }, 'user_id', user.id)
-    await safeUpdate('expertise_bookings', { consumer_id: null }, 'consumer_id', user.id)
-    await safeUpdate('expertise_bookings', { user_id: null }, 'user_id', user.id)
-    await safeUpdate('reviews', { reviewer_id: null }, 'reviewer_id', user.id)
-    await safeUpdate('expertise_reviews', { reviewer_id: null }, 'reviewer_id', user.id)
-    await safeDelete('user_roles', 'user_id', user.id)
+    // Delete bookings in correct order
+    if (speakerId) {
+      await safeDelete('expertise_bookings', 'expert_id', speakerId)
+      await safeDelete('bookings', 'speaker_id', speakerId)
+      await safeDelete('bookings', 'expert_id', speakerId) // support both column names
+    }
 
-    // Anonymize and unlink expert profiles
-    await safeUpdate(
-      'speakers',
-      {
-        user_id: null,
-        email: null,
-        phone: null,
-        name: 'Deleted Expert',
-        bio: 'This account has been deleted.',
-        profile_photo_url: null,
-        image_url: null,
-        linkedin_url: null,
-        website_url: null,
-        verification_status: 'deleted'
-      },
-      'user_id',
-      user.id
-    )
+    await safeDelete('expertise_bookings', 'user_id', targetUserId)
+    await safeDelete('expertise_bookings', 'consumer_id', targetUserId)
+    await safeDelete('bookings', 'seeker_id', targetUserId)
+    await safeDelete('bookings', 'organizer_id', targetUserId)
 
-    await safeUpdate(
-      'expert_profiles',
-      {
-        user_id: null,
-        bio: 'This account has been deleted.',
-        image_url: null,
-        video_url: null,
-        verification_status: 'deleted'
-      },
-      'user_id',
-      user.id
-    )
+    // Delete the expert profiles completely
+    await safeDelete('speakers', 'user_id', targetUserId)
+    await safeDelete('expert_profiles', 'user_id', targetUserId)
 
-    // Anonymize personal profile details
-    await adminClient
-      .from('profiles')
-      .update({
-        email: deletedEmail,
-        full_name: 'Deleted user',
-        first_name: null,
-        last_name: null,
-        avatar_url: null,
-        bio: null,
-        phone: null,
-      })
-      .eq('id', user.id)
-
-    // Delete user from authentication
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
+    // Delete user from authentication - this will cascade and delete from profiles table too
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId)
     if (deleteError) throw deleteError
 
     return new Response(

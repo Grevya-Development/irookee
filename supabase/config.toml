@@ -43,9 +43,9 @@ double_confirm_changes = true
 enable_confirmations = false
 
 # Use pre-defined map of claims
-[auth.jwt]
-default_group_name = ""
-admin_group_name = ""
+# [auth.jwt]
+# default_group_name = ""
+# admin_group_name = ""
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms]
@@ -240,13 +240,13 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 # Use an S3-compatible object storage backend instead of the local file system
-[storage.s3]
-enabled = false
-bucket = ""
-region = ""
-endpoint = ""
-access_key_id = ""
-secret_access_key = ""
+# [storage.s3]
+# enabled = false
+# bucket = ""
+# region = ""
+# endpoint = ""
+# access_key_id = ""
+# secret_access_key = ""
 
 [analytics]
 enabled = false

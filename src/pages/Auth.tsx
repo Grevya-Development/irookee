@@ -75,6 +75,43 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect') || '/dashboard';
   const { toast } = useToast();
+  const mode = searchParams.get('mode');
+  const isResetMode = mode === 'reset' || window.location.hash.includes('type=recovery');
+  const [newPassword, setNewPassword] = useState("");
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { score } = getPasswordStrength(newPassword);
+    if (newPassword.length < 8 || score < 3) {
+      toast({
+        title: "Choose a stronger password",
+        description: "Use at least 8 characters with a mix of uppercase, numbers, and a symbol.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully updated. Please log in with your new password.",
+      });
+      await supabase.auth.signOut();
+      setNewPassword("");
+      navigate('/auth', { replace: true });
+    } catch (err) {
+      toast({
+        title: "Error resetting password",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,11 +161,23 @@ const Auth = () => {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: emailValidation.email, password,
           options: { emailRedirectTo: getSiteUrl() },
         });
         if (error) throw error;
+
+        if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+          toast({
+            title: "Email already registered",
+            description: "An account with this email address already exists. Please sign in instead.",
+            variant: "destructive",
+          });
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
         toast({ title: "Account Created!", description: "Check your email to verify, then log in." });
         setIsSignUp(false);
       } else {
@@ -207,10 +256,12 @@ const Auth = () => {
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-2">
               <CardTitle className="text-2xl">
-                {isForgotPassword ? "Reset your password" : isSignUp ? "Create your account" : "Welcome back"}
+                {isResetMode ? "Reset your password" : isForgotPassword ? "Reset your password" : isSignUp ? "Create your account" : "Welcome back"}
               </CardTitle>
               <CardDescription>
-                {isForgotPassword
+                {isResetMode
+                  ? "Enter your new password below"
+                  : isForgotPassword
                   ? "Enter your email and we'll send a reset link"
                   : isSignUp
                   ? "Join the community and connect with experts"
@@ -218,7 +269,36 @@ const Auth = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
-              {isForgotPassword ? (
+              {isResetMode ? (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div>
+                    <Label htmlFor="new-password">New Password</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="new-password" type={showPassword ? "text" : "password"}
+                        placeholder="Choose a strong new password"
+                        value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                        required className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {newPassword.length > 0 && <PasswordStrength password={newPassword} />}
+                  </div>
+                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                    {loading ? "Resetting..." : "Update Password"}
+                  </Button>
+                  <Button variant="ghost" className="w-full" onClick={() => navigate('/auth')}>
+                    Cancel & Sign In
+                  </Button>
+                </form>
+              ) : isForgotPassword ? (
                 resetSent ? (
                   <div className="text-center py-4 space-y-4">
                     <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">

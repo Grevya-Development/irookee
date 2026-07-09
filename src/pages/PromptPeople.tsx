@@ -131,13 +131,13 @@ const PromptPeople = memo(() => {
                 placeholder="e.g., 'I need a mentor for switching to tech' or 'Local guide in Paris'"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-32 py-6 text-lg rounded-full border-2 focus:border-primary"
+                className="pl-12 pr-44 py-6 text-lg rounded-full border-2 focus:border-primary"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={handleClearSearch}
-                  className="absolute right-24 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-[96px] top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
