@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS public.expert_profiles (
   UNIQUE(user_id)
 );
 
+-- Ensure all expected columns exist in expert_profiles for downstream policies and triggers
+ALTER TABLE public.expert_profiles 
+  ADD COLUMN IF NOT EXISTS title TEXT,
+  ADD COLUMN IF NOT EXISTS expertise_areas TEXT[],
+  ADD COLUMN IF NOT EXISTS commission_rate DECIMAL(5,2) DEFAULT 15.00,
+  ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
 -- Availability slots
 CREATE TABLE IF NOT EXISTS public.availability_slots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

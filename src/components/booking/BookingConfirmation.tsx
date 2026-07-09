@@ -132,6 +132,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
           .insert({
             expert_id: expertId,
             user_id: user.id,
+            consumer_id: user.id,
             event_name: `Session with ${expert?.name || 'Expert'}`,
             ...timeFields,
             total_amount: 0,

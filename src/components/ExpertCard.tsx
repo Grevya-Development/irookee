@@ -65,7 +65,7 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full">
+      <Card className="hover:shadow-xl hover:-translate-y-1 hover:border-primary/20 transition-all duration-300 ease-out flex flex-col h-full">
         <CardContent className="p-5 flex-1">
           {/* Header */}
           <div className="flex items-start gap-3 mb-3">

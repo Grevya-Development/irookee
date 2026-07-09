@@ -25,11 +25,32 @@ serve(async (req) => {
     const fromEmail = Deno.env.get('NOTIFICATION_FROM_EMAIL') || 'Irookee <notifications@irookee.com>'
 
     if (!resendApiKey) {
-      console.warn(`Skipping ${eventType} email because RESEND_API_KEY is not configured`)
-      return new Response(
-        JSON.stringify({ skipped: true, reason: 'RESEND_API_KEY is not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      console.warn(`RESEND_API_KEY is not configured. Falling back to local SMTP (Mailpit/Inbucket)`)
+      try {
+        const { SmtpClient } = await import('https://deno.land/x/smtp@v0.7.0/mod.ts')
+        const client = new SmtpClient()
+        await client.connect({
+          hostname: 'supabase_inbucket_jctawltvlnooqqkltjvb',
+          port: 1025,
+        })
+        await client.send({
+          from: fromEmail,
+          to,
+          subject,
+          html,
+        })
+        await client.close()
+        return new Response(
+          JSON.stringify({ sent: true, fallback: 'mailpit' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (err) {
+        console.error('Local SMTP failed:', err)
+        return new Response(
+          JSON.stringify({ error: `Local SMTP failed: ${err.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     const response = await fetch('https://api.resend.com/emails', {

@@ -1,6 +1,6 @@
 
 -- Add the missing icon column to the categories table
-ALTER TABLE categories ADD COLUMN icon TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon TEXT;
 
 -- Update existing categories with their icons
 UPDATE categories SET icon = '💼' WHERE name = 'Career & Job Transition';
