@@ -120,15 +120,10 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
       const bookingPayload = {
         expert_id: speaker.id,
-        user_id: user.id,
-        event_name: `Session with ${speaker.name}`,
+        consumer_id: user.id,
         ...buildBookingTimeFields(selectedDateTime, selectedDuration),
-        total_amount: 0, // Free platform
-        customer_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-        customer_email: user.email,
-        notes: formattedNotes,
+        total_amount: 0,
         consumer_notes: formattedNotes,
-        currency: "INR",
         status: "confirmed",
         meeting_link: generatedMeetingLink,
       };
