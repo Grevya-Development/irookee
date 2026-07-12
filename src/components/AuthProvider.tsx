@@ -29,6 +29,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
+        // Handle password recovery redirect
+        if (event === 'PASSWORD_RECOVERY') {
+          window.location.href = '/auth?mode=reset';
+          return;
+        }
+
         // Tie analytics to the authenticated user (or clear on sign out).
         if (session?.user) {
           identifyUser(session.user.id, { email: session.user.email });

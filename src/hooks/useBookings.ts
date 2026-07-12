@@ -50,7 +50,7 @@ export function useBookings(userId?: string) {
             title
           )
         `)
-        .eq('user_id', userId)
+        .eq('consumer_id', userId)
         .order('created_at', { ascending: false })
 
       if (fetchError) throw fetchError

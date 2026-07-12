@@ -221,7 +221,7 @@ export const getUserBookings = async () => {
         image_url
       )
     `)
-    .or(`user_id.eq.${user.id},expert_id.in.(select id from speakers where user_id=${user.id})`)
+    .or(`consumer_id.eq.${user.id},expert_id.in.(select id from speakers where user_id=${user.id})`)
     .order('created_at', { ascending: false });
 
   if (error) {

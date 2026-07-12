@@ -99,7 +99,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
             .from('expertise_bookings')
             .select('*')
             .eq('id', bookingId)
-            .eq('user_id', user.id)
+            .eq('consumer_id', user.id)
             .eq('expert_id', expertId)
             .maybeSingle()
         : { data: null }
@@ -114,7 +114,6 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
           .from('expertise_bookings')
           .update({
             ...timeFields,
-            notes: consumerNotes || null,
             consumer_notes: consumerNotes || null,
             status: 'confirmed',
           } as never)
@@ -131,15 +130,10 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
           .from('expertise_bookings')
           .insert({
             expert_id: expertId,
-            user_id: user.id,
-            event_name: `Session with ${expert?.name || 'Expert'}`,
+            consumer_id: user.id,
             ...timeFields,
             total_amount: 0,
-            customer_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-            customer_email: user.email,
-            notes: consumerNotes || null,
             consumer_notes: consumerNotes || null,
-            currency: 'INR',
             status: 'confirmed',
             meeting_link: meetingLink,
           } as never)
@@ -168,9 +162,10 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
 
       setBooked(true)
       toast.success(bookingId ? 'Session rescheduled successfully!' : 'Session booked successfully!')
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Booking error:', error)
-      toast.error('Failed to create booking. Please try again.')
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create booking. Please try again.'
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
