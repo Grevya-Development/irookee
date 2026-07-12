@@ -18,7 +18,7 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
       <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-6">
         <div className="flex flex-col items-center text-center">
           <img
-            src={expert.image_url || "/placeholder.svg"}
+            src={expert.image_url ? `${expert.image_url}?t=${new Date(expert.updated_at || '').getTime()}` : "/placeholder.svg"}
             alt={expert.name}
             className="w-20 h-20 rounded-full object-cover mb-4"
           />

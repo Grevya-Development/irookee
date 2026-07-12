@@ -514,7 +514,7 @@ function BookingsList({ expertId }: { expertId: string }) {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {past.map(booking => (
                 <Card key={booking.id}>
                   <CardContent className="p-4">
@@ -522,8 +522,16 @@ function BookingsList({ expertId }: { expertId: string }) {
                       <div>
                         <p className="font-medium">{booking.event_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
+                          {booking.customer_name} ({booking.customer_email})
                         </p>
+                        <p className="text-sm font-medium mt-1">
+                          {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
+                            weekday: 'short', month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                          {` - ${formatBookingDuration(booking)}`}
+                        </p>
+                        {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
                         {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
                           <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" /> No review received yet
@@ -556,7 +564,7 @@ function BookingsList({ expertId }: { expertId: string }) {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {cancelled.map(booking => (
                 <Card key={booking.id}>
                   <CardContent className="p-4">
@@ -564,8 +572,16 @@ function BookingsList({ expertId }: { expertId: string }) {
                       <div>
                         <p className="font-medium">{booking.event_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {booking.customer_name} - {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleDateString()}
+                          {booking.customer_name} ({booking.customer_email})
                         </p>
+                        <p className="text-sm font-medium mt-1">
+                          {getBookingStart(booking) && new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
+                            weekday: 'short', month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                          {` - ${formatBookingDuration(booking)}`}
+                        </p>
+                        {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
                       </div>
                       <Badge variant="destructive">cancelled</Badge>
                     </div>

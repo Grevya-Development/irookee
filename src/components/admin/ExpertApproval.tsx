@@ -78,7 +78,7 @@ const ExpertApproval = () => {
     try {
       if (!url || url.startsWith('local://')) return;
 
-      if (/^https?:\/\//i.test(url)) {
+      if (/^https?:\/\//i.test(url) && !url.includes(`/${VERIFICATION_BUCKET}/`)) {
         window.open(url, "_blank", "noopener,noreferrer");
         return;
       }
@@ -127,6 +127,7 @@ const ExpertApproval = () => {
           subject: "Your Irookee expert profile was approved",
           eventType: "expert_approved",
           html: "<p>Your Irookee expert profile was approved.</p><p>You can now receive bookings from users.</p>",
+          userId: expert.user_id,
         });
       }
       await createInAppNotification({
@@ -208,6 +209,7 @@ const ExpertApproval = () => {
           subject: "Your Irookee expert profile needs changes",
           eventType: "expert_rejected",
           html: "<p>Your Irookee expert profile was not approved yet.</p><p>Please review your profile details and submit again.</p>",
+          userId: expert.user_id,
         });
       }
       await createInAppNotification({
@@ -377,6 +379,11 @@ const ExpertApproval = () => {
                             </Button>
                           </>
                         )}
+                        {expert.verification_status === 'verified' && (
+                          <Button size="sm" variant="destructive" title="Suspend Expert" onClick={() => handleReject(expert.id)} disabled={actionLoading === expert.id}>
+                            {actionLoading === expert.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                          </Button>
+                        )}
                         {expert.verification_status === 'rejected' && (
                           <Button size="sm" variant="outline" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
                             Re-approve
@@ -486,13 +493,20 @@ const ExpertApproval = () => {
                 <div className="mt-1">{getStatusBadge(selectedExpert.verification_status)}</div>
               </div>
 
-              {selectedExpert.verification_status === 'pending' && (
+               {selectedExpert.verification_status === 'pending' && (
                 <div className="flex gap-3 pt-4 border-t">
                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
                     <CheckCircle className="h-4 w-4 mr-2" /> Approve
                   </Button>
                   <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
                     <X className="h-4 w-4 mr-2" /> Reject
+                  </Button>
+                </div>
+              )}
+              {selectedExpert.verification_status === 'verified' && (
+                <div className="pt-4 border-t">
+                  <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                    <X className="h-4 w-4 mr-2" /> Suspend Expert
                   </Button>
                 </div>
               )}

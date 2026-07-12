@@ -118,7 +118,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
             status: 'confirmed',
           } as never)
           .eq('id', bookingId)
-          .eq('user_id', user.id)
+          .eq('consumer_id', user.id)
           .eq('expert_id', expertId)
 
         error = updateResult.error

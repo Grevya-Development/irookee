@@ -41,8 +41,13 @@ export default function Search() {
     if (filters.language) params.set("language", filters.language);
     if (filters.minRating) params.set("minRating", String(filters.minRating));
     if (filters.sortBy) params.set("sortBy", filters.sortBy);
-    setSearchParams(params, { replace: true });
-  }, [filters, queryParam, setSearchParams]);
+    
+    const newParamsStr = params.toString();
+    const currentParamsStr = searchParams.toString();
+    if (newParamsStr !== currentParamsStr) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [filters, queryParam, searchParams, setSearchParams]);
 
   const fetchCategories = async () => {
     try {

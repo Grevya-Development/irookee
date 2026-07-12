@@ -7,7 +7,7 @@ CREATE TYPE communication_mode AS ENUM ('chat', 'voice', 'video');
 CREATE TYPE verification_level AS ENUM ('basic', 'premium', 'verified');
 
 -- Create categories table
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
@@ -16,7 +16,7 @@ CREATE TABLE categories (
 );
 
 -- Create expert profiles table
-CREATE TABLE expert_profiles (
+CREATE TABLE IF NOT EXISTS expert_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
@@ -39,14 +39,14 @@ CREATE TABLE expert_profiles (
 );
 
 -- Create expert categories junction table
-CREATE TABLE expert_categories (
+CREATE TABLE IF NOT EXISTS expert_categories (
   expert_id UUID REFERENCES expert_profiles(id) ON DELETE CASCADE,
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
   PRIMARY KEY (expert_id, category_id)
 );
 
 -- Create availability slots table
-CREATE TABLE availability_slots (
+CREATE TABLE IF NOT EXISTS availability_slots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expert_id UUID REFERENCES expert_profiles(id) ON DELETE CASCADE,
   day_of_week INTEGER, -- 0-6 (Sunday-Saturday)
@@ -57,7 +57,7 @@ CREATE TABLE availability_slots (
 );
 
 -- Create bookings table
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seeker_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   expert_id UUID REFERENCES expert_profiles(id) ON DELETE CASCADE,
@@ -77,7 +77,7 @@ CREATE TABLE bookings (
 );
 
 -- Create reviews table
-CREATE TABLE expert_reviews (
+CREATE TABLE IF NOT EXISTS expert_reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
   seeker_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -88,7 +88,7 @@ CREATE TABLE expert_reviews (
 );
 
 -- Create seeker profiles table
-CREATE TABLE seeker_profiles (
+CREATE TABLE IF NOT EXISTS seeker_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE seeker_profiles (
 );
 
 -- Create payments table
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
   stripe_payment_intent_id TEXT,
@@ -109,6 +109,9 @@ CREATE TABLE payments (
   status TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure icon column exists
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon TEXT;
 
 -- Insert default categories
 INSERT INTO categories (name, description, icon) VALUES
@@ -125,7 +128,7 @@ INSERT INTO categories (name, description, icon) VALUES
 ALTER TABLE expert_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expert_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE availability_slots ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expert_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seeker_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
@@ -143,22 +146,22 @@ CREATE POLICY "Users can update their own expert profile"
   ON expert_profiles FOR UPDATE 
   USING (auth.uid() = user_id);
 
--- Create RLS policies for bookings
-CREATE POLICY "Users can view their own bookings" 
-  ON bookings FOR SELECT 
-  USING (auth.uid() = seeker_id OR expert_id IN (
-    SELECT id FROM expert_profiles WHERE user_id = auth.uid()
-  ));
-
-CREATE POLICY "Seekers can create bookings" 
-  ON bookings FOR INSERT 
-  WITH CHECK (auth.uid() = seeker_id);
-
-CREATE POLICY "Users can update their bookings" 
-  ON bookings FOR UPDATE 
-  USING (auth.uid() = seeker_id OR expert_id IN (
-    SELECT id FROM expert_profiles WHERE user_id = auth.uid()
-  ));
+-- -- Create RLS policies for bookings
+-- CREATE POLICY "Users can view their own bookings" 
+--   ON bookings FOR SELECT 
+--   USING (auth.uid() = seeker_id OR expert_id IN (
+--     SELECT id FROM expert_profiles WHERE user_id = auth.uid()
+--   ));
+-- 
+-- CREATE POLICY "Seekers can create bookings" 
+--   ON bookings FOR INSERT 
+--   WITH CHECK (auth.uid() = seeker_id);
+-- 
+-- CREATE POLICY "Users can update their bookings" 
+--   ON bookings FOR UPDATE 
+--   USING (auth.uid() = seeker_id OR expert_id IN (
+--     SELECT id FROM expert_profiles WHERE user_id = auth.uid()
+--   ));
 
 -- Create RLS policies for reviews
 CREATE POLICY "Public can view reviews" 
@@ -197,13 +200,13 @@ CREATE POLICY "Experts can manage their availability"
     SELECT id FROM expert_profiles WHERE user_id = auth.uid()
   ));
 
-CREATE POLICY "Users can view their payments" 
-  ON payments FOR SELECT 
-  USING (booking_id IN (
-    SELECT id FROM bookings WHERE seeker_id = auth.uid() OR expert_id IN (
-      SELECT id FROM expert_profiles WHERE user_id = auth.uid()
-    )
-  ));
+-- CREATE POLICY "Users can view their payments" 
+--   ON payments FOR SELECT 
+--   USING (booking_id IN (
+--     SELECT id FROM bookings WHERE seeker_id = auth.uid() OR expert_id IN (
+--       SELECT id FROM expert_profiles WHERE user_id = auth.uid()
+--     )
+--   ));
 
 -- Create function to update expert rating
 CREATE OR REPLACE FUNCTION update_expert_rating()
