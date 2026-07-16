@@ -188,7 +188,7 @@ export default function Settings() {
 
       // Try uploading to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from('verification-documents')
+        .from('avatars')
         .upload(filePath, file, { upsert: true })
 
       if (uploadError) {
@@ -213,7 +213,7 @@ export default function Settings() {
       }
 
       const { data: urlData } = supabase.storage
-        .from('verification-documents')
+        .from('avatars')
         .getPublicUrl(filePath)
 
       const publicUrl = urlData.publicUrl
@@ -435,6 +435,7 @@ export default function Settings() {
         linkedin_url: expertData.linkedin_url ? expertData.linkedin_url.trim() : null,
         website_url: expertData.website_url ? expertData.website_url.trim() : null,
         expertise: expertData.expertise,
+        topics: expertData.expertise,
         languages: expertData.languages,
         experience_years: expertData.experience_years,
       }).eq('id', expertData.id)

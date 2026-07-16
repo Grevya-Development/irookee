@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Users, Star, Globe, Search } from "lucide-react";
+import { ArrowRight, Users, Star, Globe, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -56,8 +56,17 @@ const HeroSection = () => {
                 placeholder="Search for experts... (e.g., 'AI consultant', 'business mentor', 'tech advisor')"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-32 py-6 text-lg rounded-full border-2 focus:border-blue-600 shadow-lg"
+                className="pl-12 pr-36 py-6 text-lg rounded-full border-2 focus:border-blue-600 shadow-lg"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-28 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
               <Button 
                 type="submit"
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full px-8 bg-blue-600 hover:bg-blue-700"

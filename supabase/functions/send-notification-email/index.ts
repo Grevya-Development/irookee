@@ -1,3 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Deno 2.0 compatibility shim for legacy smtp library
+if (typeof (Deno as any).writeAll !== 'function') {
+  (Deno as any).writeAll = async function (w: any, arr: Uint8Array) {
+    let nwritten = 0;
+    while (nwritten < arr.length) {
+      nwritten += await w.write(arr.subarray(nwritten));
+    }
+  };
+}
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {

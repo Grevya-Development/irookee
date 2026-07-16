@@ -158,22 +158,11 @@ const UserManagement = () => {
     if (!window.confirm("Are you absolutely sure you want to delete this user? This will delete all of their bookings, reviews, and profile data permanently!")) return;
     setActionLoading(userId);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ target_user_id: userId }),
+      const { error: funcError } = await supabase.functions.invoke('delete-account', {
+        body: { target_user_id: userId },
       });
 
-      const resData = await response.json();
-      if (!response.ok || resData.error) {
-        throw new Error(resData.error || "Failed to delete account");
-      }
+      if (funcError) throw funcError;
 
       toast({ title: "User Deleted", description: "User account and all associated data have been permanently deleted." });
       fetchUsers();

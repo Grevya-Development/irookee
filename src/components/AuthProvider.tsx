@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         // Handle password recovery redirect
         if (event === 'PASSWORD_RECOVERY') {
-          window.history.replaceState(null, '', '/auth?mode=reset');
+          window.location.href = '/auth?mode=reset';
           return;
         }
 
