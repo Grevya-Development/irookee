@@ -94,15 +94,19 @@ serve(async (req) => {
     await safeDelete('expertise_reviews', 'reviewer_id', targetUserId)
     await safeDelete('reviews', 'reviewer_id', targetUserId)
 
+    // Clean expert reports where the user is reporter
+    await safeDelete('expert_reports', 'reporter_id', targetUserId)
+
     if (speakerId) {
       await safeDelete('achievements', 'speaker_id', speakerId)
       await safeDelete('expertise_reviews', 'expert_id', speakerId)
-      await safeDelete('reviews', 'expert_id', speakerId)
+      await safeDelete('reviews', 'speaker_id', speakerId)
       await safeDelete('testimonials', 'speaker_id', speakerId)
       await safeDelete('verification_requests', 'speaker_id', speakerId)
       await safeDelete('availability_slots', 'expert_id', speakerId)
       await safeDelete('speaker_availability', 'speaker_id', speakerId)
       await safeDelete('speaker_categories', 'expert_id', speakerId)
+      await safeDelete('expert_reports', 'expert_id', speakerId)
     }
 
     // Delete bookings in correct order

@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
-import { Upload, X, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles, Shield, Users, Rocket } from 'lucide-react'
+import { Upload, X, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles, Shield, Users, Rocket, ShieldAlert } from 'lucide-react'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import { MultiSelect } from '@/components/ui/multi-select'
@@ -64,6 +64,8 @@ export function ExpertOnboarding() {
   const [uploading, setUploading] = useState(false)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
   const [locationValue, setLocationValue] = useState('')
+  const [isSuspended, setIsSuspended] = useState(false)
+  const [suspensionReason, setSuspensionReason] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -78,8 +80,21 @@ export function ExpertOnboarding() {
 
   const prefillUserData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
+    const user = session?.user
     if (user) {
+      // Check speaker verification status
+      const { data: speaker } = await supabase
+        .from('speakers')
+        .select('verification_status, suspension_reason')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (speaker && speaker.verification_status === 'suspended') {
+        setIsSuspended(true)
+        setSuspensionReason(speaker.suspension_reason || 'Suspended by admin')
+        return
+      }
+
       setValue('email', user.email || '')
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
       if (profile) {
@@ -385,6 +400,37 @@ export function ExpertOnboarding() {
 
   const totalSteps = 4
   const StepIcon = STEP_INFO[step - 1].icon
+
+  if (isSuspended) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <div className="flex-1 container mx-auto px-4 max-w-xl pt-32 pb-12 flex flex-col justify-center">
+          <Card className="border-orange-200 bg-orange-50/50">
+            <div className="p-6 md:p-8 space-y-4">
+              <div className="text-center">
+                <ShieldAlert className="h-12 w-12 text-orange-600 mx-auto mb-2" />
+                <h2 className="text-2xl font-bold text-orange-800">Account Suspended</h2>
+                <p className="text-orange-700 mt-1">
+                  Your expert onboarding is blocked because your account has been suspended by an administrator.
+                </p>
+              </div>
+              <div className="p-3 bg-white border border-orange-200 rounded text-sm space-y-1">
+                <p><strong>Reason:</strong> {suspensionReason || 'No details provided.'}</p>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                If you believe this is a mistake, please contact platform support.
+              </p>
+              <Button onClick={() => navigate('/')} className="w-full">
+                Return to Homepage
+              </Button>
+            </div>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background flex flex-col">

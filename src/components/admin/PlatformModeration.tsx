@@ -52,8 +52,8 @@ export default function PlatformModeration() {
           status,
           admin_notes,
           created_at,
-          reporter:profiles!reporter_id(full_name, email),
-          expert:speakers!expert_id(id, name, title, verification_status)
+          reporter:profiles(full_name, email),
+          expert:speakers(id, name, title, verification_status)
         `)
         .order("created_at", { ascending: false });
 
@@ -88,15 +88,42 @@ export default function PlatformModeration() {
 
       // 2. If taking action / suspending the expert, update the speaker profile status
       if (suspendExpert && selectedReport.expert?.id) {
+        const { data: speaker } = await supabase
+          .from("speakers")
+          .select("suspension_history, user_id")
+          .eq("id", selectedReport.expert.id)
+          .single();
+
+        const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+        const updatedHistory = [
+          ...history,
+          {
+            action: "suspended",
+            reason: adminNotes.trim() || `Suspended due to report category: ${selectedReport.category}`,
+            timestamp: new Date().toISOString(),
+          }
+        ];
+
         const { error: expertError } = await supabase
           .from("speakers")
           .update({
-            verification_status: "rejected",
+            verification_status: "suspended",
             is_verified: false,
-          })
+            suspension_reason: adminNotes.trim() || `Suspended due to report category: ${selectedReport.category}`,
+            suspended_at: new Date().toISOString(),
+            suspension_history: updatedHistory,
+          } as never)
           .eq("id", selectedReport.expert.id);
 
         if (expertError) throw expertError;
+
+        if (speaker?.user_id) {
+          await supabase
+            .from("profiles")
+            .update({ user_type: "suspended" })
+            .eq("id", speaker.user_id);
+        }
+
         toast.success("Expert has been suspended and report marked as action taken.");
       } else {
         toast.success(`Report status updated to ${status}.`);

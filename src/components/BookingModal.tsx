@@ -121,6 +121,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
       const bookingPayload = {
         expert_id: speaker.id,
         user_id: user.id,
+        consumer_id: user.id,
         event_name: `Session with ${speaker.name}`,
         ...buildBookingTimeFields(selectedDateTime, selectedDuration),
         total_amount: 0, // Free platform

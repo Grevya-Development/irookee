@@ -142,6 +142,7 @@ export default function ExpertProfile() {
     user_id: expert.user_id || '',
     name: expert.name,
     title: expert.title,
+    email: expert.email || null,
     bio: expert.bio || '',
     expertise: expert.expertise || [],
     image_url: expert.image_url,
@@ -197,7 +198,7 @@ export default function ExpertProfile() {
               <CardHeader>
                 <div className="flex items-start gap-4">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src={expert.image_url ? `${expert.image_url}?t=${new Date(expert.updated_at || '').getTime()}` : undefined} />
+                    <AvatarImage src={expert.image_url ? `${expert.image_url}?t=${expert.updated_at && !isNaN(new Date(expert.updated_at).getTime()) ? new Date(expert.updated_at).getTime() : Date.now()}` : undefined} />
                     <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                       {expert.name?.charAt(0) || 'E'}
                     </AvatarFallback>
@@ -221,6 +222,20 @@ export default function ExpertProfile() {
                         <Briefcase className="h-3 w-3 inline mr-1" />
                         {expert.company}
                       </p>
+                    )}
+                    {expert.categories && expert.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {expert.categories.slice(0, 5).map((category, index) => (
+                          <Badge key={index} variant="secondary" className="bg-primary/5 text-primary text-xs py-0.5 px-2 hover:bg-primary/5">
+                            {category}
+                          </Badge>
+                        ))}
+                        {expert.categories.length > 5 && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground py-0.5 px-2">
+                            +{expert.categories.length - 5} more
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

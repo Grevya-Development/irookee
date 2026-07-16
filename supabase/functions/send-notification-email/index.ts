@@ -26,31 +26,50 @@ serve(async (req) => {
 
     if (!resendApiKey) {
       console.warn(`RESEND_API_KEY is not configured. Falling back to local SMTP (Mailpit/Inbucket)`)
-      try {
-        const { SmtpClient } = await import('https://deno.land/x/smtp@v0.7.0/mod.ts')
-        const client = new SmtpClient()
-        await client.connect({
-          hostname: 'supabase_inbucket_jctawltvlnooqqkltjvb',
-          port: 1025,
-        })
-        await client.send({
-          from: fromEmail,
-          to,
-          subject,
-          html,
-        })
-        await client.close()
-        return new Response(
-          JSON.stringify({ sent: true, fallback: 'mailpit' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      } catch (err) {
-        console.error('Local SMTP failed:', err)
-        return new Response(
-          JSON.stringify({ error: `Local SMTP failed: ${err.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+      const hosts = [
+        'supabase_inbucket_jctawltvlnooqqkltjvb',
+        'supabase-mailhook',
+        'supabase_inbucket',
+        'inbucket',
+        'host.docker.internal',
+        'localhost',
+        '127.0.0.1'
+      ]
+      let lastError = null
+      
+      const { SmtpClient } = await import('https://deno.land/x/smtp@v0.7.0/mod.ts')
+      const client = new SmtpClient()
+      
+      for (const hostname of hosts) {
+        try {
+          console.log(`Attempting connection to local SMTP host: ${hostname}...`)
+          await client.connect({
+            hostname,
+            port: 1025,
+          })
+          console.log(`Connected to local SMTP host: ${hostname}`)
+          await client.send({
+            from: fromEmail,
+            to,
+            subject,
+            html,
+          })
+          await client.close()
+          return new Response(
+            JSON.stringify({ sent: true, fallback: 'smtp', host: hostname }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } catch (err) {
+          console.warn(`Failed to connect to SMTP host ${hostname}: ${err.message}`)
+          lastError = err
+        }
       }
+      
+      console.error('All local SMTP hosts failed')
+      return new Response(
+        JSON.stringify({ error: `Local SMTP failed: ${lastError?.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const response = await fetch('https://api.resend.com/emails', {

@@ -49,7 +49,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             placeholder="Search by name, expertise, category, location..."
-            className="pl-10 pr-10 py-6 text-base sm:text-lg"
+            className="pl-10 pr-12 py-6 text-base sm:text-lg"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
@@ -59,7 +59,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
               type="button"
               onClick={handleClear}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10 focus:outline-none"
             >
               <X className="h-4 w-4" />
             </button>
