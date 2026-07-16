@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, BadgeCheck } from "lucide-react";
+import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, BadgeCheck, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +29,9 @@ interface ExpertRow {
   bio: string | null;
   linkedin_url: string | null;
   user_id: string | null;
+  suspension_reason?: string | null;
+  suspended_at?: string | null;
+  suspension_history?: unknown[] | null;
 }
 
 const VERIFICATION_BUCKET = "verification-documents";
@@ -41,7 +44,7 @@ const ExpertApproval = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<ExpertRow | null>(null);
-  const [filter, setFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
+  const [filter, setFilter] = useState<'pending' | 'verified' | 'rejected' | 'suspended' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
@@ -113,12 +116,44 @@ const ExpertApproval = () => {
   const handleApprove = async (expertId: string) => {
     setActionLoading(expertId);
     try {
+      const { data: speaker } = await supabase
+        .from('speakers')
+        .select('suspension_history, verification_status, user_id')
+        .eq('id', expertId)
+        .single();
+
+      const isUnsuspend = speaker?.verification_status === 'suspended';
+      const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+      const updatedHistory = isUnsuspend
+        ? [
+            ...history,
+            {
+              action: "unsuspended",
+              reason: "Unsuspended / Approved by admin",
+              timestamp: new Date().toISOString(),
+            }
+          ]
+        : history;
+
       const { error } = await supabase
         .from('speakers')
-        .update({ verification_status: 'verified' })
+        .update({
+          verification_status: 'verified',
+          suspension_reason: null,
+          suspended_at: null,
+          suspension_history: updatedHistory,
+        } as never)
         .eq('id', expertId);
 
       if (error) throw error;
+
+      if (speaker?.user_id && isUnsuspend) {
+        // Update profiles.user_type back to expert
+        await supabase
+          .from('profiles')
+          .update({ user_type: 'expert' })
+          .eq('id', speaker.user_id);
+      }
 
       const expert = experts.find((item) => item.id === expertId);
       if (expert?.email) {
@@ -143,6 +178,59 @@ const ExpertApproval = () => {
     } catch (error: unknown) {
       console.error('Approve error:', error);
       toast({ title: "Error", description: getErrorMessage(error, "Failed to approve"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSuspend = async (expertId: string) => {
+    const reason = window.prompt("Enter reason for suspension:");
+    if (reason === null) return; // cancelled
+
+    setActionLoading(expertId);
+    try {
+      const { data: speaker } = await supabase
+        .from('speakers')
+        .select('suspension_history, user_id')
+        .eq('id', expertId)
+        .single();
+
+      const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+      const updatedHistory = [
+        ...history,
+        {
+          action: "suspended",
+          reason: reason.trim() || "Suspended by admin",
+          timestamp: new Date().toISOString(),
+        }
+      ];
+
+      const { error } = await supabase
+        .from('speakers')
+        .update({
+          verification_status: 'suspended',
+          is_verified: false,
+          suspension_reason: reason.trim() || "Suspended by admin",
+          suspended_at: new Date().toISOString(),
+          suspension_history: updatedHistory,
+        } as never)
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      if (speaker?.user_id) {
+        // Also update profiles.user_type to suspended
+        await supabase
+          .from('profiles')
+          .update({ user_type: 'suspended' })
+          .eq('id', speaker.user_id);
+      }
+
+      toast({ title: "Expert Suspended", description: "Expert profile has been suspended" });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Suspend error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to suspend"), variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -234,6 +322,7 @@ const ExpertApproval = () => {
     switch (status) {
       case 'verified': return <Badge className="bg-green-100 text-green-800"><Shield className="h-3 w-3 mr-1" />Verified</Badge>;
       case 'rejected': return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
+      case 'suspended': return <Badge className="bg-orange-100 text-orange-800 border-orange-200"><ShieldAlert className="h-3 w-3 mr-1" />Suspended</Badge>;
       default: return <Badge variant="secondary"><AlertCircle className="h-3 w-3 mr-1" />Pending</Badge>;
     }
   };
@@ -285,6 +374,7 @@ const ExpertApproval = () => {
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="verified">Verified</TabsTrigger>
               <TabsTrigger value="rejected">Rejected</TabsTrigger>
+              <TabsTrigger value="suspended">Suspended</TabsTrigger>
               <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -380,8 +470,13 @@ const ExpertApproval = () => {
                           </>
                         )}
                         {expert.verification_status === 'verified' && (
-                          <Button size="sm" variant="destructive" title="Suspend Expert" onClick={() => handleReject(expert.id)} disabled={actionLoading === expert.id}>
-                            {actionLoading === expert.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                          <Button size="sm" variant="destructive" title="Suspend Expert" onClick={() => handleSuspend(expert.id)} disabled={actionLoading === expert.id}>
+                            {actionLoading === expert.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        {expert.verification_status === 'suspended' && (
+                          <Button size="sm" variant="outline" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
+                            Unsuspend
                           </Button>
                         )}
                         {expert.verification_status === 'rejected' && (
@@ -466,6 +561,31 @@ const ExpertApproval = () => {
                 )}
               </div>
 
+              {selectedExpert.verification_status === 'suspended' && (
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded text-sm text-orange-800 space-y-1">
+                  <p className="font-semibold flex items-center gap-1"><ShieldAlert className="h-4 w-4" /> Account Suspended</p>
+                  <p><strong>Reason:</strong> {selectedExpert.suspension_reason || 'N/A'}</p>
+                  <p><strong>Suspended At:</strong> {selectedExpert.suspended_at ? new Date(selectedExpert.suspended_at).toLocaleString() : 'N/A'}</p>
+                </div>
+              )}
+
+              {selectedExpert.suspension_history && Array.isArray(selectedExpert.suspension_history) && selectedExpert.suspension_history.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Suspension & Action History</p>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    {(selectedExpert.suspension_history as unknown as Record<string, string>[]).map((hist, idx) => (
+                      <div key={idx} className="text-xs p-2 bg-gray-50 border rounded flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold capitalize text-gray-700">{hist.action}</p>
+                          <p className="text-gray-600 mt-0.5">{hist.reason || 'No details provided.'}</p>
+                        </div>
+                        <span className="text-gray-400 font-mono text-[10px] shrink-0">{new Date(hist.timestamp).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-4 p-3 border rounded-lg">
                 <div>
                   <p className="text-sm font-medium">Verified badge</p>
@@ -494,29 +614,36 @@ const ExpertApproval = () => {
               </div>
 
                {selectedExpert.verification_status === 'pending' && (
-                <div className="flex gap-3 pt-4 border-t">
-                  <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
-                    <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                  </Button>
-                  <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
-                    <X className="h-4 w-4 mr-2" /> Reject
-                  </Button>
-                </div>
-              )}
-              {selectedExpert.verification_status === 'verified' && (
-                <div className="pt-4 border-t">
-                  <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
-                    <X className="h-4 w-4 mr-2" /> Suspend Expert
-                  </Button>
-                </div>
-              )}
-              {selectedExpert.verification_status === 'rejected' && (
-                <div className="pt-4 border-t">
-                  <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
-                    <CheckCircle className="h-4 w-4 mr-2" /> Re-approve Expert
-                  </Button>
-                </div>
-              )}
+                 <div className="flex gap-3 pt-4 border-t">
+                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
+                     <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                   </Button>
+                   <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
+                     <X className="h-4 w-4 mr-2" /> Reject
+                   </Button>
+                 </div>
+               )}
+               {selectedExpert.verification_status === 'verified' && (
+                 <div className="pt-4 border-t">
+                   <Button variant="destructive" onClick={() => { handleSuspend(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                     <ShieldAlert className="h-4 w-4 mr-2" /> Suspend Expert
+                   </Button>
+                 </div>
+               )}
+               {selectedExpert.verification_status === 'suspended' && (
+                 <div className="pt-4 border-t">
+                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                     <CheckCircle className="h-4 w-4 mr-2" /> Unsuspend Expert
+                   </Button>
+                 </div>
+               )}
+               {selectedExpert.verification_status === 'rejected' && (
+                 <div className="pt-4 border-t">
+                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                     <CheckCircle className="h-4 w-4 mr-2" /> Re-approve Expert
+                   </Button>
+                 </div>
+               )}
             </div>
           )}
         </DialogContent>

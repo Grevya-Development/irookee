@@ -23,8 +23,10 @@ export interface SpeakerProfile {
   company: string | null
   linkedin_url: string | null
   website_url: string | null
+  email?: string | null
   created_at: string
   updated_at: string
+  categories?: string[]
 }
 
 export function useExperts(expertId?: string) {
@@ -40,12 +42,28 @@ export function useExperts(expertId?: string) {
     try {
       const { data, error: fetchError } = await supabase
         .from('speakers')
-        .select('*')
+        .select(`
+          *,
+          speaker_categories (
+            category_id,
+            categories ( id, name )
+          )
+        `)
         .eq('id', id)
         .single()
 
       if (fetchError) throw fetchError
-      setExpert(data as SpeakerProfile)
+
+      const categoriesList = data.speaker_categories
+        ? (data.speaker_categories as unknown as { categories: { name: string } | null }[])
+            .map((sc) => sc.categories?.name)
+            .filter(Boolean)
+        : []
+
+      setExpert({
+        ...(data as unknown as Record<string, unknown>),
+        categories: categoriesList,
+      } as SpeakerProfile)
     } catch (err) {
       console.error('Error fetching expert:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch expert')

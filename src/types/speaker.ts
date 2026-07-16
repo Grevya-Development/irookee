@@ -7,6 +7,7 @@ export interface Expert {
   bio: string | null;
   expertise: string[];
   image_url: string | null;
+  email?: string | null;
   rating: number;
   hourly_rate: number;
   currency: string;

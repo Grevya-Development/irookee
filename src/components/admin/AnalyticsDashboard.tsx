@@ -187,7 +187,7 @@ const AnalyticsDashboard = () => {
       const userGrowthDiff = prevUserCount > 0 ? Math.round(((currentUserCount - prevUserCount) / prevUserCount) * 100) : 0;
 
       // Expert Growth metrics
-      const currentExpertCount = currentSpeakers.length;
+      const currentExpertCount = currentSpeakers.filter(s => s.verification_status === "verified").length;
       const prevExpertCount = prevSpeakers.filter(s => s.verification_status === "verified").length;
       const expertGrowthDiff = prevExpertCount > 0 ? Math.round(((currentExpertCount - prevExpertCount) / prevExpertCount) * 100) : 0;
 

@@ -144,7 +144,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         expertUserId: speaker.user_id,
         expertEmail: (speaker as Expert & { email?: string | null }).email,
         expertName: speaker.name,
-        customerName: bookingPayload.customer_name,
+        customerName: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
         scheduledAt: selectedDateTime,
         durationMinutes: selectedDuration,
         meetingLink: generatedMeetingLink,

@@ -97,7 +97,7 @@ export function ExpertDashboard() {
       const allBookings = bookings || []
       const completed = allBookings.filter(b => b.status === 'completed').length
       const noShows = allBookings.filter(b => b.status === 'no_show').length
-      const upcoming = allBookings.filter(b => isUpcomingBooking(b)).length
+      const upcoming = allBookings.filter(b => isUpcomingBooking(b) && b.status !== 'pending').length
 
       const { data: expertData } = await supabase
         .from('speakers')
@@ -398,7 +398,7 @@ function BookingsList({ expertId }: { expertId: string }) {
   }
 
   const pending = bookings.filter(b => b.status === 'pending')
-  const upcoming = bookings.filter(b => isUpcomingBooking(b))
+  const upcoming = bookings.filter(b => isUpcomingBooking(b) && b.status !== 'pending')
   const past = bookings.filter(b => isPastBooking(b))
   const cancelled = bookings.filter(b => b.status === 'cancelled')
 

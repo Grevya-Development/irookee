@@ -55,11 +55,11 @@ const UserManagement = () => {
       if (userIds.length > 0) {
         const { data: bookingData } = await supabase
           .from('expertise_bookings')
-          .select('user_id')
-          .in('user_id', userIds);
+          .select('consumer_id')
+          .in('consumer_id', userIds);
 
         bookingCounts = (bookingData || []).reduce((acc, booking) => {
-          if (booking.user_id) acc[booking.user_id] = (acc[booking.user_id] || 0) + 1;
+          if (booking.consumer_id) acc[booking.consumer_id] = (acc[booking.consumer_id] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
       }
@@ -105,6 +105,38 @@ const UserManagement = () => {
         .update({ user_type: nextType })
         .eq('id', user.id);
       if (error) throw error;
+
+      // Sync suspension to speakers table if exists
+      const { data: speaker } = await supabase
+        .from('speakers')
+        .select('id, suspension_history')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (speaker) {
+        const history = Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+        const action = nextType === 'suspended' ? 'suspended' : 'unsuspended';
+        const updatedHistory = [
+          ...history,
+          {
+            action,
+            reason: nextType === 'suspended' ? "Suspended by admin in User Management" : "Unsuspended by admin in User Management",
+            timestamp: new Date().toISOString(),
+          }
+        ];
+
+        await supabase
+          .from('speakers')
+          .update({
+            verification_status: nextType === 'suspended' ? 'suspended' : 'verified',
+            is_verified: nextType === 'suspended' ? false : undefined,
+            suspension_reason: nextType === 'suspended' ? "Suspended by admin in User Management" : null,
+            suspended_at: nextType === 'suspended' ? new Date().toISOString() : null,
+            suspension_history: updatedHistory,
+          } as never)
+          .eq('id', speaker.id);
+      }
+
       toast({
         title: nextType === 'suspended' ? "User Suspended" : "User Unsuspended",
         description: `User role has been updated to ${nextType}`,

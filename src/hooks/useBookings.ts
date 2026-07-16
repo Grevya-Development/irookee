@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 export interface BookingWithExpert {
   id: string
   user_id: string
+  consumer_id?: string
   expert_id: string
   event_name: string
   event_date: string | null
@@ -57,6 +58,7 @@ export function useBookings(userId?: string) {
       const rows = (data || []) as BookingWithExpert[]
       setBookings(rows.map((booking) => ({
         ...booking,
+        user_id: booking.consumer_id || booking.user_id,
         event_date: booking.event_date || booking.scheduled_at || null,
         duration_hours: booking.duration_hours ?? ((booking.duration_minutes || 0) / 60),
         expert_profile: {
