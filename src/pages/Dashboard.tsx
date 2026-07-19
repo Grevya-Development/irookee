@@ -281,7 +281,10 @@ export default function Dashboard() {
                             variant="outline"
                             size="sm"
                             className="mt-2"
-                            onClick={() => { navigator.clipboard.writeText(booking.meeting_link!); }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(booking.meeting_link!);
+                              toast({ title: "Copied!", description: "Meeting link copied to clipboard." });
+                            }}
                           >
                             Copy Link
                           </Button>

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/components/AuthProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -22,7 +22,6 @@ const About = lazy(() => import("./pages/About"));
 const Blog = lazy(() => import("./pages/Blog"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Admin = lazy(() => import("./pages/Admin"));
-const UserDashboard = lazy(() => import("./components/UserDashboard"));
 const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ExpertOnboarding = lazy(() => import("./components/expert/ExpertOnboarding").then(m => ({ default: m.ExpertOnboarding })));
@@ -81,7 +80,7 @@ const AnimatedRoutes = () => {
           <Route path="/blog" element={<Blog />} />
           <Route path="/auth/*" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
-          <Route path="/user-dashboard" element={<UserDashboard />} />
+          <Route path="/user-dashboard" element={<Navigate to="/dashboard" replace />} />
           <Route path="/profile-setup" element={<ProfileSetup />} />
           <Route path="/guest-profile" element={<GuestProfile />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

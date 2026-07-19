@@ -11,6 +11,10 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
 import { formatBookingDuration, formatZonedBookingTime, getBookingDurationMinutes, getBookingStart, isUpcomingBooking, isPastBooking } from '@/lib/bookingUtils'
@@ -157,6 +161,13 @@ export function ExpertDashboard() {
     )
   }
 
+  const hasUploadedDocs = Boolean(
+    expertProfile?.verification_documents &&
+    typeof expertProfile.verification_documents === 'object' &&
+    Array.isArray((expertProfile.verification_documents as Record<string, unknown>).documents) &&
+    ((expertProfile.verification_documents as Record<string, unknown>).documents as unknown[]).length > 0
+  )
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
@@ -171,31 +182,58 @@ export function ExpertDashboard() {
         </div>
         <Badge
           variant={
-            expertProfile.verification_status === 'verified' ? 'default' :
-            expertProfile.verification_status === 'pending' ? 'secondary' :
-            'destructive'
+            expertProfile.verification_status === 'verified' || expertProfile.is_verified ? 'default' :
+            expertProfile.verification_status === 'rejected' ? 'destructive' :
+            (expertProfile.verification_status === 'pending' && hasUploadedDocs) ? 'secondary' :
+            'outline'
           }
           className="text-sm"
         >
-          {expertProfile.verification_status === 'verified' && <CheckCircle className="h-3 w-3 mr-1" />}
-          {String(expertProfile.verification_status || 'pending')}
+          {(expertProfile.verification_status === 'verified' || expertProfile.is_verified) && <CheckCircle className="h-3 w-3 mr-1" />}
+          {
+            (expertProfile.verification_status === 'verified' || expertProfile.is_verified) ? 'Verified' :
+            expertProfile.verification_status === 'rejected' ? 'Rejected' :
+            (expertProfile.verification_status === 'pending' && hasUploadedDocs) ? 'Pending Review' :
+            'Verification Not Submitted'
+          }
         </Badge>
       </div>
 
-      {expertProfile.verification_status === 'pending' && (
+      {expertProfile.verification_status === 'pending' && hasUploadedDocs && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-amber-100 rounded-lg shrink-0">
               <Clock className="h-5 w-5 text-amber-700" />
             </div>
             <div className="space-y-1">
-              <h4 className="font-semibold text-amber-900">Application Under Admin Review</h4>
+              <h4 className="font-semibold text-amber-900">Documents Submitted – Pending Review</h4>
               <p className="text-sm text-amber-800">
-                Your expert application has been submitted and is currently being reviewed by our Admin team. Review typically takes 24–48 hours. Once approved, your profile will immediately go live on the public directory.
+                Your verification documents have been submitted and are currently being reviewed by our Admin team. Review typically takes 24–48 hours.
               </p>
               <div className="pt-2 flex items-center gap-3">
                 <Button size="sm" variant="outline" className="border-amber-300 bg-white hover:bg-amber-100 text-amber-900 text-xs" onClick={() => navigate('/expert/onboarding')}>
-                  Update Application / Documents
+                  Update Verification Documents
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {expertProfile.verification_status === 'pending' && !hasUploadedDocs && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+              <Clock className="h-5 w-5 text-blue-700" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-semibold text-blue-900">Verification Not Submitted</h4>
+              <p className="text-sm text-blue-800">
+                Your expert profile is active. You can upload verification documents (e.g. ID, certificates) anytime to receive the Verified ✓ badge and build trust with clients.
+              </p>
+              <div className="pt-2 flex items-center gap-3">
+                <Button size="sm" variant="outline" className="border-blue-300 bg-white hover:bg-blue-100 text-blue-900 text-xs" onClick={() => navigate('/expert/onboarding')}>
+                  Upload Verification Documents
                 </Button>
               </div>
             </div>
@@ -348,6 +386,11 @@ function BookingsList({ expertId }: { expertId: string }) {
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [loading, setLoading] = useState(true)
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set())
+  const [confirmStatusModal, setConfirmStatusModal] = useState<{
+    bookingId: string
+    bookingTitle: string
+    status: string
+  } | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -467,10 +510,10 @@ function BookingsList({ expertId }: { expertId: string }) {
                       )}
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Button size="sm" onClick={() => updateStatus(booking.id, 'confirmed')}>
+                      <Button size="sm" onClick={() => setConfirmStatusModal({ bookingId: booking.id, bookingTitle: booking.event_name, status: 'confirmed' })}>
                         <ThumbsUp className="h-3 w-3 mr-1" /> Accept
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => updateStatus(booking.id, 'cancelled')}>
+                      <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setConfirmStatusModal({ bookingId: booking.id, bookingTitle: booking.event_name, status: 'cancelled' })}>
                         <XCircle className="h-3 w-3 mr-1" /> Decline
                       </Button>
                     </div>
@@ -519,10 +562,10 @@ function BookingsList({ expertId }: { expertId: string }) {
                         {booking.notes && <p className="text-xs text-muted-foreground mt-1">{booking.notes}</p>}
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button size="sm" onClick={() => updateStatus(booking.id, 'completed')}>
+                        <Button size="sm" onClick={() => setConfirmStatusModal({ bookingId: booking.id, bookingTitle: booking.event_name, status: 'completed' })}>
                           <CheckCircle className="h-3 w-3 mr-1" /> Complete
                         </Button>
-                        <Button size="sm" variant="outline" className="text-orange-600" onClick={() => updateStatus(booking.id, 'no_show')}>
+                        <Button size="sm" variant="outline" className="text-orange-600" onClick={() => setConfirmStatusModal({ bookingId: booking.id, bookingTitle: booking.event_name, status: 'no_show' })}>
                           <UserX className="h-3 w-3 mr-1" /> No Show
                         </Button>
                       </div>
@@ -620,6 +663,46 @@ function BookingsList({ expertId }: { expertId: string }) {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Modal for status changes including No Show */}
+      <AlertDialog open={!!confirmStatusModal} onOpenChange={(open) => { if (!open) setConfirmStatusModal(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmStatusModal?.status === 'no_show' ? 'Mark as No Show?' :
+               confirmStatusModal?.status === 'completed' ? 'Mark Session as Completed?' :
+               confirmStatusModal?.status === 'confirmed' ? 'Accept Booking Request?' :
+               confirmStatusModal?.status === 'cancelled' ? 'Decline Booking Request?' :
+               'Confirm Action'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmStatusModal?.status === 'no_show'
+                ? `Are you sure you want to mark "${confirmStatusModal?.bookingTitle}" as a No Show? This will update the session status and record a no-show.`
+                : confirmStatusModal?.status === 'completed'
+                ? `Are you sure you want to mark "${confirmStatusModal?.bookingTitle}" as Completed?`
+                : confirmStatusModal?.status === 'confirmed'
+                ? `Are you sure you want to accept the booking request for "${confirmStatusModal?.bookingTitle}"?`
+                : confirmStatusModal?.status === 'cancelled'
+                ? `Are you sure you want to decline the booking request for "${confirmStatusModal?.bookingTitle}"?`
+                : `Are you sure you want to update status to ${confirmStatusModal?.status}?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmStatusModal) {
+                  updateStatus(confirmStatusModal.bookingId, confirmStatusModal.status);
+                  setConfirmStatusModal(null);
+                }
+              }}
+              className={confirmStatusModal?.status === 'cancelled' || confirmStatusModal?.status === 'no_show' ? 'bg-red-600 hover:bg-red-700' : ''}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

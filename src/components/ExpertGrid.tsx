@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, memo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "./ExpertCard";
@@ -69,6 +70,7 @@ const transform = (speaker: RawSpeaker): ExpertProfile => ({
 });
 
 const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: ExpertGridProps) => {
+  const navigate = useNavigate();
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -165,7 +167,7 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
               variant="default"
               size="sm"
               onClick={() => {
-                window.location.href = "/experts";
+                navigate("/experts");
               }}
               className="gap-2"
             >
@@ -184,7 +186,7 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
                   variant="secondary"
                   size="sm"
                   onClick={() => {
-                    window.location.href = `/experts?q=${encodeURIComponent(term)}`;
+                    navigate(`/experts?q=${encodeURIComponent(term)}`);
                   }}
                   className="text-xs h-7 rounded-full bg-secondary/60 hover:bg-secondary"
                 >

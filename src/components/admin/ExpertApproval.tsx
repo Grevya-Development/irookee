@@ -92,8 +92,13 @@ const ExpertApproval = () => {
       } else {
         normalizedPath = url.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
       }
-      
-      normalizedPath = decodeURIComponent(normalizedPath.split('?')[0]);
+
+      try {
+        normalizedPath = decodeURIComponent(normalizedPath.split('?')[0]);
+      } catch (decodeErr) {
+        console.warn("Could not decode document URI path, using raw path:", decodeErr);
+        normalizedPath = normalizedPath.split('?')[0];
+      }
       
       const { data, error } = await supabase.storage
         .from(VERIFICATION_BUCKET)
