@@ -135,6 +135,15 @@ const Auth = () => {
                   path="/auth"
                   signInUrl="/auth"
                   fallbackRedirectUrl="/profile-setup"
+                  appearance={{
+                    variables: {
+                      colorPrimary: "#2563eb",
+                    },
+                    elements: {
+                      formButtonPrimary: "!bg-blue-600 hover:!bg-blue-700 !text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 border-none transition-all py-2.5",
+                      footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
+                    },
+                  }}
                 />
               ) : (
                 <SignIn 
@@ -142,6 +151,15 @@ const Auth = () => {
                   path="/auth"
                   signUpUrl="/auth"
                   fallbackRedirectUrl="/dashboard"
+                  appearance={{
+                    variables: {
+                      colorPrimary: "#2563eb",
+                    },
+                    elements: {
+                      formButtonPrimary: "!bg-blue-600 hover:!bg-blue-700 !text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 border-none transition-all py-2.5",
+                      footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
+                    },
+                  }}
                 />
               )}
             </div>
