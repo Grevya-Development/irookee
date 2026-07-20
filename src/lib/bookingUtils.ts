@@ -78,3 +78,51 @@ export const rangesOverlap = (
   startB: Date,
   endB: Date
 ) => startA < endB && startB < endA
+
+export const getUserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+};
+
+export const getTimezoneAbbreviation = (date: Date | string = new Date(), timeZone?: string): string => {
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    const tz = timeZone || getUserTimezone();
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(d);
+    const tzPart = parts.find(p => p.type === 'timeZoneName');
+    return tzPart ? tzPart.value : tz;
+  } catch {
+    return 'UTC';
+  }
+};
+
+export const formatZonedBookingTime = (
+  dateInput: string | Date | null | undefined,
+  timeZone?: string
+): string => {
+  if (!dateInput) return 'Date not set';
+  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (Number.isNaN(d.getTime())) return 'Invalid date';
+
+  const tz = timeZone || getUserTimezone();
+  const dateStr = d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: tz,
+  });
+  const timeStr = d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: tz,
+  });
+  const abbr = getTimezoneAbbreviation(d, tz);
+
+  return `${dateStr} at ${timeStr} ${abbr}`;
+};
+

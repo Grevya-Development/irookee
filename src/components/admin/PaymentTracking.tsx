@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle, Clock, XCircle, Loader2, UserX, Video, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { formatBookingDuration, getBookingStart } from "@/lib/bookingUtils";
+import { formatBookingDuration, formatZonedBookingTime, getBookingStart } from "@/lib/bookingUtils";
 
 interface BookingRow {
   id: string;
@@ -213,7 +213,7 @@ const PaymentTracking = () => {
                     <TableCell className="font-medium">{b.event_name}</TableCell>
                     <TableCell>{b.expert_name}</TableCell>
                     <TableCell>{b.customer_name || 'N/A'}</TableCell>
-                    <TableCell>{getBookingStart(b) ? new Date(getBookingStart(b)!).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell>{getBookingStart(b) ? formatZonedBookingTime(getBookingStart(b)) : 'N/A'}</TableCell>
                     <TableCell>{getStatusBadge(b.status)}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" onClick={() => setSelectedBooking(b)}>View</Button>
@@ -237,7 +237,7 @@ const PaymentTracking = () => {
                 <div><p className="font-medium text-muted-foreground">Expert</p><p>{selectedBooking.expert_name}</p></div>
                 <div><p className="font-medium text-muted-foreground">Client</p><p>{selectedBooking.customer_name || 'N/A'}</p></div>
                 <div><p className="font-medium text-muted-foreground">Email</p><p>{selectedBooking.customer_email || 'N/A'}</p></div>
-                <div><p className="font-medium text-muted-foreground">Date</p><p>{getBookingStart(selectedBooking) ? new Date(getBookingStart(selectedBooking)!).toLocaleString() : 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Date & Time</p><p className="font-medium text-foreground">{getBookingStart(selectedBooking) ? formatZonedBookingTime(getBookingStart(selectedBooking)) : 'N/A'}</p></div>
                 <div><p className="font-medium text-muted-foreground">Duration</p><p>{formatBookingDuration(selectedBooking)}</p></div>
               </div>
               {selectedBooking.notes && (

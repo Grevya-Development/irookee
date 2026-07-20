@@ -1,438 +1,178 @@
 import { useState } from "react";
 import Footer from "@/components/sections/Footer";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { getSiteUrl } from "@/lib/siteUrl";
-import { validateEmailInput } from "@/lib/emailValidation";
-import { LogIn, UserPlus, ArrowLeft, Mail, Eye, EyeOff } from "lucide-react";
-
-function getPasswordStrength(pw: string): { score: number; label: string; color: string; tips: string[] } {
-  let score = 0
-  const tips: string[] = []
-  if (pw.length >= 6) score++; else tips.push('At least 6 characters')
-  if (pw.length >= 10) score++
-  if (/[A-Z]/.test(pw)) score++; else tips.push('Add an uppercase letter')
-  if (/[0-9]/.test(pw)) score++; else tips.push('Add a number')
-  if (/[^A-Za-z0-9]/.test(pw)) score++; else tips.push('Add a special character (!@#$)')
-
-  if (score <= 1) return { score, label: 'Weak', color: 'bg-red-500', tips }
-  if (score <= 2) return { score, label: 'Fair', color: 'bg-orange-500', tips }
-  if (score <= 3) return { score, label: 'Good', color: 'bg-yellow-500', tips }
-  if (score <= 4) return { score, label: 'Strong', color: 'bg-green-500', tips }
-  return { score, label: 'Very Strong', color: 'bg-green-600', tips }
-}
-
-function PasswordStrength({ password }: { password: string }) {
-  const { score, label, color, tips } = getPasswordStrength(password)
-  const labelColor = score <= 1 ? 'text-red-600' : score <= 2 ? 'text-orange-600' : score <= 3 ? 'text-yellow-600' : 'text-green-600'
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex gap-1">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className={`h-1.5 flex-1 rounded-full ${i < score ? color : 'bg-gray-200'}`} />
-        ))}
-      </div>
-      <div className="flex items-center justify-between">
-        <span className={`text-xs font-medium ${labelColor}`}>{label}</span>
-        {tips.length > 0 && (
-          <span className="text-xs text-muted-foreground">{tips[0]}</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function getFriendlyAuthError(error: unknown, isSignUp: boolean) {
-  const message = error instanceof Error ? error.message : 'Something went wrong';
-  const lower = message.toLowerCase();
-
-  if (lower.includes('rate limit') || lower.includes('too many requests')) {
-    return 'Too many email attempts right now. Please wait a few minutes before trying again.';
-  }
-
-  if (!isSignUp && (lower.includes('invalid login credentials') || lower.includes('email not confirmed'))) {
-    return 'Invalid email/password, or your email is not verified yet. Please verify your email and try the exact registered credentials.';
-  }
-
-  return message;
-}
+import { Link, useSearchParams } from "react-router-dom";
+import { SignIn, SignUp } from "@clerk/react";
+import { Sparkles, ShieldCheck, Video, Users, Star, ArrowLeft } from "lucide-react";
 
 const Auth = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/dashboard';
-  const { toast } = useToast();
-  const mode = searchParams.get('mode');
-  const isResetMode = mode === 'reset' || window.location.hash.includes('type=recovery');
-  const [newPassword, setNewPassword] = useState("");
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { score } = getPasswordStrength(newPassword);
-    if (newPassword.length < 8 || score < 3) {
-      toast({
-        title: "Choose a stronger password",
-        description: "Use at least 8 characters with a mix of uppercase, numbers, and a symbol.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      toast({
-        title: "Password updated",
-        description: "Your password has been successfully updated. Please log in with your new password.",
-      });
-      await supabase.auth.signOut();
-      setNewPassword("");
-      navigate('/auth', { replace: true });
-    } catch (err) {
-      toast({
-        title: "Error resetting password",
-        description: err instanceof Error ? err.message : "Something went wrong",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const trimmedEmail = email.trim();
-      if (isSignUp) {
-        const emailValidation = validateEmailInput(email);
-        if (emailValidation.error) {
-          toast({
-            title: "Check your email",
-            description: emailValidation.error,
-            variant: "destructive",
-          });
-          return;
-        }
-        setEmail(emailValidation.email);
-
-        // Enforce a minimum password strength on account creation.
-        const { score } = getPasswordStrength(password);
-        if (password.length < 8 || score < 3) {
-          toast({
-            title: "Choose a stronger password",
-            description: "Use at least 8 characters with a mix of uppercase, numbers, and a symbol.",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-      setLoading(true);
-      if (isSignUp) {
-        const emailValidation = validateEmailInput(email);
-        
-        // Check if email already exists in public.profiles to display correct error
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', emailValidation.email.trim().toLowerCase())
-          .maybeSingle();
-
-        if (existingProfile) {
-          toast({
-            title: "Email already registered",
-            description: "An account with this email address already exists. Please sign in instead.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase.auth.signUp({
-          email: emailValidation.email, password,
-          options: { emailRedirectTo: getSiteUrl() },
-        });
-        if (error) throw error;
-
-        if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-          toast({
-            title: "Email already registered",
-            description: "An account with this email address already exists. Please sign in instead.",
-            variant: "destructive",
-          });
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-
-        toast({ title: "Account Created!", description: "Check your email to verify, then log in." });
-        setIsSignUp(false);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
-        if (error) throw error;
-        toast({ title: "Welcome back!", description: "You're now signed in." });
-        navigate(redirect);
-      }
-    } catch (error) {
-      toast({ title: "Error", description: getFriendlyAuthError(error, isSignUp), variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) {
-      toast({ title: "Enter your email", description: "Please enter your email address first.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getSiteUrl()}/auth`,
-      });
-      if (error) throw error;
-      setResetSent(true);
-      toast({ title: "Reset link sent!", description: "Check your email for a password reset link." });
-    } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : 'Failed to send reset email', variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOAuth = async (provider: 'google' | 'apple') => {
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: `${getSiteUrl()}${redirect}` },
-      });
-      if (error) throw error;
-      // On success the browser redirects to the provider; nothing else to do here.
-    } catch (error) {
-      toast({
-        title: "Sign-in failed",
-        description: error instanceof Error ? error.message : `Could not sign in with ${provider}.`,
-        variant: "destructive",
-      });
-      setLoading(false);
-    }
-  };
+  const mode = searchParams.get("mode");
+  
+  // Set isSignUp default based on query params or fallback
+  const [isSignUp, setIsSignUp] = useState(mode === "signup");
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      {/* Minimal top bar */}
-      <div className="p-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Back to irookee
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between overflow-x-hidden">
+      {/* Top Bar for Mobile */}
+      <div className="lg:hidden px-6 pt-6 pb-2 flex items-center justify-between">
+        <Link to="/" className="flex items-center space-x-2">
+          <img src="/irookee-mark.svg" alt="irookee" className="h-10 w-10 object-contain drop-shadow-md" />
+          <span className="text-xl font-bold tracking-tight text-white">irookee</span>
+        </Link>
+        <Link to="/" className="text-xs text-slate-300 hover:text-white flex items-center gap-1 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Home
         </Link>
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4 pb-12">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2">
-              <img src="/irookee-mark.svg" alt="irookee" className="h-11 w-11 object-contain" />
-              <span className="text-3xl font-bold">irookee</span>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-16 gap-8 items-center">
+        {/* Left Visual Branding Showcase Column */}
+        <div className="lg:col-span-6 flex flex-col justify-center space-y-8 pr-0 lg:pr-8">
+          <div className="hidden lg:flex items-center space-x-3 mb-2">
+            <Link to="/" className="flex items-center space-x-3 group">
+              <img src="/irookee-mark.svg" alt="irookee" className="h-12 w-12 object-contain group-hover:scale-105 transition-transform" />
+              <span className="text-3xl font-extrabold tracking-tight text-white">irookee</span>
             </Link>
-            <p className="text-muted-foreground mt-2">People for People</p>
           </div>
 
-          <Card className="shadow-xl border-0">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl">
-                {isResetMode ? "Reset your password" : isForgotPassword ? "Reset your password" : isSignUp ? "Create your account" : "Welcome back"}
-              </CardTitle>
-              <CardDescription>
-                {isResetMode
-                  ? "Enter your new password below"
-                  : isForgotPassword
-                  ? "Enter your email and we'll send a reset link"
-                  : isSignUp
-                  ? "Join the community and connect with experts"
-                  : "Sign in to access your dashboard"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {isResetMode ? (
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                  <div>
-                    <Label htmlFor="new-password">New Password</Label>
-                    <div className="relative mt-1">
-                      <Input
-                        id="new-password" type={showPassword ? "text" : "password"}
-                        placeholder="Choose a strong new password"
-                        value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                        required className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {newPassword.length > 0 && <PasswordStrength password={newPassword} />}
-                  </div>
-                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                    {loading ? "Resetting..." : "Update Password"}
-                  </Button>
-                  <Button variant="ghost" className="w-full" onClick={() => navigate('/auth')}>
-                    Cancel & Sign In
-                  </Button>
-                </form>
-              ) : isForgotPassword ? (
-                resetSent ? (
-                  <div className="text-center py-4 space-y-4">
-                    <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <Mail className="h-6 w-6 text-green-600" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      We've sent a password reset link to <strong>{email}</strong>. Check your inbox and follow the link to reset your password.
-                    </p>
-                    <Button variant="outline" className="w-full" onClick={() => { setIsForgotPassword(false); setResetSent(false); }}>
-                      Back to Sign In
-                    </Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleForgotPassword} className="space-y-4">
-                    <div>
-                      <Label htmlFor="reset-email">Email</Label>
-                      <Input
-                        id="reset-email" type="email" placeholder="you@example.com"
-                        value={email} onChange={(e) => setEmail(e.target.value)}
-                        required className="mt-1"
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                      {loading ? "Sending..." : "Send Reset Link"}
-                    </Button>
-                    <Button variant="ghost" className="w-full" onClick={() => setIsForgotPassword(false)}>
-                      Back to Sign In
-                    </Button>
-                  </form>
-                )
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wider backdrop-blur-md">
+              <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" /> Direct Expert Knowledge
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight text-white">
+              Prompt the People <br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">
+                You Want.
+              </span>
+            </h1>
+            <p className="text-slate-300 text-base sm:text-lg max-w-xl leading-relaxed">
+              Connect 1-on-1 with verified industry leaders, startup founders, and career mentors for instant guidance.
+            </p>
+          </div>
+
+          {/* Feature Showcase Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <h4 className="font-semibold text-sm text-white">100% Verified</h4>
+              <p className="text-xs text-slate-400 mt-1">Vetted mentors & top founders</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 mb-3">
+                <Video className="h-5 w-5" />
+              </div>
+              <h4 className="font-semibold text-sm text-white">HD Video Calls</h4>
+              <p className="text-xs text-slate-400 mt-1">Instant Jitsi video links</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 mb-3">
+                <Users className="h-5 w-5" />
+              </div>
+              <h4 className="font-semibold text-sm text-white">5,000+ Users</h4>
+              <p className="text-xs text-slate-400 mt-1">Global creator community</p>
+            </div>
+          </div>
+
+          {/* Testimonial Quote Badge */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/30 backdrop-blur-lg flex items-center gap-4">
+            <div className="flex -space-x-2 overflow-hidden shrink-0">
+              <div className="inline-block h-9 w-9 rounded-full ring-2 ring-indigo-500 bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">PS</div>
+              <div className="inline-block h-9 w-9 rounded-full ring-2 ring-purple-500 bg-purple-600 text-white font-bold flex items-center justify-center text-xs">AM</div>
+              <div className="inline-block h-9 w-9 rounded-full ring-2 ring-pink-500 bg-pink-600 text-white font-bold flex items-center justify-center text-xs">LK</div>
+            </div>
+            <div className="text-xs space-y-0.5">
+              <div className="flex items-center gap-1 text-amber-400">
+                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                <span className="text-white font-semibold ml-1">4.9/5 Rating</span>
+              </div>
+              <p className="text-slate-300 italic">"Irookee made booking an angel investor session effortless!"</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Form Card Column */}
+        <div className="lg:col-span-6 flex flex-col items-center justify-center">
+          <div className="w-full max-w-md bg-white/95 dark:bg-slate-950/90 p-6 sm:p-8 rounded-2xl shadow-2xl border border-white/20 backdrop-blur-xl text-slate-900 dark:text-white transition-all">
+            
+            {/* Pill Tab Switcher */}
+            <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl mb-6 border border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(false)}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  !isSignUp
+                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSignUp(true)}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  isSignUp
+                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {/* Form Container */}
+            <div className="flex flex-col items-center justify-center w-full min-h-[380px]">
+              {isSignUp ? (
+                <SignUp 
+                  routing="path" 
+                  path="/auth"
+                  signInUrl="/auth"
+                  fallbackRedirectUrl="/profile-setup"
+                  appearance={{
+                    variables: {
+                      colorPrimary: "#2563eb",
+                    },
+                    elements: {
+                      formButtonPrimary: "!bg-blue-600 hover:!bg-blue-700 !text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 border-none transition-all py-2.5",
+                      footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
+                    },
+                  }}
+                />
               ) : (
-                <>
-                  <form onSubmit={handleAuth} className="space-y-4">
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email" type="email" placeholder="you@example.com"
-                        value={email} onChange={(e) => setEmail(e.target.value)}
-                        required className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">Password</Label>
-                      <div className="relative mt-1">
-                        <Input
-                          id="password" type={showPassword ? "text" : "password"}
-                          placeholder={isSignUp ? "Min. 8 characters" : "Your password"}
-                          value={password} onChange={(e) => setPassword(e.target.value)}
-                          required minLength={isSignUp ? 8 : 6} className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((v) => !v)}
-                          aria-label={showPassword ? "Hide password" : "Show password"}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      {isSignUp && password.length > 0 && <PasswordStrength password={password} />}
-                    </div>
-                    {!isSignUp && (
-                      <div className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => setIsForgotPassword(true)}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          Forgot password?
-                        </button>
-                      </div>
-                    )}
-                    <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                      {loading ? "Processing..." : isSignUp ? (
-                        <><UserPlus className="mr-2 h-4 w-4" /> Create Account</>
-                      ) : (
-                        <><LogIn className="mr-2 h-4 w-4" /> Sign In</>
-                      )}
-                    </Button>
-                  </form>
-
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">or</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={() => handleOAuth('google')}>
-                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
-                      </svg>
-                      Continue with Google
-                    </Button>
-                    <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={() => handleOAuth('apple')}>
-                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <path d="M16.37 1.43c.06.86-.27 1.7-.83 2.32-.58.65-1.53 1.15-2.46 1.08-.08-.83.3-1.7.84-2.27.6-.65 1.62-1.12 2.45-1.13zM19.6 17.2c-.5 1.16-.74 1.67-1.39 2.7-.9 1.42-2.18 3.19-3.76 3.2-1.4.02-1.76-.91-3.67-.9-1.9.01-2.3.92-3.7.9-1.58-.01-2.79-1.6-3.7-3.02C.97 16.16.71 11.5 2.3 9.02c1.13-1.78 2.92-2.82 4.6-2.82 1.7 0 2.78.93 4.18.93 1.36 0 2.19-.94 4.16-.94 1.5 0 3.08.81 4.21 2.22-3.7 2.02-3.1 7.3.05 8.79z"/>
-                      </svg>
-                      Continue with Apple
-                    </Button>
-                    <Button type="button" variant="ghost" className="w-full" onClick={() => navigate('/')}>
-                      Continue as Guest
-                    </Button>
-                  </div>
-
-                  <p className="text-center text-sm text-muted-foreground mt-6">
-                    {isSignUp ? (
-                      <>Already have an account?{' '}
-                        <button onClick={() => { setIsSignUp(false); setEmail(''); setPassword(''); }}
-                          className="text-primary font-medium hover:underline">Sign in</button>
-                      </>
-                    ) : (
-                      <>Don't have an account?{' '}
-                        <button onClick={() => { setIsSignUp(true); setEmail(''); setPassword(''); }}
-                          className="text-primary font-medium hover:underline">Create one</button>
-                      </>
-                    )}
-                  </p>
-                </>
+                <SignIn 
+                  routing="path" 
+                  path="/auth"
+                  signUpUrl="/auth"
+                  fallbackRedirectUrl="/dashboard"
+                  appearance={{
+                    variables: {
+                      colorPrimary: "#2563eb",
+                    },
+                    elements: {
+                      formButtonPrimary: "!bg-blue-600 hover:!bg-blue-700 !text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 border-none transition-all py-2.5",
+                      footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
+                    },
+                  }}
+                />
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            By continuing, you agree to our{' '}
-            <Link to="/terms" className="underline">Terms</Link> and{' '}
-            <Link to="/privacy" className="underline">Privacy Policy</Link>.
-          </p>
+            <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6 pt-4 border-t border-slate-200 dark:border-slate-800">
+              By continuing, you agree to our{" "}
+              <Link to="/terms" className="underline font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">Terms</Link> and{" "}
+              <Link to="/privacy" className="underline font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">Privacy Policy</Link>.
+            </p>
+          </div>
         </div>
       </div>
+
       <Footer />
     </div>
   );

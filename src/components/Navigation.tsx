@@ -1,14 +1,27 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, User, LogOut, LogIn, Settings } from "lucide-react";
+import { Menu, X, User, LogIn, Settings, Shield, Briefcase } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { Button } from "@/components/ui/button";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { UserButton } from "@clerk/react";
+import { isCurrentUserAdmin } from "@/lib/auth";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminState = async () => {
+      if (user) {
+        const adminStatus = await isCurrentUserAdmin();
+        setIsAdmin(adminStatus);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    checkAdminState();
+  }, [user]);
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -34,7 +47,7 @@ const Navigation = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             {navItems.map((item) => (
               <Link
                 key={item.name}
@@ -50,9 +63,27 @@ const Navigation = () => {
             >
               Become an Expert
             </Link>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Admin Console
+              </Link>
+            )}
             {user ? (
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-2">
                 <NotificationCenter />
+                {profile?.user_type === 'expert' && (
+                  <Link
+                    to="/expert/dashboard"
+                    className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  >
+                    <Briefcase className="h-4 w-4" />
+                    Expert Desk
+                  </Link>
+                )}
                 <Link
                   to="/dashboard"
                   className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
@@ -67,15 +98,9 @@ const Navigation = () => {
                   <Settings className="h-4 w-4" />
                   Settings
                 </Link>
-                <Button
-                  onClick={handleSignOut}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1 ml-1"
-                >
-                  <LogOut className="h-3 w-3" />
-                  Sign Out
-                </Button>
+                <div className="pl-2 border-l border-gray-200">
+                  <UserButton afterSignOutUrl="/" />
+                </div>
               </div>
             ) : (
               <Link
@@ -89,7 +114,16 @@ const Navigation = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center space-x-2">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+              >
+                <Shield className="h-3 w-3" />
+                Admin
+              </Link>
+            )}
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="text-gray-700 hover:text-blue-600 focus:outline-none"
@@ -124,18 +158,36 @@ const Navigation = () => {
               >
                 Become an Expert
               </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="text-purple-700 font-semibold block px-3 py-2 text-base transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Admin Console
+                </Link>
+              )}
               {user ? (
                 <>
                   <div className="flex items-center justify-between px-3 py-2">
                     <span className="text-base font-medium text-gray-700">Notifications</span>
                     <NotificationCenter />
                   </div>
+                  {profile?.user_type === 'expert' && (
+                    <Link
+                      to="/expert/dashboard"
+                      className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Expert Dashboard
+                    </Link>
+                  )}
                   <Link
                     to="/dashboard"
                     className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
-                    Dashboard
+                    Client Dashboard
                   </Link>
                   <Link
                     to="/settings"
@@ -169,3 +221,4 @@ const Navigation = () => {
 };
 
 export default Navigation;
+

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useBookings } from '@/hooks/useBookings'
 import { supabase } from '@/integrations/supabase/client'
@@ -6,19 +6,22 @@ import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, CheckCircle, UserX, Star, MessageSquare, ArrowLeft, CalendarClock, XCircle } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, UserX, Star, MessageSquare, ArrowLeft, CalendarClock, XCircle, AlertTriangle, ShieldAlert } from 'lucide-react'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import UserLoyaltyCard from '@/components/gamification/UserLoyaltyCard'
 import ReviewForm from '@/components/ReviewForm'
-import { formatBookingDuration, getBookingDurationMinutes, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
+import { formatBookingDuration, formatZonedBookingTime, getBookingDurationMinutes, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
 import { notifyBookingEvent } from '@/lib/notifications'
+import { isCurrentUserAdmin } from '@/lib/auth'
 
 const getExpertName = (booking: {
   speakers?: { name?: string | null; full_name?: string | null } | null
@@ -32,43 +35,96 @@ export default function Dashboard() {
   const { toast } = useToast()
   const [reviewBooking, setReviewBooking] = useState<{ id: string; expertId: string; expertName: string } | null>(null)
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user) {
+        const adminStatus = await isCurrentUserAdmin()
+        setIsAdmin(adminStatus)
+      }
+    }
+    checkAdmin()
+  }, [user])
+
+  const targetBookingToCancel = bookings.find((b) => b.id === cancelBookingId)
+  const startStr = targetBookingToCancel ? getBookingStart(targetBookingToCancel) : null
+  const sessionStartDate = startStr ? new Date(startStr) : null
+  const now = new Date()
+  const hoursUntilStart = sessionStartDate ? (sessionStartDate.getTime() - now.getTime()) / 3600000 : 999
+  const isLateCancellation = hoursUntilStart >= 0 && hoursUntilStart < 2
+  const hasSessionStarted = hoursUntilStart < 0
 
   const handleCancelBooking = async () => {
-    if (!cancelBookingId) return
-    const booking = bookings.find((item) => item.id === cancelBookingId)
+    if (!cancelBookingId || !targetBookingToCancel) return
+
+    if (hasSessionStarted && !isAdmin) {
+      toast({
+        title: 'Cancellation Not Allowed',
+        description: 'Sessions that have already started or passed cannot be cancelled.',
+        variant: 'destructive',
+      })
+      setCancelBookingId(null)
+      return
+    }
+
+    if (isLateCancellation && cancelReason.trim().length < 10 && !isAdmin) {
+      toast({
+        title: 'Reason Required',
+        description: 'Please provide a reason for cancelling less than 2 hours before session start (at least 10 characters).',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setCancelling(true)
+    const updatePayload = {
+      status: 'cancelled',
+      cancellation_reason: cancelReason.trim() || (isLateCancellation ? 'Late cancellation by consumer' : 'Cancelled by consumer'),
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user?.id,
+    }
+
     const { error } = await supabase
       .from('expertise_bookings')
-      .update({ status: 'cancelled' })
+      .update(updatePayload as never)
       .eq('id', cancelBookingId)
+
     setCancelling(false)
     setCancelBookingId(null)
+    setCancelReason('')
+
     if (error) {
       toast({ title: 'Could not cancel', description: error.message, variant: 'destructive' })
     } else {
-      if (booking) {
-        const { data: expert } = await supabase
-          .from('speakers')
-          .select('name, user_id, email')
-          .eq('id', booking.expert_id)
-          .maybeSingle()
+      const { data: expert } = await supabase
+        .from('speakers')
+        .select('name, user_id, email')
+        .eq('id', targetBookingToCancel.expert_id)
+        .maybeSingle()
 
-        await notifyBookingEvent({
-          bookingId: booking.id,
-          eventType: 'booking_cancelled',
-          userId: user.id,
-          userEmail: user.email,
-          expertUserId: expert?.user_id,
-          expertEmail: expert?.email,
-          expertName: expert?.name || getExpertName(booking),
-          customerName: booking.customer_name || profile?.full_name || user.email,
-          scheduledAt: getBookingStart(booking),
-          durationMinutes: getBookingDurationMinutes(booking),
-          meetingLink: booking.meeting_link,
-        })
-      }
-      toast({ title: 'Booking cancelled', description: 'Your session has been cancelled.' })
+      await notifyBookingEvent({
+        bookingId: targetBookingToCancel.id,
+        eventType: isLateCancellation ? 'booking_cancelled_late' : 'booking_cancelled',
+        userId: user?.id,
+        userEmail: user?.email,
+        expertUserId: expert?.user_id,
+        expertEmail: expert?.email,
+        expertName: expert?.name || getExpertName(targetBookingToCancel),
+        customerName: targetBookingToCancel.customer_name || profile?.full_name || user?.email,
+        scheduledAt: getBookingStart(targetBookingToCancel),
+        durationMinutes: getBookingDurationMinutes(targetBookingToCancel),
+        meetingLink: targetBookingToCancel.meeting_link,
+      })
+
+      toast({
+        title: 'Booking Cancelled',
+        description: isLateCancellation
+          ? 'Session cancelled. The expert has been notified of your late cancellation.'
+          : 'Your session has been cancelled.',
+      })
       refetch()
     }
   }
@@ -198,14 +254,9 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {getBookingStart(booking)
-                            ? new Date(getBookingStart(booking)!).toLocaleString('en-IN', {
-                                weekday: 'short', month: 'short', day: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                              })
-                            : 'Date not set'}
+                        <div className="flex items-center gap-1 font-medium text-foreground">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {formatZonedBookingTime(getBookingStart(booking))}
                         </div>
                         {booking.duration_hours && (
                           <div className="flex items-center gap-1">
@@ -230,7 +281,10 @@ export default function Dashboard() {
                             variant="outline"
                             size="sm"
                             className="mt-2"
-                            onClick={() => { navigator.clipboard.writeText(booking.meeting_link!); }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(booking.meeting_link!);
+                              toast({ title: "Copied!", description: "Meeting link copied to clipboard." });
+                            }}
                           >
                             Copy Link
                           </Button>
@@ -357,23 +411,63 @@ export default function Dashboard() {
       </div>
 
       {/* Cancel confirmation */}
-      <AlertDialog open={!!cancelBookingId} onOpenChange={(open) => { if (!open) setCancelBookingId(null) }}>
-        <AlertDialogContent>
+      <AlertDialog open={!!cancelBookingId} onOpenChange={(open) => { if (!open) { setCancelBookingId(null); setCancelReason(''); } }}>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this session?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will cancel your booking and notify the expert. You can always book a new session later.
+            <AlertDialogTitle className="flex items-center gap-2">
+              {isLateCancellation && <AlertTriangle className="h-5 w-5 text-amber-500" />}
+              {hasSessionStarted ? 'Session Has Started' : isLateCancellation ? 'Late Cancellation Notice' : 'Cancel this session?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-1 text-sm">
+                {hasSessionStarted && !isAdmin && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md flex items-start gap-2">
+                    <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
+                    <p>Sessions that have already started or passed cannot be cancelled. Contact support if you need assistance.</p>
+                  </div>
+                )}
+                {isLateCancellation && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-md flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600" />
+                    <div>
+                      <p className="font-semibold">Cancellation within 2 hours of start time</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        A cancellation reason is required. The expert will be notified immediately of this late cancellation.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {!hasSessionStarted && !isLateCancellation && (
+                  <p>This will cancel your booking and notify the expert. You can always book a new session later.</p>
+                )}
+                {!hasSessionStarted && isLateCancellation && (
+                  <div className="space-y-1.5 pt-2">
+                    <Label htmlFor="cancel-reason" className="font-medium text-foreground">
+                      Reason for cancellation <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="cancel-reason"
+                      placeholder="Please provide a brief reason for cancelling (min 10 characters)..."
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="mt-4">
             <AlertDialogCancel disabled={cancelling}>Keep session</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleCancelBooking(); }}
-              disabled={cancelling}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {cancelling ? 'Cancelling...' : 'Cancel session'}
-            </AlertDialogAction>
+            {!hasSessionStarted || isAdmin ? (
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); handleCancelBooking(); }}
+                disabled={cancelling || (isLateCancellation && cancelReason.trim().length < 10 && !isAdmin)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {cancelling ? 'Cancelling...' : 'Cancel session'}
+              </AlertDialogAction>
+            ) : null}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

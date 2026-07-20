@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { BookingCalendar } from "@/components/booking/BookingCalendar";
 import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
 import { CheckCircle2, Copy, ExternalLink } from "lucide-react";
-import { buildBookingTimeFields } from "@/lib/bookingUtils";
+import { buildBookingTimeFields, formatZonedBookingTime } from "@/lib/bookingUtils";
 import { notifyBookingEvent } from "@/lib/notifications";
 
 interface BookingModalProps {
@@ -22,7 +22,7 @@ interface BookingModalProps {
 }
 
 const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -118,12 +118,37 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         return;
       }
 
+      const customerName = user.user_metadata?.full_name || profile?.full_name || user.email?.split("@")[0] || "User";
+      const customerEmail = user.email || "";
+
+      // Ensure profile exists in profiles table to satisfy foreign key constraints
+      const { error: profileUpsertError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: customerEmail,
+          full_name: customerName,
+          user_type: profile?.user_type || 'consumer',
+          updated_at: new Date().toISOString(),
+        } as never);
+
+      if (profileUpsertError) {
+        console.error("SUPABASE PROFILE UPSERT ERROR:", profileUpsertError);
+      }
+
       const bookingPayload = {
         expert_id: speaker.id,
         consumer_id: user.id,
+        user_id: user.id,
+        event_name: `Session with ${speaker.name}`,
+        customer_name: customerName,
+        customer_email: customerEmail,
         ...buildBookingTimeFields(selectedDateTime, selectedDuration),
         total_amount: 0,
+        platform_fee: 0,
+        expert_payout: 0,
         consumer_notes: formattedNotes,
+        notes: formattedNotes,
         status: "confirmed",
         meeting_link: generatedMeetingLink,
       };
@@ -134,7 +159,10 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         .select("id")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("SUPABASE BOOKING INSERT FULL ERROR OBJECT:", error);
+        throw error;
+      }
 
       await notifyBookingEvent({
         bookingId: booking?.id,
@@ -144,7 +172,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         expertUserId: speaker.user_id,
         expertEmail: (speaker as Expert & { email?: string | null }).email,
         expertName: speaker.name,
-        customerName: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+        customerName: customerName,
         scheduledAt: selectedDateTime,
         durationMinutes: selectedDuration,
         meetingLink: generatedMeetingLink,
@@ -162,11 +190,18 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         title: "Session Booked!",
         description: `Your session with ${speaker.name} has been confirmed.`,
       });
-    } catch (error) {
-      console.error("Booking error:", error);
+    } catch (error: unknown) {
+      console.error("SUPABASE BOOKING CATCH ERROR OBJECT:", error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errObj = error as any;
+      const mainMsg = errObj?.message || (error instanceof Error ? error.message : String(error));
+      const codeStr = errObj?.code ? ` [Code: ${errObj.code}]` : "";
+      const hintStr = errObj?.hint ? ` (${errObj.hint})` : "";
+      const detailStr = errObj?.details ? ` - ${errObj.details}` : "";
+
       toast({
-        title: "Booking Failed",
-        description: "Failed to book session. Please try again.",
+        title: `Booking Failed${codeStr}`,
+        description: `${mainMsg}${hintStr}${detailStr}`,
         variant: "destructive",
       });
     } finally {
@@ -182,6 +217,19 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
     setMeetingLink(null);
     onClose();
   };
+
+  if (authLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Checking authentication state...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   if (!user) {
     return (
@@ -214,10 +262,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
             <h3 className="text-xl font-semibold">You're all set!</h3>
             <p className="text-muted-foreground">
               Your free session with {speaker.name} is confirmed for{" "}
-              {selectedDateTime && new Date(selectedDateTime).toLocaleString('en-IN', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-              })}
+              <strong className="text-foreground">{selectedDateTime && formatZonedBookingTime(selectedDateTime)}</strong>
             </p>
             {meetingLink && (
               <div className="bg-gray-50 border rounded-lg p-3 text-left space-y-1">

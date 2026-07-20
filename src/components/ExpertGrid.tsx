@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, memo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpertProfile } from "@/types/promptpeople";
 import ExpertCard from "./ExpertCard";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpertGridSkeleton } from "@/components/ExpertCardSkeleton";
 import { searchExperts } from "@/lib/searchExperts";
@@ -69,6 +70,7 @@ const transform = (speaker: RawSpeaker): ExpertProfile => ({
 });
 
 const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: ExpertGridProps) => {
+  const navigate = useNavigate();
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -112,6 +114,19 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
     [experts]
   );
 
+  const [recommendedExperts, setRecommendedExperts] = useState<ExpertProfile[]>([]);
+  const [loadingRecommended, setLoadingRecommended] = useState(false);
+
+  useEffect(() => {
+    if (experts.length === 0 && !loading) {
+      setLoadingRecommended(true);
+      searchExperts({ sortBy: "rating", limit: 4 })
+        .then((recs) => setRecommendedExperts(recs))
+        .catch((err) => console.error("Error fetching recommended experts:", err))
+        .finally(() => setLoadingRecommended(false));
+    }
+  }, [experts.length, loading]);
+
   if (loading) {
     return <ExpertGridSkeleton count={Math.min(limit, 8)} />;
   }
@@ -132,11 +147,70 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
   }
 
   if (experts.length === 0) {
+    const suggestedTerms = ["Startups", "Fundraising", "Product Strategy", "AI & ML", "Marketing", "Career Advice"];
+
     return (
-      <div className="text-center py-12">
-        <p className="text-lg text-muted-foreground">
-          No experts found. Try adjusting your filters or search.
-        </p>
+      <div className="space-y-10 py-6">
+        <div className="text-center max-w-lg mx-auto p-8 rounded-2xl border bg-card/50 shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+            <AlertCircle className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold">No experts match your search</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {searchQuery ? `No results found for "${searchQuery}".` : "No experts match the selected filters."} Try refining your query or clear active filters.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                navigate("/experts");
+              }}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" /> Clear Search & Filters
+            </Button>
+          </div>
+
+          <div className="pt-4 border-t">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+              Popular Search Suggestions
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {suggestedTerms.map((term) => (
+                <Button
+                  key={term}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    navigate(`/experts?q=${encodeURIComponent(term)}`);
+                  }}
+                  className="text-xs h-7 rounded-full bg-secondary/60 hover:bg-secondary"
+                >
+                  {term}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Fallback Recommended Experts */}
+        {recommendedExperts.length > 0 && (
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              <h3 className="text-xl font-bold">Recommended Top Experts</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {recommendedExperts.map((expert) => (
+                <ExpertCard key={expert.id} expert={expert} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

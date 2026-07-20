@@ -225,7 +225,7 @@ export async function searchExperts(optionsOrQuery: SearchExpertsOptions | strin
 
   if (hasQuery && terms.length === 0) return []
 
-  // Fetch ALL verified experts with their categories
+  // Fetch ALL verified or active experts with their categories
   const { data: allExperts, error } = await supabase
     .from('speakers')
     .select(`
@@ -235,7 +235,7 @@ export async function searchExperts(optionsOrQuery: SearchExpertsOptions | strin
         categories ( id, name )
       )
     `)
-    .eq('verification_status', 'verified')
+    .or('verification_status.eq.verified,is_verified.eq.true,verification_status.is.null')
 
   if (error || !allExperts) {
     console.error('Search error:', error)
