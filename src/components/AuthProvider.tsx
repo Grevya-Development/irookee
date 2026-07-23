@@ -57,8 +57,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const syncWithSupabase = async () => {
-      setSyncLoading(true);
       const email = clerkUser.primaryEmailAddress?.emailAddress;
+      const isInitialSync = !user || (email && user.email !== email);
+      if (isInitialSync) {
+        setSyncLoading(true);
+      }
       if (!email) {
         setSyncLoading(false);
         return;
@@ -144,6 +147,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     syncWithSupabase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isSignedIn, clerkUser]);
 
   // Keep compatibility with any direct calls

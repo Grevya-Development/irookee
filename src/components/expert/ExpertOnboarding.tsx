@@ -54,9 +54,12 @@ const STEP_INFO = [
 ]
 
 export function ExpertOnboarding() {
-  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger } = useForm<ExpertOnboardingForm>()
+  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger } = useForm<ExpertOnboardingForm>({
+    mode: 'onChange'
+  })
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
+
   const [showStep1Errors, setShowStep1Errors] = useState(false)
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
@@ -67,6 +70,25 @@ export function ExpertOnboarding() {
   const [isSuspended, setIsSuspended] = useState(false)
   const [suspensionReason, setSuspensionReason] = useState('')
   const navigate = useNavigate()
+
+  const watchedFullName = watch('full_name')
+  const watchedEmail = watch('email')
+  const watchedPhone = watch('phone')
+  const watchedBio = watch('bio')
+
+  const isStep1Valid = Boolean(
+    watchedFullName &&
+    watchedEmail &&
+    watchedPhone &&
+    watchedBio &&
+    !errors.full_name &&
+    !errors.email &&
+    !errors.phone &&
+    !errors.bio &&
+    locationValue &&
+    locationValue.trim().length > 0 &&
+    selectedLanguages.length > 0
+  )
 
   useEffect(() => {
     fetchCategories()
@@ -480,7 +502,17 @@ export function ExpertOnboarding() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Full Name *</Label>
-                    <Input {...register('full_name', { required: 'Required' })} placeholder="Priya Sharma" className="mt-1" />
+                    <Input 
+                      {...register('full_name', { 
+                        required: 'Full name is required',
+                        pattern: {
+                          value: /^[A-Za-z][A-Za-z\s'-]{1,60}$/,
+                          message: 'Full name must contain only letters, spaces, hyphens, or apostrophes, start with a letter, and be 2-60 characters.'
+                        }
+                      })} 
+                      placeholder="Priya Sharma" 
+                      className="mt-1" 
+                    />
                     {errors.full_name && <p className="text-sm text-destructive mt-1">{errors.full_name.message}</p>}
                   </div>
                   <div>
@@ -502,13 +534,13 @@ export function ExpertOnboarding() {
                     <Label>Phone *</Label>
                     <Input
                       {...register('phone', {
-                        required: 'Required',
-                        validate: value => {
-                          const phone = value.replace(/[\s()-]/g, '')
-                          return /^\+?[1-9]\d{9,14}$/.test(phone) || 'Invalid phone number'
+                        required: 'Phone number is required',
+                        pattern: {
+                          value: /^\d{10}$/,
+                          message: 'Phone number must be exactly 10 digits and contain only numbers.'
                         }
                       })}
-                      placeholder="+91 98765 43210"
+                      placeholder="9876543210"
                       className="mt-1"
                     />
                     {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
@@ -545,7 +577,7 @@ export function ExpertOnboarding() {
                   {errors.bio && <p className="text-sm text-destructive mt-1">{errors.bio.message}</p>}
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" onClick={goToStep2} size="lg">
+                  <Button type="button" onClick={goToStep2} size="lg" disabled={!isStep1Valid}>
                     Next <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
