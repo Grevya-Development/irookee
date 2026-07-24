@@ -1,135 +1,17 @@
-import { supabase } from '@/integrations/supabase/client'
-import { ExpertProfile, SearchFilters } from '@/types/promptpeople'
+import { createClient } from '@supabase/supabase-js';
 
-interface SpeakerCategoryRow {
-  category_id?: string | null
-  categories?: { id?: string | null; name?: string | null } | null
-}
+const supabase = createClient(
+  'https://tlsdxbjoghpfzltubshs.supabase.co',
+  'sb_publishable_XZkwTtNrAyyZIB-_u3_xBg_RbYaNcSD'
+);
 
-interface SpeakerSearchRow {
-  id: string
-  user_id: string | null
-  full_name?: string | null
-  name: string | null
-  title: string | null
-  bio: string | null
-  company: string | null
-  expertise: string[] | null
-  expertise_areas: string[] | null
-  topics: string[] | null
-  languages: string[] | null
-  location: string | null
-  hourly_rate: number | null
-  rating: number | string | null
-  past_events: number | null
-  is_verified: boolean | null
-  video_url: string | null
-  experience_years: number | null
-  created_at: string
-  updated_at: string
-  speaker_categories?: SpeakerCategoryRow[] | null
-}
-
-export interface SearchExpertsOptions extends SearchFilters {
-  query?: string
-  categoryId?: string
-  limit?: number
-}
-
-/**
- * Comprehensive expert search that queries across ALL relevant fields.
- * No AI dependency - pure database search with relevance scoring.
- */
-// Common words that carry no search intent. Without filtering these, a phrase
-// like "I'm in Coimbatore need a software developer" matches almost every
-// expert because short words such as "in"/"an" are substrings of many fields.
 const STOPWORDS = new Set([
   'i', "i'm", 'im', 'a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'and',
   'or', 'is', 'are', 'am', 'be', 'me', 'my', 'we', 'us', 'you', 'your', 'need',
   'needs', 'want', 'wants', 'looking', 'look', 'find', 'get', 'with', 'who', 'can',
   'help', 'someone', 'some', 'any', 'please', 'would', 'like', 'near', 'around',
   'from', 'this', 'that', 'have', 'has', 'about',
-])
-
-const normalize = (value: unknown) => String(value || '').trim().toLowerCase()
-
-const normalizeTerms = (rawQuery?: string) => {
-  const query = normalize(rawQuery)
-  if (!query) return { query: '', terms: [] as string[] }
-
-  const terms = query
-    .split(/[\s,]+/)
-    .map(term => term.trim().replace(/[^a-z0-9'+#.]/g, ''))
-    .filter(term => term.length >= 2 && !STOPWORDS.has(term))
-
-  return { query, terms }
-}
-
-const textIncludes = (value: unknown, needle: string) => normalize(value).includes(needle)
-
-const arrayIncludes = (values: unknown[] | null | undefined, needle: string) =>
-  (values || []).some(value => textIncludes(value, needle))
-
-const getCategoryRows = (expert: SpeakerSearchRow) => expert.speaker_categories || []
-
-const getCategoryNames = (expert: SpeakerSearchRow) =>
-  getCategoryRows(expert)
-    .map(row => row.categories?.name)
-    .filter((name): name is string => Boolean(name))
-
-const getCategoryIds = (expert: SpeakerSearchRow) =>
-  getCategoryRows(expert)
-    .map(row => row.category_id || row.categories?.id)
-    .filter((id): id is string => Boolean(id))
-
-const getExpertise = (expert: SpeakerSearchRow) =>
-  expert.expertise?.length ? expert.expertise : expert.expertise_areas || []
-
-const toExpertProfile = (expert: SpeakerSearchRow): ExpertProfile => ({
-  id: expert.id,
-  user_id: expert.user_id || '',
-  full_name: expert.full_name || expert.name || 'Expert',
-  title: expert.title || '',
-  bio: expert.bio || '',
-  industry_expertise: getExpertise(expert),
-  years_experience: expert.experience_years,
-  location: expert.location,
-  languages: expert.languages || [],
-  hourly_rate: expert.hourly_rate,
-  status: 'approved' as const,
-  verification_level: expert.is_verified ? ('verified' as const) : ('basic' as const),
-  rating: Number(expert.rating) || 0,
-  total_sessions: expert.past_events || 0,
-  intro_video_url: expert.video_url,
-  kyc_documents: null,
-  availability_timezone: null,
-  is_instant_available: true,
-  created_at: expert.created_at,
-  updated_at: expert.updated_at,
-})
-
-const matchesFilters = (expert: SpeakerSearchRow, options: SearchExpertsOptions) => {
-  const category = normalize(options.category || options.categoryId)
-  const location = normalize(options.location)
-  const language = normalize(options.language)
-  const minRating = Number(options.minRating) || 0
-
-  if (category && category !== 'all') {
-    const categoryIds = getCategoryIds(expert).map(normalize)
-    const categoryNames = getCategoryNames(expert).map(normalize)
-    const categoryMatches =
-      categoryIds.includes(category) ||
-      categoryNames.some(name => name.includes(category))
-
-    if (!categoryMatches) return false
-  }
-
-  if (location && !textIncludes(expert.location, location)) return false
-  if (language && !arrayIncludes(expert.languages, language)) return false
-  if (minRating > 0 && (Number(expert.rating) || 0) < minRating) return false
-
-  return true
-}
+]);
 
 const SYNONYM_GROUPS = [
   ['tech', 'technology', 'software', 'developer', 'engineer', 'programming', 'code', 'coding', 'data', 'computer', 'it', 'web', 'frontend', 'backend', 'fullstack'],
@@ -142,16 +24,28 @@ const SYNONYM_GROUPS = [
   ['career', 'resume', 'interview', 'hr', 'job', 'hiring', 'recruiting']
 ];
 
-const SYNONYM_MAP: Record<string, string[]> = {};
+const SYNONYM_MAP = {};
 for (const group of SYNONYM_GROUPS) {
   for (const word of group) {
     SYNONYM_MAP[word] = group.filter(w => w !== word);
   }
 }
 
-const MIN_RELEVANCE_THRESHOLD = 20;
+const normalize = (value) => String(value || '').trim().toLowerCase();
 
-const matchTerm = (text: string, term: string): boolean => {
+const normalizeTerms = (rawQuery) => {
+  const query = normalize(rawQuery);
+  if (!query) return { query: '', terms: [] };
+
+  const terms = query
+    .split(/[\s,]+/)
+    .map(term => term.trim().replace(/[^a-z0-9'+#.]/g, ''))
+    .filter(term => term.length >= 2 && !STOPWORDS.has(term));
+
+  return { query, terms };
+};
+
+const matchTerm = (text, term) => {
   const normalizedText = normalize(text);
   const normalizedTerm = normalize(term);
   if (!normalizedText || !normalizedTerm) return false;
@@ -161,7 +55,7 @@ const matchTerm = (text: string, term: string): boolean => {
     const charBefore = index > 0 ? normalizedText[index - 1] : ' ';
     const charAfter = index + normalizedTerm.length < normalizedText.length ? normalizedText[index + normalizedTerm.length] : ' ';
 
-    const isBoundary = (char: string) => /[\s,.\-()&/|\\_]/.test(char);
+    const isBoundary = (char) => /[\s,.\-()&/|\\_]/.test(char);
     if (isBoundary(charBefore) && isBoundary(charAfter)) {
       return true;
     }
@@ -170,7 +64,7 @@ const matchTerm = (text: string, term: string): boolean => {
   return false;
 };
 
-const matchToken = (fieldValue: string, token: string) => {
+const matchToken = (fieldValue, token) => {
   const normalizedField = normalize(fieldValue);
   const normalizedToken = normalize(token);
   if (!normalizedField || !normalizedToken) return { exact: false, prefix: false };
@@ -190,11 +84,19 @@ const matchToken = (fieldValue: string, token: string) => {
   return { exact, prefix };
 };
 
-const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) => {
-  if (!query && terms.length === 0) return 0;
+const getCategoryNames = (expert) =>
+  (expert.speaker_categories || [])
+    .map(row => row.categories?.name)
+    .filter(Boolean);
+
+const getExpertise = (expert) =>
+  expert.expertise?.length ? expert.expertise : expert.expertise_areas || [];
+
+const scoreExpert = (expert, query, terms) => {
+  if (!query && terms.length === 0) return { score: 0, matches: [] };
 
   let score = 0;
-  const matches: string[] = [];
+  const matches = [];
   const name = normalize(expert.full_name || expert.name);
   const title = normalize(expert.title);
   const bio = normalize(expert.bio);
@@ -217,7 +119,7 @@ const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) =
   for (const term of terms) {
     let termMatched = false;
     let termScore = 0;
-    const termMatches: string[] = [];
+    const termMatches = [];
 
     // Fields list with priority weights
     const fields = [
@@ -242,7 +144,7 @@ const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) =
             termMatched = true;
           } else if (prefix) {
             termScore += field.prefW;
-            termMatches.push(`prefix match in ${field.name}("${val}") (+${field.prefW})`);
+            termMatches.push(`prefix match in ${field.name} ("${val}") (+${field.prefW})`);
             termMatched = true;
           }
         }
@@ -250,7 +152,7 @@ const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) =
         const { exact, prefix } = matchToken(field.value, term);
         if (exact) {
           termScore += field.exactW;
-          termMatches.push(`exact match in ${field.name} ("${field.value}") (+${field.exactW})`);
+          termMatches.push(`exact match in ${field.name}("${field.value}") (+${field.exactW})`);
           termMatched = true;
         } else if (prefix) {
           termScore += field.prefW;
@@ -308,39 +210,10 @@ const scoreExpert = (expert: SpeakerSearchRow, query: string, terms: string[]) =
     }
   }
 
-  if (process.env.NODE_ENV === 'development' && score > 0) {
-    console.log(`[Search match for ${expert.full_name || expert.name || 'Expert'}] Query: "${query}", Score: ${score}, Reasons:`, matches);
-  }
-
-  return score;
+  return { score, matches };
 };
 
-const sortExperts = (
-  experts: Array<{ expert: SpeakerSearchRow; relevance: number }>,
-  sortBy?: SearchFilters['sortBy'],
-) => {
-  return experts.sort((a, b) => {
-    if (sortBy === 'rating') return (Number(b.expert.rating) || 0) - (Number(a.expert.rating) || 0);
-    if (sortBy === 'sessions') return (b.expert.past_events || 0) - (a.expert.past_events || 0);
-    if (sortBy === 'experience') return (b.expert.experience_years || 0) - (a.expert.experience_years || 0);
-
-    const bScore = b.relevance + (Number(b.expert.rating) || 0) * 2 + Math.min((b.expert.past_events || 0) / 10, 10);
-    const aScore = a.relevance + (Number(a.expert.rating) || 0) * 2 + Math.min((a.expert.past_events || 0) / 10, 10);
-    if (bScore !== aScore) return bScore - aScore;
-    return (Number(b.expert.rating) || 0) - (Number(a.expert.rating) || 0);
-  });
-};
-
-export async function searchExperts(optionsOrQuery: SearchExpertsOptions | string): Promise<ExpertProfile[]> {
-  const options: SearchExpertsOptions =
-    typeof optionsOrQuery === 'string' ? { query: optionsOrQuery } : optionsOrQuery;
-
-  const { query, terms } = normalizeTerms(options.query);
-  const hasQuery = Boolean(query);
-
-  if (hasQuery && terms.length === 0) return [];
-
-  // Fetch ALL verified or active experts with their categories
+const run = async () => {
   const { data: allExperts, error } = await supabase
     .from('speakers')
     .select(`
@@ -352,17 +225,36 @@ export async function searchExperts(optionsOrQuery: SearchExpertsOptions | strin
     `)
     .or('verification_status.eq.verified,is_verified.eq.true,verification_status.is.null');
 
-  if (error || !allExperts) {
-    console.error('Search error:', error);
-    return [];
+  if (error) {
+    console.error("Error:", error);
+    return;
   }
 
-  const filtered = (allExperts as SpeakerSearchRow[])
-    .filter(expert => matchesFilters(expert, options))
-    .map(expert => ({ expert, relevance: scoreExpert(expert, query, terms) }))
-    .filter(row => !hasQuery || row.relevance >= MIN_RELEVANCE_THRESHOLD);
+  const queries = [
+    "Graphic Designer",
+    "UI Designer",
+    "AI Engineer",
+    "Marketing",
+    "Career Coach",
+    "Product Manager"
+  ];
 
-  return sortExperts(filtered, options.sortBy)
-    .slice(0, options.limit || 40)
-    .map(({ expert }) => toExpertProfile(expert));
-}
+  const MIN_RELEVANCE_THRESHOLD = 15;
+
+  for (const queryStr of queries) {
+    const { query, terms } = normalizeTerms(queryStr);
+    console.log(`\n======================================================`);
+    console.log(`Searching for "${queryStr}" -> terms: [${terms.join(', ')}]`);
+    console.log(`======================================================`);
+
+    for (const expert of allExperts) {
+      const { score, matches } = scoreExpert(expert, query, terms);
+      if (score >= MIN_RELEVANCE_THRESHOLD) {
+        console.log(`- Expert: ${expert.name} (${expert.title}) [Score: ${score}]`);
+        console.log(`  Matches:`, matches);
+      }
+    }
+  }
+};
+
+run();

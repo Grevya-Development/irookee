@@ -95,14 +95,14 @@ const AnimatedRoutes = () => {
   );
 };
 
-// Optimized QueryClient with caching
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 60000, // 1 minute
       gcTime: 10 * 60 * 1000, // 10 minutes
       refetchOnWindowFocus: false,
-      retry: 1,
+      refetchOnReconnect: true,
+      retry: 2,
     },
   },
 });

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { isCurrentUserAdmin } from '@/lib/auth'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -74,6 +75,16 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false)
   const [isExpert, setIsExpert] = useState(false)
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  const checkAdminStatus = async () => {
+    try {
+      const adminStatus = await isCurrentUserAdmin()
+      setIsAdmin(adminStatus)
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -82,6 +93,7 @@ export default function Settings() {
       loadProfile()
       loadExpertProfile()
       loadNotificationPreferences()
+      checkAdminStatus()
     }
   }, [user, authLoading])
 
@@ -601,6 +613,16 @@ export default function Settings() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {expertData.verification_status === 'pending' && !isAdmin && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-sm flex items-start gap-2 mb-4">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-amber-900">Profile Under Review</p>
+                        <p className="text-amber-700 mt-0.5">Your profile is currently under review. Editing is temporarily disabled until verification completes.</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Display Name</Label>
@@ -608,6 +630,7 @@ export default function Settings() {
                         value={expertData.name}
                         onChange={e => setExpertData(prev => prev ? { ...prev, name: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -617,6 +640,7 @@ export default function Settings() {
                         onChange={e => setExpertData(prev => prev ? { ...prev, title: e.target.value } : null)}
                         placeholder="e.g., Startup Mentor"
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -625,6 +649,7 @@ export default function Settings() {
                         value={expertData.company}
                         onChange={e => setExpertData(prev => prev ? { ...prev, company: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -633,6 +658,7 @@ export default function Settings() {
                         value={expertData.location}
                         onChange={e => setExpertData(prev => prev ? { ...prev, location: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -641,6 +667,7 @@ export default function Settings() {
                         value={expertData.phone}
                         onChange={e => setExpertData(prev => prev ? { ...prev, phone: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -649,6 +676,7 @@ export default function Settings() {
                         value={expertData.email}
                         onChange={e => setExpertData(prev => prev ? { ...prev, email: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -658,6 +686,7 @@ export default function Settings() {
                         value={expertData.experience_years || ''}
                         onChange={e => setExpertData(prev => prev ? { ...prev, experience_years: parseInt(e.target.value) || null } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -666,6 +695,7 @@ export default function Settings() {
                         value={expertData.linkedin_url}
                         onChange={e => setExpertData(prev => prev ? { ...prev, linkedin_url: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                     <div>
@@ -674,6 +704,7 @@ export default function Settings() {
                         value={expertData.website_url}
                         onChange={e => setExpertData(prev => prev ? { ...prev, website_url: e.target.value } : null)}
                         className="mt-1"
+                        disabled={expertData.verification_status === 'pending' && !isAdmin}
                       />
                     </div>
                   </div>
@@ -685,6 +716,7 @@ export default function Settings() {
                       onChange={e => setExpertData(prev => prev ? { ...prev, bio: e.target.value } : null)}
                       rows={4}
                       className="mt-1"
+                      disabled={expertData.verification_status === 'pending' && !isAdmin}
                     />
                   </div>
 
@@ -695,6 +727,7 @@ export default function Settings() {
                       onChange={e => setExpertData(prev => prev ? { ...prev, expertise: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : null)}
                       placeholder="Startups, Marketing, Finance"
                       className="mt-1"
+                      disabled={expertData.verification_status === 'pending' && !isAdmin}
                     />
                   </div>
 
@@ -705,10 +738,11 @@ export default function Settings() {
                       onChange={e => setExpertData(prev => prev ? { ...prev, languages: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : null)}
                       placeholder="English, Hindi, Tamil"
                       className="mt-1"
+                      disabled={expertData.verification_status === 'pending' && !isAdmin}
                     />
                   </div>
 
-                  <Button onClick={saveExpertProfile} disabled={saving}>
+                  <Button onClick={saveExpertProfile} disabled={saving || (expertData.verification_status === 'pending' && !isAdmin)}>
                     {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save Expert Profile</>}
                   </Button>
                 </CardContent>
