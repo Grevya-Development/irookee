@@ -22,7 +22,7 @@ interface BookingModalProps {
 }
 
 const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);

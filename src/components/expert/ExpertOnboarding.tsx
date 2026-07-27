@@ -153,7 +153,7 @@ export function ExpertOnboarding() {
         })
         if (error) {
           console.error('Storage upload error:', error.message)
-          toast.error(`Failed to upload ${file.name}: ${error.message}`)
+          toast.error(`Failed to upload ${file.name}: ${getCleanErrorMessage(error)}`)
           continue
         }
         const { data: urlData } = supabase.storage.from('verification-documents').getPublicUrl(data.path)
@@ -164,7 +164,7 @@ export function ExpertOnboarding() {
       toast.success('Documents added successfully')
     } catch (err) {
       console.error('Upload error:', err)
-      toast.error('Please try again')
+      toast.error(`Document upload failed: ${getCleanErrorMessage(err)}`)
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -172,6 +172,45 @@ export function ExpertOnboarding() {
   }
 
   const removeDoc = (index: number) => setUploadedDocs(prev => prev.filter((_, i) => i !== index))
+
+  const getCleanErrorMessage = (error: unknown): string => {
+    if (!error) return "An unexpected error occurred.";
+    let msg = "";
+    let code = "";
+    if (error instanceof Error) {
+      msg = error.message;
+      const errObj = error as Record<string, unknown>;
+      if (typeof errObj.code === 'string') code = errObj.code;
+    } else if (typeof error === 'object' && error !== null) {
+      const errObj = error as Record<string, unknown>;
+      if (typeof errObj.message === 'string') msg = errObj.message;
+      if (typeof errObj.code === 'string') code = errObj.code;
+    } else if (typeof error === 'string') {
+      msg = error;
+    }
+    if (code === '40300' || msg.includes('Your profile is under review')) {
+      return 'Your profile is under review. Editing is temporarily disabled until verification completes.';
+    }
+    if (code === '42501' || msg.includes('row-level security') || msg.includes('permission denied') || msg.includes('violates row-level security policy')) {
+      return 'RLS blocked request: Storage or database policy denied access.';
+    }
+    if (code === '23505' || msg.includes('unique constraint') || msg.includes('duplicate key')) {
+      return 'Duplicate profile: An expert profile already exists for this account.';
+    }
+    if (code === '23503' || msg.includes('foreign key constraint')) {
+      return 'Database constraint failed: Referenced record was not found.';
+    }
+    if (code === '23514' || msg.includes('check constraint')) {
+      if (msg.includes('profiles_user_type_check')) {
+        return 'Database constraint failed: Invalid user type specified.';
+      }
+      return `Database check constraint failed: ${msg}`;
+    }
+    if (msg.includes('bucket') || msg.includes('Storage')) {
+      return `Bucket upload failed: ${msg}`;
+    }
+    return msg || "Unexpected server response.";
+  };
 
   const goToStep2 = async () => {
     setShowStep1Errors(true)
@@ -414,7 +453,7 @@ export function ExpertOnboarding() {
       navigate('/expert/dashboard')
     } catch (error) {
       console.error('Error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to create profile')
+      toast.error(getCleanErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -591,12 +630,36 @@ export function ExpertOnboarding() {
               <CardContent className="p-6 md:p-8 space-y-5">
                 <div>
                   <Label>Professional Title *</Label>
-                  <Input {...register('title', { required: 'Required' })} placeholder="Startup Mentor, Travel Guide, Financial Advisor..." className="mt-1" />
+                  <Input 
+                    {...register('title', { 
+                      required: 'Professional title is required',
+                      validate: {
+                        notNumeric: value => !/^[0-9\s\-_, .()]+$/.test(value) || 'Professional title cannot be numeric-only',
+                        noSymbols: value => !/[<>={}[\]/\\^%$@#*]/.test(value) || 'Professional title contains invalid symbols'
+                      }
+                    })} 
+                    placeholder="Startup Mentor, Travel Guide, Financial Advisor..." 
+                    className="mt-1" 
+                  />
                   {errors.title && <p className="text-sm text-destructive mt-1">{errors.title.message}</p>}
                 </div>
                 <div>
                   <Label>Expertise Areas (comma-separated) *</Label>
-                  <Input {...register('expertise_areas', { required: 'Required' })} placeholder="Startups, Fundraising, Product Management" className="mt-1" />
+                  <Input 
+                    {...register('expertise_areas', { 
+                      required: 'Expertise areas are required',
+                      validate: {
+                        validExpertise: value => {
+                          const areas = value.split(',').map(s => s.trim()).filter(Boolean);
+                          if (areas.length === 0) return 'Please specify at least one expertise area';
+                          const invalid = areas.some(exp => /^[0-9\s\-_, .()]+$/.test(exp) || exp.length < 2 || /[<>={}[\]/\\^%$@#*]/.test(exp));
+                          return !invalid || 'Please enter valid expertise names (no special characters/numbers only)';
+                        }
+                      }
+                    })} 
+                    placeholder="Startups, Fundraising, Product Management" 
+                    className="mt-1" 
+                  />
                   {errors.expertise_areas && <p className="text-sm text-destructive mt-1">{errors.expertise_areas.message}</p>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
