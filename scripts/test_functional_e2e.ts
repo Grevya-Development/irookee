@@ -86,8 +86,8 @@ async function runFullFunctionalTestSuite() {
       await supabase.from('expertise_bookings').delete().eq('id', newBooking[0].id);
       console.log('✓ Cleaned up test booking record.');
     }
-  } catch (err: any) {
-    console.error('❌ Suite 1 Failed:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ Suite 1 Failed:', (err as Error).message);
     failed++;
   }
 
@@ -113,8 +113,8 @@ async function runFullFunctionalTestSuite() {
     }
     console.log(`✓ All ${invalidInputs.length} invalid/malicious expertise inputs successfully rejected.`);
     passed++;
-  } catch (err: any) {
-    console.error('❌ Suite 2 Failed:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ Suite 2 Failed:', (err as Error).message);
     failed++;
   }
 
@@ -141,8 +141,8 @@ async function runFullFunctionalTestSuite() {
     }
     console.log(`✓ US international number validated: ${usRes.normalized}`);
     passed++;
-  } catch (err: any) {
-    console.error('❌ Suite 3 Failed:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ Suite 3 Failed:', (err as Error).message);
     failed++;
   }
 
@@ -159,8 +159,8 @@ async function runFullFunctionalTestSuite() {
     }
     console.log('✓ Database schema and columns verified for profiles, speakers, and expertise_bookings.');
     passed++;
-  } catch (err: any) {
-    console.error('❌ Suite 4 Failed:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ Suite 4 Failed:', (err as Error).message);
     failed++;
   }
 

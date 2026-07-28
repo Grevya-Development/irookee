@@ -20,15 +20,17 @@ async function runUserFunctionalTest() {
   // 1. Profile Verification & Ensure Profile Row Exists
   console.log(`[TEST 1] Verifying profile for ${TEST_EMAIL}...`);
   try {
-    let { data: profile, error } = await supabase
+    const { data: fetchedProfile } = await supabase
       .from('profiles')
       .select('*')
       .eq('email', TEST_EMAIL)
       .maybeSingle();
 
+    let profile = fetchedProfile;
+
     if (!profile) {
       console.log(`Profile row not found for ${TEST_EMAIL}, creating via upsert simulation...`);
-      const { data: newProfile, error: upsertErr } = await supabase
+      const { data: newProfile } = await supabase
         .from('profiles')
         .upsert({
           id: '53d7f803-835a-4b97-b296-8312128854a1',
@@ -117,8 +119,8 @@ async function runUserFunctionalTest() {
       throw new Error('Malicious input was not rejected!');
     }
 
-  } catch (err: any) {
-    console.error('❌ User functional test failed:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ User functional test failed:', (err as Error).message);
     failed++;
   }
 

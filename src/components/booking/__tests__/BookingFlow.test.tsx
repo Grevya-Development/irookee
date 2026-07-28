@@ -63,10 +63,10 @@ describe('BUG 1 Audit: Booking Execution & Profile Integrity', () => {
       user_metadata: { full_name: 'Test Consumer' },
       aud: 'authenticated',
       created_at: new Date().toISOString(),
-    } as any;
+    };
 
     // Test with null profile
-    const result = await ensureUserProfileExists(mockUser, null);
+    const result = await ensureUserProfileExists(mockUser as unknown as Parameters<typeof ensureUserProfileExists>[0], null);
     
     expect(result).toBeDefined();
     expect(result.customerName).toBe('Test Consumer');
@@ -77,9 +77,9 @@ describe('BUG 1 Audit: Booking Execution & Profile Integrity', () => {
 
   it('2. Booking insertion payload completes cleanly with verified status 200/inserted row', async () => {
     const { supabase } = await import('@/integrations/supabase/client');
-    const mockUser = { id: 'test-user-123', email: 'test@irookee.com' } as any;
+    const mockUser = { id: 'test-user-123', email: 'test@irookee.com' };
 
-    const { customerName, customerEmail } = await ensureUserProfileExists(mockUser, null);
+    const { customerName, customerEmail } = await ensureUserProfileExists(mockUser as unknown as Parameters<typeof ensureUserProfileExists>[0], null);
     
     const insertRes = await supabase.from('expertise_bookings').insert({
       expert_id: 'expert-123',
