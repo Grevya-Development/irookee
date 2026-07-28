@@ -135,6 +135,7 @@ const Auth = () => {
                   path="/auth"
                   signInUrl="/auth"
                   fallbackRedirectUrl="/profile-setup"
+                  initialPhoneCountry="IN"
                   appearance={{
                     variables: {
                       colorPrimary: "#2563eb",
@@ -151,6 +152,7 @@ const Auth = () => {
                   path="/auth"
                   signUpUrl="/auth"
                   fallbackRedirectUrl="/dashboard"
+                  initialPhoneCountry="IN"
                   appearance={{
                     variables: {
                       colorPrimary: "#2563eb",

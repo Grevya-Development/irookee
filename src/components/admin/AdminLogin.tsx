@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 
+interface AdminLoginProps {
+  onLoginSuccess?: () => void;
+}
+
 /**
  * Dedicated admin login screen rendered at /admin when there is no
  * authenticated admin session. Authentication is delegated to Supabase Auth
@@ -17,7 +21,7 @@ import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
  * otherwise. The parent <Admin> page re-renders into the dashboard once the
  * auth state updates.
  */
-const AdminLogin = () => {
+const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,8 +46,10 @@ const AdminLogin = () => {
 
       track("admin_login_success");
       toast({ title: "Welcome back", description: "Signed in to the admin console." });
-      // AuthProvider's onAuthStateChange updates the session; <Admin> re-renders
-      // into the dashboard once the admin status is confirmed.
+      
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      }
     } catch (err) {
       toast({
         title: "Login failed",
