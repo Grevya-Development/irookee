@@ -15,6 +15,9 @@ import Footer from '@/components/sections/Footer'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { LocationInput } from '@/components/ui/location-input'
 import { createInAppNotification, sendNotificationEmail, notifyAdmins } from '@/lib/notifications'
+import { validateExpertiseAreas } from '@/lib/expertiseValidation'
+import { formatAndValidatePhone } from '@/lib/phoneUtils'
+import { profileNotificationService } from '@/lib/profileNotifications'
 
 const LANGUAGE_OPTIONS = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali',
@@ -253,13 +256,12 @@ export function ExpertOnboarding() {
       return
     }
 
-    const phoneTrimmed = data.phone.trim()
-    if (!phoneTrimmed) { toast.error('Phone number is required'); return }
-    const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
-    if (!/^\+?[1-9]\d{9,14}$/.test(phoneClean)) {
-      toast.error('Please enter a valid phone number')
+    const phoneValidation = formatAndValidatePhone(data.phone)
+    if (!phoneValidation.isValid) {
+      toast.error(phoneValidation.error || 'Please enter a valid phone number')
       return
     }
+    const phoneClean = phoneValidation.normalized
 
     const companyTrimmed = data.company?.trim()
     if (companyTrimmed) {
@@ -313,16 +315,12 @@ export function ExpertOnboarding() {
       toast.error('Professional title contains invalid symbols'); return
     }
 
-    const expertiseTrimmed = data.expertise_areas.trim()
-    if (!expertiseTrimmed) { toast.error('Expertise areas are required'); return }
-
-    const expertiseAreas = expertiseTrimmed.split(',').map(s => s.trim()).filter(Boolean)
-    if (expertiseAreas.length === 0) { toast.error('Please specify at least one expertise area'); return }
-    const invalidExpertise = expertiseAreas.some(exp => numericOnlyRegex.test(exp) || exp.length < 2 || invalidSymbolsRegex.test(exp))
-    if (invalidExpertise) {
-      toast.error('Please enter valid expertise names')
+    const expertiseRes = validateExpertiseAreas(data.expertise_areas)
+    if (!expertiseRes.isValid) {
+      toast.error(expertiseRes.error || 'Please enter valid expertise names')
       return
     }
+    const expertiseAreas = expertiseRes.sanitized
 
     if (selectedLanguages.length === 0) { toast.error('Select at least one language'); return }
     const invalidLangs = selectedLanguages.some(lang => numericOnlyRegex.test(lang) || lang.length < 2 || invalidSymbolsRegex.test(lang))
@@ -574,12 +572,14 @@ export function ExpertOnboarding() {
                     <Input
                       {...register('phone', {
                         required: 'Phone number is required',
-                        pattern: {
-                          value: /^\d{10}$/,
-                          message: 'Phone number must be exactly 10 digits and contain only numbers.'
+                        validate: {
+                          validPhone: value => {
+                            const res = formatAndValidatePhone(value);
+                            return res.isValid || res.error || 'Please enter a valid phone number';
+                          }
                         }
                       })}
-                      placeholder="9876543210"
+                      placeholder="+91 99668 27110 or 9966827110"
                       className="mt-1"
                     />
                     {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
@@ -650,14 +650,12 @@ export function ExpertOnboarding() {
                       required: 'Expertise areas are required',
                       validate: {
                         validExpertise: value => {
-                          const areas = value.split(',').map(s => s.trim()).filter(Boolean);
-                          if (areas.length === 0) return 'Please specify at least one expertise area';
-                          const invalid = areas.some(exp => /^[0-9\s\-_, .()]+$/.test(exp) || exp.length < 2 || /[<>={}[\]/\\^%$@#*]/.test(exp));
-                          return !invalid || 'Please enter valid expertise names (no special characters/numbers only)';
+                          const res = validateExpertiseAreas(value);
+                          return res.isValid || res.error || 'Please enter valid expertise names';
                         }
                       }
                     })} 
-                    placeholder="Startups, Fundraising, Product Management" 
+                    placeholder="Software Engineering, AI, Machine Learning, UI/UX Design" 
                     className="mt-1" 
                   />
                   {errors.expertise_areas && <p className="text-sm text-destructive mt-1">{errors.expertise_areas.message}</p>}

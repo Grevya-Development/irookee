@@ -9,6 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle } from 'lucide-react';
 
+import { formatAndValidatePhone } from '@/lib/phoneUtils';
+import { profileNotificationService } from '@/lib/profileNotifications';
+
 const ProfileSetup = () => {
   const { user } = useAuth();
   const [hasProfile, setHasProfile] = useState(false);
@@ -100,34 +103,36 @@ const ProfileSetup = () => {
     e.preventDefault();
     if (!user) return;
 
+    let cleanPhone: string | null = null;
+    if (formData.phone.trim()) {
+      const phoneRes = formatAndValidatePhone(formData.phone);
+      if (!phoneRes.isValid) {
+        profileNotificationService.notifyError(phoneRes.error || 'Please enter a valid phone number');
+        return;
+      }
+      cleanPhone = phoneRes.normalized;
+    }
+
     setIsSubmitting(true);
 
     try {
       const { error } = await supabase.from('user_profiles').insert({
         user_id: user.id,
-        full_name: formData.full_name,
-        email: formData.email,
-        company: formData.company,
-        phone: formData.phone,
-        bio: formData.bio,
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        company: formData.company.trim(),
+        phone: cleanPhone,
+        bio: formData.bio.trim(),
         hourly_rate: parseFloat(formData.hourly_rate) || 100,
       });
 
       if (error) throw error;
 
-      toast({
-        title: 'Profile Created!',
-        description: 'Your expert profile has been created successfully.',
-      });
-
+      profileNotificationService.notifySuccess('profile', '✓ Profile created successfully!');
       setHasProfile(true);
     } catch (error) {
       console.error('Error creating profile:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create your profile. Please try again.',
-        variant: 'destructive',
-      });
+      profileNotificationService.notifyError(error, 'Failed to create your profile. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

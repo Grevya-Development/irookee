@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Loader2, CheckCircle2 } from 'lucide-react'
 import { buildBookingTimeFields } from '@/lib/bookingUtils'
 import { notifyBookingEvent } from '@/lib/notifications'
+import { ensureUserProfileExists } from '@/lib/userUtils'
 
 interface BookingConfirmationProps {
   expertId: string
@@ -24,6 +25,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
   const navigate = useNavigate()
 
   const createBooking = async () => {
+    if (loading) return
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -32,6 +34,9 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
         navigate('/auth')
         return
       }
+
+      // Ensure user profile exists in profiles table
+      const { customerName, customerEmail } = await ensureUserProfileExists(user)
 
       // Get expert name
       const { data: expert } = await supabase
@@ -154,7 +159,7 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
         expertUserId: expert?.user_id,
         expertEmail: expert?.email,
         expertName: expert?.name,
-        customerName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        customerName,
         scheduledAt,
         durationMinutes: duration,
         meetingLink,

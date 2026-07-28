@@ -11,9 +11,10 @@ import { track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { BookingCalendar } from "@/components/booking/BookingCalendar";
 import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
-import { CheckCircle2, Copy, ExternalLink } from "lucide-react";
+import { CheckCircle2, Copy } from "lucide-react";
 import { buildBookingTimeFields, formatZonedBookingTime } from "@/lib/bookingUtils";
 import { notifyBookingEvent } from "@/lib/notifications";
+import { ensureUserProfileExists } from "@/lib/userUtils";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -60,7 +63,10 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
     setIsSubmitting(true);
     try {
-      // Generate a real Jitsi Meet link (free, no signup, works instantly)
+      // 1. Ensure user profile exists in 'profiles' table to satisfy DB foreign keys
+      const { customerName, customerEmail } = await ensureUserProfileExists(user, profile);
+
+      // Generate a real Jitsi Meet link
       const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
       const generatedMeetingLink = `https://meet.jit.si/${roomId}`;
 
@@ -116,24 +122,6 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         });
         setIsSubmitting(false);
         return;
-      }
-
-      const customerName = user.user_metadata?.full_name || profile?.full_name || user.email?.split("@")[0] || "User";
-      const customerEmail = user.email || "";
-
-      // Ensure profile exists in profiles table to satisfy foreign key constraints
-      const { error: profileUpsertError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: customerEmail,
-          full_name: customerName,
-          user_type: profile?.user_type || 'consumer',
-          updated_at: new Date().toISOString(),
-        } as never);
-
-      if (profileUpsertError) {
-        console.error("SUPABASE PROFILE UPSERT ERROR:", profileUpsertError);
       }
 
       const bookingPayload = {
@@ -194,7 +182,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
       console.error("SUPABASE BOOKING CATCH ERROR OBJECT:", error);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errObj = error as any;
-      const mainMsg = errObj?.message || (error instanceof Error ? error.message : String(error));
+      const mainMsg = errObj?.message || (error instanceof Error ? error.message : String(error || "Unknown error occurred"));
       const codeStr = errObj?.code ? ` [Code: ${errObj.code}]` : "";
       const hintStr = errObj?.hint ? ` (${errObj.hint})` : "";
       const detailStr = errObj?.details ? ` - ${errObj.details}` : "";
