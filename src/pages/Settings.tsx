@@ -15,8 +15,11 @@ import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Camera, Save, Trash2, Loader2, AlertTriangle, User, Shield, ArrowLeft } from 'lucide-react'
+import { Camera, Save, Trash2, Loader2, AlertTriangle, User, Shield, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { formatAndValidatePhone } from '@/lib/phoneUtils'
+import { validateExpertiseAreas } from '@/lib/expertiseValidation'
+import { profileNotificationService } from '@/lib/profileNotifications'
 
 interface ProfileData {
   full_name: string
@@ -218,7 +221,7 @@ export default function Settings() {
             await supabase.from('speakers').update({ image_url: dataUrl, profile_photo_url: dataUrl }).eq('id', expertData.id)
             setExpertData(prev => prev ? { ...prev, image_url: dataUrl } : prev)
           }
-          toast({ title: "Photo Updated", description: "Profile photo saved" })
+          profileNotificationService.notifySuccess('avatar')
         }
         reader.readAsDataURL(file)
         return
@@ -238,10 +241,10 @@ export default function Settings() {
         setExpertData(prev => prev ? { ...prev, image_url: cacheBustedUrl } : prev)
       }
 
-      toast({ title: "Photo Updated", description: "Profile photo uploaded" })
+      profileNotificationService.notifySuccess('avatar')
     } catch (error) {
       console.error('Upload error:', error)
-      toast({ title: "Upload Failed", description: "Could not upload photo", variant: "destructive" })
+      profileNotificationService.notifyError(error, 'Could not upload profile photo')
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -257,41 +260,43 @@ export default function Settings() {
 
     const nameTrimmed = profileData.full_name.trim()
     if (!nameTrimmed) {
-      toast({ title: "Validation Error", description: "Full Name is required", variant: "destructive" })
+      profileNotificationService.notifyError('Full Name is required')
       return
     }
     if (!nameRegex.test(nameTrimmed)) {
-      toast({ title: "Validation Error", description: "Full Name contains invalid characters or symbols", variant: "destructive" })
+      profileNotificationService.notifyError('Full Name contains invalid characters or symbols')
       return
     }
     if (numericOnlyRegex.test(nameTrimmed)) {
-      toast({ title: "Validation Error", description: "Full Name cannot be numeric-only", variant: "destructive" })
+      profileNotificationService.notifyError('Full Name cannot be numeric-only')
       return
     }
 
     const emailTrimmed = profileData.email.trim()
     if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
-      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" })
+      profileNotificationService.notifyError('Please enter a valid email address')
       return
     }
 
+    let phoneClean: string | null = null
     const phoneTrimmed = profileData.phone.trim()
     if (phoneTrimmed) {
-      const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
-      if (!/^\+?[1-9]\d{9,14}$/.test(phoneClean)) {
-        toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
+      const phoneValidation = formatAndValidatePhone(phoneTrimmed)
+      if (!phoneValidation.isValid) {
+        profileNotificationService.notifyError(phoneValidation.error || 'Please enter a valid phone number')
         return
       }
+      phoneClean = phoneValidation.normalized
     }
 
     const bioTrimmed = profileData.bio ? profileData.bio.trim() : ""
     if (bioTrimmed) {
       if (numericOnlyRegex.test(bioTrimmed)) {
-        toast({ title: "Validation Error", description: "Bio cannot be numeric-only", variant: "destructive" })
+        profileNotificationService.notifyError('Bio cannot be numeric-only')
         return
       }
       if (invalidSymbolsRegex.test(bioTrimmed)) {
-        toast({ title: "Validation Error", description: "Bio contains invalid symbols", variant: "destructive" })
+        profileNotificationService.notifyError('Bio contains invalid symbols')
         return
       }
     }
@@ -303,15 +308,21 @@ export default function Settings() {
         id: user.id,
         full_name: nameTrimmed,
         email: emailTrimmed,
-        phone: phoneTrimmed || null,
+        phone: phoneClean,
         bio: bioTrimmed || null,
         avatar_url: cleanAvatarUrl,
       })
       if (error) throw error
-      toast({ title: "Profile Saved", description: "Your personal information has been updated" })
+
+      if (phoneClean && phoneClean !== profileData.phone) {
+        setProfileData(prev => ({ ...prev, phone: phoneClean! }))
+        profileNotificationService.notifySuccess('phone')
+      } else {
+        profileNotificationService.notifySuccess('profile')
+      }
     } catch (error) {
       console.error('Save error:', error)
-      toast({ title: "Save Failed", description: "Could not save profile", variant: "destructive" })
+      profileNotificationService.notifyError(error, 'Could not save profile')
     } finally {
       setSaving(false)
     }
@@ -322,117 +333,110 @@ export default function Settings() {
 
     const nameTrimmed = expertData.name.trim()
     if (!nameTrimmed) {
-      toast({ title: "Validation Error", description: "Display Name is required", variant: "destructive" })
+      profileNotificationService.notifyError('Display Name is required')
       return
     }
     if (!nameRegex.test(nameTrimmed)) {
-      toast({ title: "Validation Error", description: "Display Name contains invalid characters or symbols", variant: "destructive" })
+      profileNotificationService.notifyError('Display Name contains invalid characters or symbols')
       return
     }
     if (numericOnlyRegex.test(nameTrimmed)) {
-      toast({ title: "Validation Error", description: "Display Name cannot be numeric-only", variant: "destructive" })
+      profileNotificationService.notifyError('Display Name cannot be numeric-only')
       return
     }
 
     const titleTrimmed = expertData.title.trim()
     if (!titleTrimmed) {
-      toast({ title: "Validation Error", description: "Professional Title is required", variant: "destructive" })
+      profileNotificationService.notifyError('Professional Title is required')
       return
     }
     if (numericOnlyRegex.test(titleTrimmed)) {
-      toast({ title: "Validation Error", description: "Professional Title cannot be numeric-only", variant: "destructive" })
+      profileNotificationService.notifyError('Professional Title cannot be numeric-only')
       return
     }
     if (invalidSymbolsRegex.test(titleTrimmed)) {
-      toast({ title: "Validation Error", description: "Professional Title contains invalid symbols", variant: "destructive" })
+      profileNotificationService.notifyError('Professional Title contains invalid symbols')
       return
     }
 
     const emailTrimmed = expertData.email.trim()
     if (!emailTrimmed || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailTrimmed)) {
-      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" })
+      profileNotificationService.notifyError('Please enter a valid email address')
       return
     }
 
-    const phoneTrimmed = expertData.phone.trim()
-    if (!phoneTrimmed) {
-      toast({ title: "Validation Error", description: "Phone number is required", variant: "destructive" })
+    const phoneValidation = formatAndValidatePhone(expertData.phone)
+    if (!phoneValidation.isValid) {
+      profileNotificationService.notifyError(phoneValidation.error || 'Please enter a valid phone number')
       return
     }
-    const phoneClean = phoneTrimmed.replace(/[\s()-]/g, '')
-    if (!/^\+?[1-9]\d{9,14}$/.test(phoneClean)) {
-      toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" })
-      return
-    }
+    const phoneClean = phoneValidation.normalized
 
     const companyTrimmed = expertData.company.trim()
     if (companyTrimmed) {
       if (numericOnlyRegex.test(companyTrimmed)) {
-        toast({ title: "Validation Error", description: "Company name cannot be numeric-only", variant: "destructive" })
+        profileNotificationService.notifyError('Company name cannot be numeric-only')
         return
       }
       if (invalidSymbolsRegex.test(companyTrimmed)) {
-        toast({ title: "Validation Error", description: "Company name contains invalid symbols", variant: "destructive" })
+        profileNotificationService.notifyError('Company name contains invalid symbols')
         return
       }
     }
 
     const locationTrimmed = expertData.location.trim()
     if (!locationTrimmed) {
-      toast({ title: "Validation Error", description: "Location is required", variant: "destructive" })
+      profileNotificationService.notifyError('Location is required')
       return
     }
     if (numericOnlyRegex.test(locationTrimmed) || locationTrimmed.length < 2) {
-      toast({ title: "Validation Error", description: "Please enter a valid location/country", variant: "destructive" })
+      profileNotificationService.notifyError('Please enter a valid location/country')
       return
     }
     if (invalidSymbolsRegex.test(locationTrimmed)) {
-      toast({ title: "Validation Error", description: "Location contains invalid symbols", variant: "destructive" })
+      profileNotificationService.notifyError('Location contains invalid symbols')
       return
     }
 
     const bioTrimmed = expertData.bio ? expertData.bio.trim() : ""
     if (!bioTrimmed) {
-      toast({ title: "Validation Error", description: "Bio is required", variant: "destructive" })
+      profileNotificationService.notifyError('Bio is required')
       return
     }
     if (numericOnlyRegex.test(bioTrimmed)) {
-      toast({ title: "Validation Error", description: "Bio cannot be numeric-only", variant: "destructive" })
+      profileNotificationService.notifyError('Bio cannot be numeric-only')
       return
     }
     if (invalidSymbolsRegex.test(bioTrimmed)) {
-      toast({ title: "Validation Error", description: "Bio contains invalid symbols", variant: "destructive" })
+      profileNotificationService.notifyError('Bio contains invalid symbols')
       return
     }
 
     if (expertData.experience_years === null || expertData.experience_years === undefined || Number.isNaN(expertData.experience_years)) {
-      toast({ title: "Validation Error", description: "Experience years is required and must be a valid number", variant: "destructive" })
+      profileNotificationService.notifyError('Experience years is required and must be a valid number')
       return
     }
     if (expertData.experience_years < 0 || !Number.isInteger(expertData.experience_years)) {
-      toast({ title: "Validation Error", description: "Years of experience must be a non-negative integer", variant: "destructive" })
+      profileNotificationService.notifyError('Years of experience must be a non-negative integer')
       return
     }
 
     if (!expertData.languages || expertData.languages.length === 0) {
-      toast({ title: "Validation Error", description: "Please specify at least one language", variant: "destructive" })
+      profileNotificationService.notifyError('Please specify at least one language')
       return
     }
     const invalidLangs = expertData.languages.some(lang => numericOnlyRegex.test(lang) || lang.length < 2 || invalidSymbolsRegex.test(lang))
     if (invalidLangs) {
-      toast({ title: "Validation Error", description: "Please enter valid language names", variant: "destructive" })
+      profileNotificationService.notifyError('Please enter valid language names')
       return
     }
 
-    if (!expertData.expertise || expertData.expertise.length === 0) {
-      toast({ title: "Validation Error", description: "Please specify at least one expertise area", variant: "destructive" })
+    const expertiseRes = validateExpertiseAreas(expertData.expertise)
+    if (!expertiseRes.isValid) {
+      profileNotificationService.notifyError(expertiseRes.error || 'Please enter valid expertise names')
       return
     }
-    const invalidExpertise = expertData.expertise.some(exp => numericOnlyRegex.test(exp) || exp.length < 2 || invalidSymbolsRegex.test(exp))
-    if (invalidExpertise) {
-      toast({ title: "Validation Error", description: "Please enter valid expertise names", variant: "destructive" })
-      return
-    }
+    const cleanExpertise = expertiseRes.sanitized
 
     setSaving(true)
     try {
@@ -442,21 +446,23 @@ export default function Settings() {
         bio: bioTrimmed,
         location: locationTrimmed,
         company: companyTrimmed || null,
-        phone: phoneTrimmed,
+        phone: phoneClean,
         email: emailTrimmed,
         linkedin_url: expertData.linkedin_url ? expertData.linkedin_url.trim() : null,
         website_url: expertData.website_url ? expertData.website_url.trim() : null,
-        expertise: expertData.expertise,
-        topics: expertData.expertise,
+        expertise: cleanExpertise,
+        topics: cleanExpertise,
         languages: expertData.languages,
         experience_years: expertData.experience_years,
       }).eq('id', expertData.id)
 
       if (error) throw error
-      toast({ title: "Expert Profile Saved", description: "Your expert profile has been updated" })
+
+      setExpertData(prev => prev ? { ...prev, phone: phoneClean, expertise: cleanExpertise } : prev)
+      profileNotificationService.notifySuccess('expertise')
     } catch (error) {
       console.error('Save error:', error)
-      toast({ title: "Save Failed", description: "Could not save expert profile", variant: "destructive" })
+      profileNotificationService.notifyError(error, 'Could not save expert profile')
     } finally {
       setSaving(false)
     }
@@ -613,6 +619,25 @@ export default function Settings() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Unified Profile Picture Notice */}
+                  <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg border mb-4">
+                    <Avatar className="h-14 w-14">
+                      <AvatarImage src={expertData.image_url || profileData.avatar_url || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                        {expertData.name?.charAt(0) || 'E'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        Account & Public Expert Profile Picture
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Your profile picture is synchronized between your account and your public expert profile for brand consistency.
+                      </p>
+                    </div>
+                  </div>
+
                   {expertData.verification_status === 'pending' && !isAdmin && (
                     <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-sm flex items-start gap-2 mb-4">
                       <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />

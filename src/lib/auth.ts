@@ -10,8 +10,21 @@ export const checkUserRole = async (role: 'admin' | 'moderator' | 'user') => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    // Check admin by email first
-    if (role === 'admin' && ADMIN_EMAILS.includes(user.email || '')) {
+    const userEmail = (user.email || '').toLowerCase().trim();
+
+    // Check admin by email allowlist
+    if (role === 'admin' && ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail)) {
+      return true;
+    }
+
+    // Check profile table user_type
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (role === 'admin' && profile?.user_type === 'admin') {
       return true;
     }
 
@@ -37,8 +50,21 @@ export const isCurrentUserAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    // Check admin by email
-    if (ADMIN_EMAILS.includes(user.email || '')) {
+    const userEmail = (user.email || '').toLowerCase().trim();
+
+    // Check admin by email allowlist
+    if (ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail)) {
+      return true;
+    }
+
+    // Check profile table user_type
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profile?.user_type === 'admin') {
       return true;
     }
 
