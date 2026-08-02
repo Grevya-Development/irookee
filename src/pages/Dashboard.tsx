@@ -49,6 +49,15 @@ export default function Dashboard() {
     checkAdmin()
   }, [user])
 
+  // Redirecting must happen in an effect. Calling navigate() during render made
+  // React warn about updating the router while rendering and pushed a duplicate
+  // history entry, which broke the browser Back button.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth?redirect=%2Fdashboard', { replace: true })
+    }
+  }, [authLoading, user, navigate])
+
   const targetBookingToCancel = bookings.find((b) => b.id === cancelBookingId)
   const startStr = targetBookingToCancel ? getBookingStart(targetBookingToCancel) : null
   const sessionStartDate = startStr ? new Date(startStr) : null
@@ -139,10 +148,7 @@ export default function Dashboard() {
     )
   }
 
-  if (!user) {
-    navigate('/auth')
-    return null
-  }
+  if (!user) return null
 
   const upcomingBookings = bookings.filter(b => isUpcomingBooking(b))
 

@@ -4,7 +4,16 @@
  */
 
 // Regex patterns
-const SQL_INJECTION_PATTERN = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|UNION|EXEC|EXECUTE)\b|--|\/\*|\*\/|;)/i;
+//
+// A bare SQL keyword is not suspicious on its own: "Grant Writing", "Union
+// Negotiations" and "Creative Direction" are real expertise areas, and rejecting
+// them locked legitimate experts out of onboarding. Values are sent as
+// parameterized PostgREST payloads and never concatenated into SQL, so we only
+// reject input that actually looks like a statement (keyword + SQL operand) or
+// carries comment/terminator syntax.
+const SQL_STATEMENT_PATTERN =
+  /\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|UNION|EXEC|EXECUTE)\b\s+(\*|\b(TABLE|TABLES|FROM|INTO|DATABASE|SCHEMA|ALL|SELECT|VALUES|SET|WHERE|USER|ROLE|PRIVILEGES|INDEX|VIEW|COLUMN)\b)/i;
+const SQL_SYNTAX_PATTERN = /(--|\/\*|\*\/|;)/;
 const SCRIPT_HTML_PATTERN = /(<[^>]*>|javascript:|onload=|onerror=|eval\(|expression\()/i;
 const PURE_NUMERIC_PATTERN = /^[0-9\s\-_, .()]+$/;
 const PURE_SPECIAL_PATTERN = /^[^a-zA-Z0-9]+$/;
@@ -12,7 +21,8 @@ const PURE_SPECIAL_PATTERN = /^[^a-zA-Z0-9]+$/;
 // Valid individual expertise tag regex:
 // Allows letters (Unicode including Hindi/regional), numbers inside words (e.g. Web3, Python 3, Node.js, React 19, Unity3D),
 // spaces, hyphens, ampersands, slashes (UI/UX), dots (.NET), hashes (C#), pluses (C++), apostrophes.
-const VALID_TAG_PATTERN = /^[\p{L}0-9\s\-&/.#'+]+$/u;
+// Parentheses are included so qualifiers like "Sales (B2B)" are accepted.
+const VALID_TAG_PATTERN = /^[\p{L}0-9\s\-&/.#'+()]+$/u;
 
 export interface ExpertiseValidationResult {
   isValid: boolean;
@@ -43,7 +53,7 @@ export function validateSingleExpertiseTag(tag: string): { isValid: boolean; err
     return { isValid: false, error: `"${trimmed}" contains HTML or script tags` };
   }
 
-  if (SQL_INJECTION_PATTERN.test(trimmed)) {
+  if (SQL_STATEMENT_PATTERN.test(trimmed) || SQL_SYNTAX_PATTERN.test(trimmed)) {
     return { isValid: false, error: `"${trimmed}" contains invalid database keywords or syntax` };
   }
 
@@ -69,10 +79,12 @@ export function validateSingleExpertiseTag(tag: string): { isValid: boolean; err
 export function validateExpertiseAreas(input: string | string[]): ExpertiseValidationResult {
   let rawAreas: string[] = [];
 
+  // Both entry points split on commas so that "AI, ML" is treated the same way
+  // whether it arrives as a string or as a single array element.
   if (typeof input === 'string') {
     rawAreas = input.split(',').map((s) => s.trim()).filter(Boolean);
   } else if (Array.isArray(input)) {
-    rawAreas = input.map((s) => String(s).trim()).filter(Boolean);
+    rawAreas = input.flatMap((s) => String(s).split(',')).map((s) => s.trim()).filter(Boolean);
   }
 
   if (rawAreas.length === 0) {

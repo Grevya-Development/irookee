@@ -10,11 +10,18 @@ export interface PhoneValidationResult {
   error?: string;
 }
 
+/** Region assumed for bare 10-digit input, which is ambiguous between the
+ *  Indian and North American numbering plans. */
+export type PhoneRegion = 'IN' | 'US';
+
 /**
  * Validates and normalizes phone numbers.
  * Supports raw 10-digit Indian numbers, prefixed Indian numbers (+91, 0), and international E.164 numbers.
  */
-export function formatAndValidatePhone(input: string | null | undefined): PhoneValidationResult {
+export function formatAndValidatePhone(
+  input: string | null | undefined,
+  defaultRegion: PhoneRegion = 'IN'
+): PhoneValidationResult {
   if (!input || !input.trim()) {
     return {
       isValid: false,
@@ -29,9 +36,14 @@ export function formatAndValidatePhone(input: string | null | undefined): PhoneV
   const stripped = raw.replace(/[\s\-().]/g, '');
 
   // 1. Indian Phone Numbers Handling
-  // Standard 10-digit Indian mobile numbers start with 6, 7, 8, or 9
+  // Standard 10-digit Indian mobile numbers start with 6, 7, 8, or 9.
+  //
+  // Bare 10-digit input is genuinely ambiguous: India's 6-9 mobile prefixes
+  // overlap North American area codes (650, 702, 800, 917, ...). India stays the
+  // default because it is this product's primary market, but callers that know
+  // the region can pass `defaultRegion` so a US number is not rewritten as +91.
   const indian10DigitRegex = /^[6-9]\d{9}$/;
-  if (indian10DigitRegex.test(stripped)) {
+  if (defaultRegion === 'IN' && indian10DigitRegex.test(stripped)) {
     const normalized = `+91${stripped}`;
     return {
       isValid: true,

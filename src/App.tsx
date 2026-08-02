@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/components/AuthProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { trackPageview } from "@/lib/analytics";
+import { trackGaPageview } from "@/lib/googleAnalytics";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
@@ -27,6 +28,8 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const ExpertOnboarding = lazy(() => import("./components/expert/ExpertOnboarding").then(m => ({ default: m.ExpertOnboarding })));
 const ExpertDashboard = lazy(() => import("./components/expert/ExpertDashboard").then(m => ({ default: m.ExpertDashboard })));
 const GuestProfile = lazy(() => import("./pages/GuestProfile"));
+const Companionship = lazy(() => import("./pages/Companionship"));
+const CompanionService = lazy(() => import("./pages/CompanionService"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Settings = lazy(() => import("./pages/Settings"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -47,7 +50,9 @@ const ScrollToTop = () => {
     if (!hash) {
       window.scrollTo(0, 0);
     }
-    trackPageview(`${pathname}${search}`);
+    const path = `${pathname}${search}`;
+    trackPageview(path);
+    trackGaPageview(path);
   }, [pathname, search, hash]);
 
   return null;
@@ -70,6 +75,8 @@ const AnimatedRoutes = () => {
           <Route path="/home" element={<PromptPeople />} />
           <Route path="/experts" element={<Search />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/companionship" element={<Companionship />} />
+          <Route path="/companionship/:slug" element={<CompanionService />} />
           <Route path="/expert/:id" element={<ExpertProfile />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/dashboard" element={<Dashboard />} />

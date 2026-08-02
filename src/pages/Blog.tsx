@@ -50,11 +50,9 @@ const Blog = () => {
             <Card key={post.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="text-xl">{post.title}</CardTitle>
-                <CardDescription>
-                  <div className="flex justify-between text-sm">
-                    <span>{post.date}</span>
-                    <span>{post.readTime}</span>
-                  </div>
+                <CardDescription className="flex justify-between text-sm">
+                  <span>{post.date}</span>
+                  <span>{post.readTime}</span>
                 </CardDescription>
               </CardHeader>
               <CardContent>

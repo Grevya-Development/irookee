@@ -1,15 +1,26 @@
-import { useState } from "react";
 import Footer from "@/components/sections/Footer";
 import { Link, useSearchParams } from "react-router-dom";
 import { SignIn, SignUp } from "@clerk/react";
+import { safeRedirect } from "@/lib/redirects";
 import { Sparkles, ShieldCheck, Video, Users, Star, ArrowLeft } from "lucide-react";
 
 const Auth = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get("mode");
-  
-  // Set isSignUp default based on query params or fallback
-  const [isSignUp, setIsSignUp] = useState(mode === "signup");
+  const isSignUp = mode === "signup";
+  const redirectTo = safeRedirect(searchParams.get("redirect"));
+
+  // The tab lives in the URL rather than in local state: Clerk re-renders and
+  // navigations must not silently flip the user back to the sign-in form.
+  const setIsSignUp = (next: boolean) => {
+    const params = new URLSearchParams(searchParams);
+    if (next) params.set("mode", "signup");
+    else params.delete("mode");
+    setSearchParams(params, { replace: true });
+  };
+
+  const signUpUrl = `/auth?mode=signup${redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : ""}`;
+  const signInUrl = `/auth${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between overflow-x-hidden">
@@ -130,12 +141,10 @@ const Auth = () => {
             {/* Form Container */}
             <div className="flex flex-col items-center justify-center w-full min-h-[380px]">
               {isSignUp ? (
-                <SignUp 
-                  routing="path" 
-                  path="/auth"
-                  signInUrl="/auth"
-                  fallbackRedirectUrl="/profile-setup"
-                  initialPhoneCountry="IN"
+                <SignUp
+                  routing="hash"
+                  signInUrl={signInUrl}
+                  fallbackRedirectUrl={redirectTo || "/profile-setup"}
                   appearance={{
                     variables: {
                       colorPrimary: "#2563eb",
@@ -147,12 +156,10 @@ const Auth = () => {
                   }}
                 />
               ) : (
-                <SignIn 
-                  routing="path" 
-                  path="/auth"
-                  signUpUrl="/auth"
-                  fallbackRedirectUrl="/dashboard"
-                  initialPhoneCountry="IN"
+                <SignIn
+                  routing="hash"
+                  signUpUrl={signUpUrl}
+                  fallbackRedirectUrl={redirectTo || "/dashboard"}
                   appearance={{
                     variables: {
                       colorPrimary: "#2563eb",

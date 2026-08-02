@@ -29,6 +29,8 @@ export interface SpeakerProfile {
   categories?: string[]
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export function useExperts(expertId?: string) {
   const [expert, setExpert] = useState<SpeakerProfile | null>(null)
   const [experts, setExperts] = useState<SpeakerProfile[]>([])
@@ -38,6 +40,16 @@ export function useExperts(expertId?: string) {
   const fetchExpert = async (id: string) => {
     setLoading(true)
     setError(null)
+
+    // `id` comes straight from the URL. Postgres rejects a non-UUID with a 400
+    // ("invalid input syntax for type uuid"), so skip the doomed round-trip and
+    // surface the same "not found" state.
+    if (!UUID_PATTERN.test(id)) {
+      setExpert(null)
+      setError('Expert not found')
+      setLoading(false)
+      return
+    }
 
     try {
       const { data, error: fetchError } = await supabase

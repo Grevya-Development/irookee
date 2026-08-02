@@ -17,7 +17,12 @@ type NotificationPreferences = {
 
 type BookingNotificationPayload = {
   bookingId?: string | null
-  eventType: 'booking_created' | 'booking_confirmed' | 'booking_cancelled' | 'booking_rescheduled'
+  eventType:
+    | 'booking_created'
+    | 'booking_confirmed'
+    | 'booking_cancelled'
+    | 'booking_cancelled_late'
+    | 'booking_rescheduled'
   userId?: string | null
   userEmail?: string | null
   expertUserId?: string | null
@@ -28,6 +33,16 @@ type BookingNotificationPayload = {
   durationMinutes?: number | null
   meetingLink?: string | null
 }
+
+/** Booking fields such as meeting_link originate from the database and are
+ *  interpolated into notification email HTML, so they must be escaped. */
+export const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 
 export const createInAppNotification = async ({
   userId,
@@ -167,32 +182,34 @@ export const notifyBookingEvent = async ({
       })
     : 'the selected time'
   const durationText = durationMinutes ? `${durationMinutes} minutes` : 'the selected duration'
-  const readableType = eventType.replace('booking_', '').replace('_', ' ')
+  const readableType = eventType.replace('booking_', '').replace(/_/g, ' ')
 
-  const userTitle =
-    eventType === 'booking_cancelled'
-      ? 'Booking cancelled'
-      : eventType === 'booking_rescheduled'
-        ? 'Booking rescheduled'
-        : 'Booking confirmed'
-  const userBody =
-    eventType === 'booking_cancelled'
-      ? `Your session with ${expertName || 'the expert'} has been cancelled.`
-      : eventType === 'booking_rescheduled'
-        ? `Your session with ${expertName || 'the expert'} has been rescheduled to ${dateText} (${durationText}).`
-        : `Your session with ${expertName || 'the expert'} is set for ${dateText} (${durationText}).`
-  const expertTitle =
-    eventType === 'booking_cancelled'
-      ? 'Session cancelled'
-      : eventType === 'booking_rescheduled'
-        ? 'Session rescheduled'
-        : 'New confirmed booking'
+  // A late cancellation is still a cancellation: it must never fall through to
+  // the "confirmed" copy.
+  const isCancellation =
+    eventType === 'booking_cancelled' || eventType === 'booking_cancelled_late'
+
+  const userTitle = isCancellation
+    ? 'Booking cancelled'
+    : eventType === 'booking_rescheduled'
+      ? 'Booking rescheduled'
+      : 'Booking confirmed'
+  const userBody = isCancellation
+    ? `Your session with ${expertName || 'the expert'} has been cancelled.`
+    : eventType === 'booking_rescheduled'
+      ? `Your session with ${expertName || 'the expert'} has been rescheduled to ${dateText} (${durationText}).`
+      : `Your session with ${expertName || 'the expert'} is set for ${dateText} (${durationText}).`
+  const expertTitle = isCancellation ? 'Session cancelled' : eventType === 'booking_rescheduled'
+    ? 'Session rescheduled'
+    : 'New confirmed booking'
   const expertBody =
-    eventType === 'booking_cancelled'
-      ? `${customerName || 'A client'} cancelled their session.`
-      : eventType === 'booking_rescheduled'
-        ? `${customerName || 'A client'} has rescheduled their session to ${dateText} (${durationText}).`
-        : `${customerName || 'A client'} has a session scheduled for ${dateText} (${durationText}).`
+    eventType === 'booking_cancelled_late'
+      ? `${customerName || 'A client'} cancelled their session less than 2 hours before the start time.`
+      : eventType === 'booking_cancelled'
+        ? `${customerName || 'A client'} cancelled their session.`
+        : eventType === 'booking_rescheduled'
+          ? `${customerName || 'A client'} has rescheduled their session to ${dateText} (${durationText}).`
+          : `${customerName || 'A client'} has a session scheduled for ${dateText} (${durationText}).`
 
   const tasks: Promise<unknown>[] = []
 
@@ -217,10 +234,10 @@ export const notifyBookingEvent = async ({
   }
 
   const emailHtml = `
-    <p>Your Irookee booking was ${readableType}.</p>
-    <p><strong>When:</strong> ${dateText}</p>
-    <p><strong>Duration:</strong> ${durationText}</p>
-    ${meetingLink ? `<p><strong>Meeting link:</strong> ${meetingLink}</p>` : ''}
+    <p>Your Irookee booking was ${escapeHtml(readableType)}.</p>
+    <p><strong>When:</strong> ${escapeHtml(dateText)}</p>
+    <p><strong>Duration:</strong> ${escapeHtml(durationText)}</p>
+    ${meetingLink ? `<p><strong>Meeting link:</strong> ${escapeHtml(meetingLink)}</p>` : ''}
   `
 
   if (userEmail && allowsEmail(userPreferences, 'email_booking_confirmed')) {

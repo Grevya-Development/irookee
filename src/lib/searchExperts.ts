@@ -1,5 +1,5 @@
-import { supabase } from '@/integrations/supabase/client'
 import { ExpertProfile, SearchFilters } from '@/types/promptpeople'
+import { runSearchAgent } from '@/lib/searchAgent'
 
 interface SpeakerCategoryRow {
   category_id?: string | null
@@ -34,6 +34,8 @@ export interface SearchExpertsOptions extends SearchFilters {
   query?: string
   categoryId?: string
   limit?: number
+  /** Companionship service slug, e.g. "hospital". */
+  service?: string
 }
 
 /**
@@ -331,38 +333,56 @@ const sortExperts = (
   });
 };
 
-export async function searchExperts(optionsOrQuery: SearchExpertsOptions | string): Promise<ExpertProfile[]> {
+/**
+ * Public search entry point.
+ *
+ * Delegates to the semantic search agent (`@/lib/searchAgent`), which matches on
+ * meaning rather than substrings and serves queries from a cached in-memory
+ * index instead of re-fetching the whole speakers table on every keystroke.
+ * The signature and return type are unchanged, so existing call sites keep
+ * working.
+ */
+export async function searchExperts(
+  optionsOrQuery: SearchExpertsOptions | string
+): Promise<ExpertProfile[]> {
+  const results = await searchExpertsDetailed(optionsOrQuery);
+  return results.map((r) => r.profile);
+}
+
+export interface DetailedSearchResult {
+  profile: ExpertProfile;
+  /** 0-1 relevance from the agent. */
+  score: number;
+  /** Concept labels explaining the match, for "why this result" chips. */
+  reasons: string[];
+}
+
+/** Same search, but keeps the agent's score and match explanation. */
+export async function searchExpertsDetailed(
+  optionsOrQuery: SearchExpertsOptions | string
+): Promise<DetailedSearchResult[]> {
   const options: SearchExpertsOptions =
     typeof optionsOrQuery === 'string' ? { query: optionsOrQuery } : optionsOrQuery;
 
-  const { query, terms } = normalizeTerms(options.query);
-  const hasQuery = Boolean(query);
+  try {
+    const response = await runSearchAgent(options.query || '', {
+      category: options.category,
+      categoryId: options.categoryId,
+      location: options.location,
+      language: options.language,
+      minRating: options.minRating,
+      sortBy: options.sortBy,
+      service: options.service,
+      limit: options.limit || 40,
+    });
 
-  if (hasQuery && terms.length === 0) return [];
-
-  // Fetch ALL verified or active experts with their categories
-  const { data: allExperts, error } = await supabase
-    .from('speakers')
-    .select(`
-      *,
-      speaker_categories (
-        category_id,
-        categories ( id, name )
-      )
-    `)
-    .or('verification_status.eq.verified,is_verified.eq.true,verification_status.is.null');
-
-  if (error || !allExperts) {
+    return response.results.map((r) => ({
+      profile: toExpertProfile(r.row as unknown as SpeakerSearchRow),
+      score: r.score,
+      reasons: r.reasons,
+    }));
+  } catch (error) {
     console.error('Search error:', error);
     return [];
   }
-
-  const filtered = (allExperts as SpeakerSearchRow[])
-    .filter(expert => matchesFilters(expert, options))
-    .map(expert => ({ expert, relevance: scoreExpert(expert, query, terms) }))
-    .filter(row => !hasQuery || row.relevance >= MIN_RELEVANCE_THRESHOLD);
-
-  return sortExperts(filtered, options.sortBy)
-    .slice(0, options.limit || 40)
-    .map(({ expert }) => toExpertProfile(expert));
 }

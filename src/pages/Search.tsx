@@ -33,6 +33,21 @@ export default function Search() {
     fetchCategories();
   }, []);
 
+  // Older shared links carry ?category=<name>. Filtering tolerates both, but the
+  // Category dropdown is keyed by id, so normalise a name to its id once the
+  // category list is available — otherwise the control renders blank.
+  useEffect(() => {
+    if (!categories.length || !filters.category) return;
+    const isKnownId = categories.some((c) => c.id === filters.category);
+    if (isKnownId) return;
+    const byName = categories.find(
+      (c) => c.name.toLowerCase() === String(filters.category).toLowerCase()
+    );
+    if (byName) {
+      setFilters((prev) => ({ ...prev, category: byName.id }));
+    }
+  }, [categories, filters.category]);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (queryParam) params.set("q", queryParam);
@@ -65,6 +80,11 @@ export default function Search() {
   const handleFilterChange = useCallback((newFilters: SearchFiltersType) => {
     setFilters(newFilters);
   }, []);
+
+  const handleClearAll = useCallback(() => {
+    setFilters({});
+    setSearchParams(new URLSearchParams(), { replace: true });
+  }, [setSearchParams]);
 
   const hasActiveFilters = Object.keys(filters).some((key) => Boolean(filters[key as keyof SearchFiltersType]));
   const hasSearch = Boolean(queryParam.trim());
@@ -99,6 +119,7 @@ export default function Search() {
             categoryId={filters.category}
             searchQuery={queryParam}
             filters={filters}
+            onClearFilters={handleClearAll}
           />
         </div>
       </div>
