@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,8 @@ import { formatAndValidatePhone } from '@/lib/phoneUtils';
 import { profileNotificationService } from '@/lib/profileNotifications';
 
 const ProfileSetup = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [hasProfile, setHasProfile] = useState(false);
   const [approvedProfile, setApprovedProfile] = useState<{
     id: string
@@ -38,12 +40,20 @@ const ProfileSetup = () => {
   });
 
   useEffect(() => {
-    if (user) {
-      checkUserProfile();
-      checkApprovedProfile();
+    if (authLoading) return;
+
+    // Without this branch `loading` stays true forever for signed-out visitors
+    // and the page is stuck on "Loading..." with no way out.
+    if (!user) {
+      setLoading(false);
+      navigate('/auth?redirect=%2Fprofile-setup', { replace: true });
+      return;
     }
+
+    checkUserProfile();
+    checkApprovedProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, authLoading]);
 
   const checkUserProfile = async () => {
     try {
@@ -138,9 +148,11 @@ const ProfileSetup = () => {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return <div className="flex justify-center p-8">Loading...</div>;
   }
+
+  if (!user) return null;
 
   if (hasProfile) {
     return (

@@ -26,6 +26,7 @@ const Navigation = () => {
   const navItems = [
     { name: "Home", href: "/" },
     { name: "Experts", href: "/experts" },
+    { name: "Companionship", href: "/companionship" },
     { name: "Leaderboard", href: "/leaderboard" },
     { name: "About", href: "/about" },
   ];
@@ -99,7 +100,9 @@ const Navigation = () => {
                   Settings
                 </Link>
                 <div className="pl-2 border-l border-gray-200">
-                  <UserButton afterSignOutUrl="/" />
+                  {/* afterSignOutUrl is configured on ClerkProvider; it is not a
+                      valid UserButton prop in @clerk/react v6 and was ignored here. */}
+                  <UserButton />
                 </div>
               </div>
             ) : (
@@ -125,8 +128,14 @@ const Navigation = () => {
               </Link>
             )}
             <button
+              type="button"
               onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 hover:text-blue-600 focus:outline-none"
+              aria-label={isOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isOpen}
+              aria-controls="mobile-navigation"
+              // -mr-2 keeps the icon optically aligned while the tap area meets
+              // the 44x44 minimum.
+              className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded text-gray-700 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             >
               {isOpen ? (
                 <X className="h-6 w-6" />
@@ -139,7 +148,7 @@ const Navigation = () => {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden">
+          <div className="md:hidden" id="mobile-navigation">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
               {navItems.map((item) => (
                 <Link

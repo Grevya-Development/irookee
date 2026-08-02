@@ -15,8 +15,27 @@ const DEFAULT_DESCRIPTION =
   "Connect instantly with verified professionals, mentors, and guides for any life, career, or travel situation. People for People.";
 const DEFAULT_IMAGE = "/og-image.png";
 
+/** Every tag this component manages, used to snapshot/restore on unmount. */
+const METAS: ["name" | "property", string][] = [
+  ["name", "description"],
+  ["property", "og:title"],
+  ["property", "og:description"],
+  ["property", "og:type"],
+  ["property", "og:url"],
+  ["property", "og:image"],
+  ["name", "twitter:card"],
+  ["name", "twitter:title"],
+  ["name", "twitter:description"],
+  ["name", "twitter:image"],
+];
+
 function setMeta(attr: "name" | "property", key: string, content: string) {
-  let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+  // index.html declares the twitter:* tags with `property`, while og:* uses
+  // `property` too. Match either attribute so we update the existing tag instead
+  // of appending a duplicate that crawlers may read instead.
+  let el = document.head.querySelector<HTMLMetaElement>(
+    `meta[${attr}="${key}"], meta[name="${key}"], meta[property="${key}"]`
+  );
   if (!el) {
     el = document.createElement("meta");
     el.setAttribute(attr, key);
@@ -58,6 +77,23 @@ const Seo = ({ title, description, path, image, type = "website" }: SeoProps) =>
         : `${base}${image}`
       : `${base}${DEFAULT_IMAGE}`;
 
+    // Snapshot what index.html (or a previous route) had, so leaving this page
+    // does not leave its title/canonical/OG tags behind on routes that ship no
+    // <Seo> of their own.
+    const previous = {
+      title: document.title,
+      meta: METAS.map(([attr, key]) => {
+        const el = document.head.querySelector<HTMLMetaElement>(
+          `meta[name="${key}"], meta[property="${key}"]`
+        );
+        return { attr, key, content: el ? el.getAttribute("content") : null };
+      }),
+      canonical:
+        document.head
+          .querySelector<HTMLLinkElement>('link[rel="canonical"]')
+          ?.getAttribute("href") ?? null,
+    };
+
     document.title = fullTitle;
     setMeta("name", "description", desc);
 
@@ -75,6 +111,18 @@ const Seo = ({ title, description, path, image, type = "website" }: SeoProps) =>
     setMeta("name", "twitter:image", img);
 
     setCanonical(url);
+
+    return () => {
+      document.title = previous.title;
+      previous.meta.forEach(({ attr, key, content }) => {
+        if (content !== null) setMeta(attr, key, content);
+      });
+      if (previous.canonical !== null) setCanonical(previous.canonical);
+      else
+        document.head
+          .querySelector<HTMLLinkElement>('link[rel="canonical"]')
+          ?.remove();
+    };
   }, [fullTitle, desc, path, image, type]);
 
   return null;
