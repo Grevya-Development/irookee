@@ -1,3 +1,15 @@
+// ⚠️  WARNING — THIS SCRIPT WRITES TO PRODUCTION.
+//
+// Test 2 below issues an anonymous UPDATE that renames a real speaker row
+// (`sakthi-official` -> `sakthi-official-attempt`). It only stays harmless
+// while RLS blocks the write; if RLS is ever misconfigured, running this
+// silently corrupts live data — which is exactly the case the test claims to
+// be checking for.
+//
+// Prefer `scripts/smoke-backend.mjs`, which performs the same authorization
+// check by writing the row's existing value back to itself (no data change),
+// and also covers RPCs, PII exposure and edge-function deployment.
+
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
