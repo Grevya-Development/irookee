@@ -338,7 +338,6 @@ export function ExpertOnboarding() {
       const user = session?.user
       if (!user) { toast.error('Please log in'); navigate('/auth'); return }
 
-      const expertiseAreas = data.expertise_areas.split(',').map(s => s.trim()).filter(Boolean)
       const languages = selectedLanguages
       const hasDocs = uploadedDocs.length > 0
       const verificationDocuments = hasDocs ? {
@@ -346,13 +345,22 @@ export function ExpertOnboarding() {
         submitted_at: new Date().toISOString()
       } : null
 
+      // "Topics You Help With" was collected but never persisted.
+      // NOTE: the sibling `preferred_audience` input is still dropped because
+      // speakers has no such column yet; it needs a migration before it can be saved.
+      const topics = (data.topics || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+
       const speakerPayload = {
         user_id: user.id, name: data.full_name.trim(), title: data.title,
-        bio: data.bio || '', expertise: expertiseAreas, experience_years: data.experience_years,
+        bio: data.bio || '', expertise: expertiseAreas, topics: topics.length > 0 ? topics : null,
+        experience_years: data.experience_years,
         hourly_rate: 0, currency: 'INR', location: locationValue || null,
         languages: languages.length > 0 ? languages : null,
         verification_status: 'pending', is_verified: false, company: data.company || null,
-        phone: data.phone || null, email: data.email || user.email,
+        phone: phoneClean, email: data.email || user.email,
         linkedin_url: data.linkedin_url || null, website_url: data.website_url || null,
         verification_documents: verificationDocuments,
       }

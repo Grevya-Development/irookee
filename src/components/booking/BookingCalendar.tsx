@@ -82,13 +82,15 @@ export function BookingCalendar({ onDateTimeSelect, expertId, excludeBookingId }
         combinedBookings.push(...currentData)
       }
 
-      // 2. Fetch legacy bookings (safely)
+      // 2. Fetch legacy bookings (keyed by `speaker_id`, not `expert_id`)
       try {
-        const { data: legacyData } = await supabase
+        const { data: legacyData, error: legacyErr } = await supabase
           .from('bookings')
           .select('id, scheduled_at, duration_minutes, status')
-          .eq('expert_id', expertId)
+          .eq('speaker_id', expertId)
           .in('status', ['pending', 'confirmed', 'in_progress'])
+
+        if (legacyErr) throw legacyErr
 
         if (legacyData) {
           const mappedLegacy = legacyData.map((b) => ({

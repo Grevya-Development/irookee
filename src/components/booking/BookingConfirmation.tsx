@@ -63,23 +63,25 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
       const { data: conflicts, error: conflictErr } = await conflictQuery;
       if (conflictErr) throw conflictErr;
 
-      // We also check legacy bookings table
+      // We also check the legacy bookings table, which keys the expert by
+      // `speaker_id` (not `expert_id`).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let legacyConflicts: any[] = [];
-      try {
-        let legacyQuery = supabase
-          .from("bookings")
-          .select("id, scheduled_at, duration_minutes, status")
-          .eq("expert_id", expertId)
-          .in("status", ["pending", "confirmed", "in_progress"]);
-        if (bookingId) {
-          legacyQuery = legacyQuery.neq("id", bookingId);
-        }
-        const { data: legacyData } = await legacyQuery;
-        if (legacyData) legacyConflicts = legacyData;
-      } catch (e) {
-        console.warn("Failed to check legacy conflicts:", e);
+      let legacyQuery = supabase
+        .from("bookings")
+        .select("id, scheduled_at, duration_minutes, status")
+        .eq("speaker_id", expertId)
+        .in("status", ["pending", "confirmed", "in_progress"]);
+      if (bookingId) {
+        legacyQuery = legacyQuery.neq("id", bookingId);
       }
+      const { data: legacyData, error: legacyErr } = await legacyQuery;
+      if (legacyErr) {
+        // Never book through an unverifiable overlap check.
+        console.error("Failed to check legacy conflicts:", legacyErr);
+        throw legacyErr;
+      }
+      if (legacyData) legacyConflicts = legacyData;
 
       const allConflicts = [...(conflicts || []), ...legacyConflicts];
       const hasOverlap = allConflicts.some((booking) => {

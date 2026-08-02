@@ -6,7 +6,7 @@ import ExpertCard from "./ExpertCard";
 import { AlertCircle, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpertGridSkeleton } from "@/components/ExpertCardSkeleton";
-import { searchExperts } from "@/lib/searchExperts";
+import { searchExperts, searchExpertsDetailed } from "@/lib/searchExperts";
 import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 
 export interface ExpertGridFilters {
@@ -22,6 +22,9 @@ interface ExpertGridProps {
   categoryId?: string;
   searchQuery?: string;
   filters?: ExpertGridFilters | SearchFiltersType;
+  /** Lets the owner of the filter state reset it. Navigating alone cannot clear
+   *  filters, because they live in the parent's React state. */
+  onClearFilters?: () => void;
 }
 
 interface RawSpeaker {
@@ -69,11 +72,13 @@ const transform = (speaker: RawSpeaker): ExpertProfile => ({
   updated_at: speaker.updated_at,
 });
 
-const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: ExpertGridProps) => {
+const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {}, onClearFilters }: ExpertGridProps) => {
   const navigate = useNavigate();
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  /** expert id -> why the search agent matched them */
+  const [reasons, setReasons] = useState<Map<string, string[]>>(new Map());
 
   const category = filters?.category;
   const language = filters?.language;
@@ -86,7 +91,7 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
       setLoading(true);
       setError(false);
 
-      const results = await searchExperts({
+      const results = await searchExpertsDetailed({
         category: category || categoryId,
         language,
         location,
@@ -96,7 +101,10 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
         limit,
       });
 
-      setExperts(results);
+      setExperts(results.map((r) => r.profile));
+      setReasons(
+        new Map(results.filter((r) => r.reasons.length > 0).map((r) => [r.profile.id, r.reasons]))
+      );
     } catch (e) {
       console.error("Error fetching experts:", e);
       setError(true);
@@ -110,8 +118,30 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
   }, [fetchExperts]);
 
   const expertCards = useMemo(
-    () => experts.map((expert) => <ExpertCard key={expert.id} expert={expert} />),
-    [experts]
+    () =>
+      experts.map((expert) => {
+        const why = reasons.get(expert.id);
+        return (
+          <div key={expert.id} className="flex flex-col gap-1.5">
+            <ExpertCard expert={expert} />
+            {why && why.length > 0 && (
+              <p className="flex flex-wrap items-center gap-1.5 px-1 text-xs text-muted-foreground">
+                <span className="sr-only">Matched your search because of:</span>
+                <span aria-hidden="true">Matched on</span>
+                {why.map((reason) => (
+                  <span
+                    key={reason}
+                    className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary"
+                  >
+                    {reason}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+        );
+      }),
+    [experts, reasons]
   );
 
   const [recommendedExperts, setRecommendedExperts] = useState<ExpertProfile[]>([]);
@@ -167,6 +197,7 @@ const ExpertGrid = memo(({ limit = 20, categoryId, searchQuery, filters = {} }: 
               variant="default"
               size="sm"
               onClick={() => {
+                onClearFilters?.();
                 navigate("/experts");
               }}
               className="gap-2"

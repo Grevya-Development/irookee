@@ -7,10 +7,22 @@ import { track } from '@/lib/analytics'
 
 interface SearchBarProps {
   initialQuery?: string
+  placeholder?: string
+  /** Accessible name for the field. A placeholder alone is not a label. */
+  label?: string
+  submitLabel?: string
 }
 
-export function SearchBar({ initialQuery = '' }: SearchBarProps) {
+let searchBarSeq = 0
+
+export function SearchBar({
+  initialQuery = '',
+  placeholder = 'Search by name, expertise, category, location...',
+  label = 'Search experts',
+  submitLabel = 'Find Experts',
+}: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery)
+  const [inputId] = useState(() => `search-bar-${++searchBarSeq}`)
   const [searchParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -46,9 +58,17 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <label htmlFor={inputId} className="sr-only">
+            {label}
+          </label>
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
-            placeholder="Search by name, expertise, category, location..."
+            id={inputId}
+            type="search"
+            placeholder={placeholder}
             className="pl-10 pr-12 py-6 text-base sm:text-lg"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -59,9 +79,9 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
               type="button"
               onClick={handleClear}
               aria-label="Clear search"
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10 focus:outline-none"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -70,8 +90,8 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
           onClick={handleSearch}
           className="gap-2 sm:min-w-36"
         >
-          <Sparkles className="h-4 w-4" />
-          Find Experts
+          <Sparkles className="h-4 w-4" aria-hidden="true" />
+          {submitLabel}
         </Button>
       </div>
     </div>

@@ -69,9 +69,12 @@ const CategoryGrid = memo(() => {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Pass the category id, not its name: the Category filter dropdown on /experts
+  // is keyed by id, so a name leaves the control blank and the active filter
+  // becomes invisible (and un-clearable) to the user.
   const handleCategoryClick = useCallback(
-    (categoryName: string) => {
-      navigate(`/experts?category=${encodeURIComponent(categoryName)}`);
+    (categoryId: string) => {
+      navigate(`/experts?category=${encodeURIComponent(categoryId)}`);
     },
     [navigate]
   );
@@ -88,7 +91,7 @@ const CategoryGrid = memo(() => {
       displayed.map((cat) => (
         <button
           key={cat.id}
-          onClick={() => handleCategoryClick(cat.name)}
+          onClick={() => handleCategoryClick(cat.id)}
           className="group flex flex-col items-center text-center p-4 rounded-xl border bg-card hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300 ease-out"
         >
           <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">
