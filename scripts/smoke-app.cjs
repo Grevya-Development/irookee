@@ -51,14 +51,19 @@ const go = (p, u) => p.goto(BASE + u, { waitUntil: 'domcontentloaded', timeout: 
 
 const ROUTES = [
   '/', '/home', '/experts', '/search', '/speakers', '/companionship',
-  '/companionship/hospital', '/companionship/social', '/leaderboard',
+  '/companionship/hospital', '/companionship/social',
+  '/companionship/search', '/companionship/apply', '/leaderboard',
   '/about', '/blog', '/privacy', '/terms', '/cookies', '/guest-profile',
   '/auth', '/admin', '/booking', '/expert/onboarding',
   '/definitely-not-a-route',
 ];
 
 (async () => {
-  const browser = await chromium.launch();
+  // SMOKE_CHANNEL=chrome runs against a locally installed Chrome, so the suite
+  // works without downloading Playwright's bundled browser.
+  const browser = await chromium.launch(
+    process.env.SMOKE_CHANNEL ? { channel: process.env.SMOKE_CHANNEL } : {}
+  );
 
   console.log(`\n=== A. Route smoke (desktop) — ${BASE} ===`);
   {
@@ -100,18 +105,38 @@ const ROUTES = [
   console.log('\n=== C. Journey: semantic search ===');
   {
     const { ctx, page } = await mk(browser);
-    await go(page, '/experts?q=' + encodeURIComponent('someone to take my mother to the hospital'));
+
+    // An ADVISORY natural-language query is what the expert search is for.
+    // (This used to use "someone to take my mother to the hospital" — a
+    // companionship request — and passed only because companionship concepts bled
+    // onto advisory experts. That was COMP-4, so the query moved to section E.)
+    await go(page, '/experts?q=' + encodeURIComponent('I want to raise a seed round for my startup'));
     await page.waitForTimeout(9000);
     const s = await page.evaluate(() => {
       const txt = document.getElementById('root')?.innerText || '';
       return {
-        cards: document.querySelectorAll('a[href^="/expert/"]').length,
+        results: document.querySelectorAll('h3').length,
         empty: /No experts match your search/i.test(txt),
         chips: Array.from(document.querySelectorAll('span.rounded-full.bg-primary\\/10')).map((e) => e.textContent),
       };
     });
-    t('natural-language query returns results', s.cards > 0 && !s.empty, `cards=${s.cards}`);
+    t('natural-language query returns results', s.results > 0 && !s.empty, `results=${s.results}`);
     t('match-reason chips rendered', s.chips.length > 0, JSON.stringify(s.chips.slice(0, 3)));
+
+    // Service boundary: a companionship request must not surface advisory experts
+    // tagged as companions on the expert search either (COMP-4).
+    await go(page, '/experts?q=' + encodeURIComponent('someone to take my mother to the hospital'));
+    await page.waitForTimeout(9000);
+    const boundary = await page.evaluate(() => ({
+      companionChips: Array.from(document.querySelectorAll('span.rounded-full.bg-primary\\/10'))
+        .map((e) => e.textContent.trim())
+        .filter((txt) => /companion/i.test(txt)),
+    }));
+    t(
+      'expert search never labels an expert as a companionship match',
+      boundary.companionChips.length === 0,
+      JSON.stringify(boundary.companionChips.slice(0, 3))
+    );
 
     // nonsense query must return the empty state, not noise
     await go(page, '/experts?q=zzzqqqxyzzy');
@@ -142,13 +167,50 @@ const ROUTES = [
     const { ctx, page } = await mk(browser);
     await go(page, '/companionship');
     await page.waitForTimeout(5000);
-    const hub = await page.evaluate(() => ({
-      services: document.querySelectorAll('a[href^="/companionship/"]').length,
-      h1: document.querySelector('h1')?.innerText,
-    }));
+    // Count service cards only: /companionship/search and /companionship/apply
+    // are CTAs on the same page, not verticals.
+    const hub = await page.evaluate(() => {
+      const NON_SERVICE = ['/companionship/search', '/companionship/apply'];
+      const links = Array.from(document.querySelectorAll('a[href^="/companionship/"]'));
+      return {
+        services: links.filter((a) => !NON_SERVICE.includes(a.getAttribute('href'))).length,
+        applyHref: document.querySelector('a[href="/companionship/apply"]')?.getAttribute('href'),
+        browseHref: document.querySelector('a[href="/companionship/search"]')?.getAttribute('href'),
+        leaksToExpertSurfaces: links
+          .map((a) => a.getAttribute('href'))
+          .concat(
+            Array.from(document.querySelectorAll('main a')).map((a) => a.getAttribute('href'))
+          )
+          .filter((h) => h === '/experts' || h === '/expert/onboarding'),
+        h1: document.querySelector('h1')?.innerText,
+      };
+    });
     t('hub lists all 10 services', hub.services === 10, `${hub.services}`);
+    // COMP-2 / COMP-3: companionship CTAs must not hand off to expert surfaces.
+    t('apply CTA is companion-specific', hub.applyHref === '/companionship/apply', String(hub.applyHref));
+    t('browse CTA is companion-specific', hub.browseHref === '/companionship/search', String(hub.browseHref));
+    t('hub never links into expert surfaces', hub.leaksToExpertSurfaces.length === 0, hub.leaksToExpertSurfaces.join(','));
 
-    await page.locator('a[href^="/companionship/"]').first().click();
+    // COMP-4: a companionship query must stay scoped to companions.
+    await page.fill('input[type="search"]', 'someone to shop');
+    await page.click('button:has-text("Find companions")');
+    await page.waitForTimeout(6000);
+    const scoped = await page.evaluate(() => ({
+      url: location.pathname,
+      bookable: Array.from(document.querySelectorAll('button, a')).filter((b) => /book now/i.test(b.textContent)).length,
+      emptyState: /No companions found/i.test(document.body.innerText),
+      companionshipTag: /Matched on[\s\S]{0,80}Companionship/i.test(document.body.innerText),
+    }));
+    t('companionship search stays on companionship', scoped.url === '/companionship/search', scoped.url);
+    t(
+      'companionship search returns companions or an empty state, never experts',
+      scoped.emptyState || (!scoped.companionshipTag && scoped.bookable >= 0),
+      JSON.stringify(scoped)
+    );
+
+    await go(page, '/companionship');
+    await page.waitForTimeout(4000);
+    await page.locator('a[href^="/companionship/"]:not([href$="/search"]):not([href$="/apply"])').first().click();
     await page.waitForTimeout(5000);
     const detail = await page.evaluate(() => ({
       path: location.pathname,

@@ -49,6 +49,9 @@ const STATIC_ROUTES = [
   { path: '/', changefreq: 'daily', priority: '1.0' },
   { path: '/experts', changefreq: 'daily', priority: '0.9' },
   { path: '/companionship', changefreq: 'weekly', priority: '0.9' },
+  // The companion listing, mirroring /experts. The /companionship/apply form is
+  // excluded, exactly as /expert/onboarding is.
+  { path: '/companionship/search', changefreq: 'daily', priority: '0.8' },
   { path: '/leaderboard', changefreq: 'weekly', priority: '0.6' },
   { path: '/about', changefreq: 'monthly', priority: '0.5' },
   { path: '/blog', changefreq: 'weekly', priority: '0.4' },

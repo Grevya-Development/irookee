@@ -347,6 +347,26 @@ export const SERVICE_CONCEPTS = new Map<string, string>(
 );
 
 /**
+ * Every concept that asserts "this provider does companionship work" — the ten
+ * verticals plus the generic umbrella they all decay into.
+ *
+ * Companionship and expert consulting are two distinct services, so these
+ * concepts are only ever credited to a provider who actually offers a
+ * companionship vertical (see `buildDoc`). Without that gate, a single
+ * incidental word pulls an advisory expert across the service boundary: the
+ * expert named *Pooja* matched the event_companion form "pooja", which spread to
+ * `companionship` along a `related` edge, and she was then returned by — and
+ * labelled with — a companionship search (COMP-4).
+ *
+ * Note `elder_care` is deliberately NOT in this set: advising on elder care is a
+ * legitimate consulting topic, distinct from being someone's companion.
+ */
+export const COMPANIONSHIP_CONCEPT_IDS: ReadonlySet<string> = new Set<string>([
+  ...CONCEPTS.filter((c) => c.service).map((c) => c.id),
+  'companionship',
+]);
+
+/**
  * Project a token stream onto the concept space.
  *
  * Returns concept id -> weight. Directly evoked concepts score 1.0; concepts

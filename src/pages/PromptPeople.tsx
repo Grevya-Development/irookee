@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Search, Star, Clock, Shield, Users, Globe, Loader2, X } from "lucide-react";
+import { Search, Star, Clock, Shield, Users, Globe, Loader2, X, HeartHandshake, ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navigation from "@/components/Navigation";
@@ -12,6 +12,7 @@ import ExpertCard from "@/components/ExpertCard";
 import { searchExperts } from "@/lib/searchExperts";
 import Seo from "@/components/Seo";
 import { usePlatformStats } from "@/hooks/usePlatformStats";
+import { COMPANION_SERVICES } from "@/lib/companionship";
 import { track } from "@/lib/analytics";
 import { ROUTE_SEO } from "@/lib/seoMeta";
 
@@ -95,9 +96,9 @@ const PromptPeople = memo(() => {
       description: "All experts are rated and reviewed by our community"
     },
     {
-      icon: Users,
-      title: "Diverse Expertise",
-      description: "From career guidance to travel tips, find experts for any situation"
+      icon: HeartHandshake,
+      title: "Advice or Company",
+      description: "Expert consulting when you need answers, a verified companion when you need someone there"
     }
   ];
 
@@ -118,10 +119,30 @@ const PromptPeople = memo(() => {
             <br />
             <span className="text-foreground">you want.</span>
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            Connect instantly with verified professionals, mentors, and guides. 
-            Get expert advice for career, travel, personal growth, and more.
+          {/* Companionship is a top-level offering, not a footnote: the hero has
+              to say so, or the nav item is the only place it exists (COMP-1). */}
+          <p className="text-xl text-muted-foreground mb-6 max-w-3xl mx-auto">
+            Two ways to get help. Book a verified expert for advice on career,
+            travel, finance and personal growth  -  or book a trusted companion to
+            be there in person for a hospital visit, shopping trip, errand or outing.
           </p>
+
+          <div className="flex flex-wrap justify-center gap-2 mb-8 text-sm">
+            <Link
+              to="/experts"
+              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-4 py-1.5 font-medium text-foreground transition-colors hover:border-primary/50"
+            >
+              <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+              Talk to an expert
+            </Link>
+            <Link
+              to="/companionship"
+              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-4 py-1.5 font-medium text-foreground transition-colors hover:border-primary/50"
+            >
+              <HeartHandshake className="h-4 w-4 text-primary" aria-hidden="true" />
+              Book a companion
+            </Link>
+          </div>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-12">
@@ -274,6 +295,53 @@ const PromptPeople = memo(() => {
       </section>
       )}
 
+      {/* Companionship Section - the platform's second core offering */}
+      {!hasSearched && (
+      <section className="py-20 px-4 bg-gradient-to-b from-indigo-50/60 to-background border-y">
+        <div className="container mx-auto">
+          <div className="text-center mb-10">
+            <p className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-200">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Verified companions
+            </p>
+            <h2 className="text-3xl md:text-4xl font-bold mt-4 mb-4">
+              Someone to go with you
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Not every problem needs advice  -  some need a person beside you. Book a
+              trusted companion for everyday activities, assistance, outings and
+              social support, for yourself or for someone you care about.
+            </p>
+          </div>
+
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-5xl mx-auto">
+            {COMPANION_SERVICES.slice(0, 5).map((service) => (
+              <li key={service.slug}>
+                <Link
+                  to={`/companionship/${service.slug}`}
+                  className="flex h-full flex-col items-center gap-2 rounded-xl border bg-card p-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                >
+                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ring-1 ${service.accent}`}>
+                    <service.icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-medium">{service.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <div className="text-center mt-10">
+            <Button asChild size="lg">
+              <Link to="/companionship">
+                Explore companionship
+                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+      )}
+
       {/* Features Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
@@ -301,18 +369,22 @@ const PromptPeople = memo(() => {
       <section className="py-20 px-4 bg-primary text-primary-foreground">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Ready to Get Expert Guidance?
+            Ready to find your person?
           </h2>
           <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-            Join thousands of people who have found the perfect expert for their needs
+            Whether you need expert guidance or simply someone beside you, irookee
+            connects you with a verified person who can help.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
             <Button size="lg" variant="secondary" onClick={() => navigate("/experts")}>
               Find an Expert
             </Button>
-            <Button 
-              size="lg" 
-              variant="secondary" 
+            <Button asChild size="lg" variant="secondary">
+              <Link to="/companionship">Book a Companion</Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
               className="bg-white/90 text-primary hover:bg-white"
               onClick={() => navigate("/expert/onboarding")}
             >

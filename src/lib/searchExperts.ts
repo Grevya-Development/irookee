@@ -36,6 +36,8 @@ export interface SearchExpertsOptions extends SearchFilters {
   limit?: number
   /** Companionship service slug, e.g. "hospital". */
   service?: string
+  /** Restrict results to verified companions (companionship surfaces only). */
+  companionsOnly?: boolean
 }
 
 /**
@@ -373,6 +375,7 @@ export async function searchExpertsDetailed(
       minRating: options.minRating,
       sortBy: options.sortBy,
       service: options.service,
+      companionsOnly: options.companionsOnly,
       limit: options.limit || 40,
     });
 

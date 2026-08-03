@@ -11,15 +11,25 @@ interface SearchBarProps {
   /** Accessible name for the field. A placeholder alone is not a label. */
   label?: string
   submitLabel?: string
+  /**
+   * Which service this bar searches. Companionship and expert consulting are
+   * separate services, so a companionship query must land on the companions
+   * results page and never on the general expert search (COMP-4).
+   */
+  scope?: 'experts' | 'companions'
 }
 
 let searchBarSeq = 0
+
+/** Result pages that search in place instead of routing to a results page. */
+const IN_PLACE_RESULT_PATHS = ['/experts', '/speakers']
 
 export function SearchBar({
   initialQuery = '',
   placeholder = 'Search by name, expertise, category, location...',
   label = 'Search experts',
   submitLabel = 'Find Experts',
+  scope = 'experts',
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery)
   const [inputId] = useState(() => `search-bar-${++searchBarSeq}`)
@@ -31,27 +41,45 @@ export function SearchBar({
     setQuery(initialQuery)
   }, [initialQuery])
 
+  // A companionship query resolves to the companions results page; an expert
+  // query stays put when the current page already lists results, otherwise it
+  // routes to the general expert search.
+  const resultsPath =
+    scope === 'companions'
+      ? '/companionship/search'
+      : IN_PLACE_RESULT_PATHS.includes(location.pathname)
+        ? location.pathname
+        : '/search'
+
   const updateUrl = (nextQuery: string) => {
     const params = new URLSearchParams(searchParams)
     const trimmed = nextQuery.trim()
 
     if (trimmed) {
       params.set('q', trimmed)
-      track('search_performed', { query: trimmed, source: 'search_page' })
+      track('search_performed', {
+        query: trimmed,
+        source: scope === 'companions' ? 'companionship_search' : 'search_page',
+      })
     } else {
       params.delete('q')
     }
 
-    const pathname = location.pathname === '/experts' || location.pathname === '/speakers'
-      ? location.pathname
-      : '/search'
-    navigate({ pathname, search: params.toString() ? `?${params.toString()}` : '' })
+    navigate({ pathname: resultsPath, search: params.toString() ? `?${params.toString()}` : '' })
   }
 
   const handleSearch = () => updateUrl(query)
+
+  /**
+   * Clearing the field only clears the field. It previously also called
+   * `updateUrl('')`, which navigates — so on a page that is not a results page
+   * the clear ✕ silently acted as a second, differently-behaved search submit
+   * (COMP-5). The URL is only touched when it actually carries the query being
+   * cleared, which is what makes the results reset on a results page.
+   */
   const handleClear = () => {
     setQuery('')
-    updateUrl('')
+    if (searchParams.get('q')) updateUrl('')
   }
 
   return (
@@ -69,7 +97,9 @@ export function SearchBar({
             id={inputId}
             type="search"
             placeholder={placeholder}
-            className="pl-10 pr-12 py-6 text-base sm:text-lg"
+            // WebKit draws its own ✕ inside type="search"; left in, it stacks a
+            // second clear icon next to ours in the same field (COMP-5).
+            className="pl-10 pr-12 py-6 text-base sm:text-lg [&::-webkit-search-cancel-button]:appearance-none"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && handleSearch()}

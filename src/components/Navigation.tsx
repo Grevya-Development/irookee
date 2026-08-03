@@ -59,57 +59,75 @@ const Navigation = () => {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          {/*
+            Desktop Navigation.
+
+            Adding "Companionship" made this row wider than the `md` breakpoint it
+            used to switch on at, and with nothing forbidding wrapping, flex broke
+            "Become an Expert" and "Expert Desk" onto two lines inside a 64px row
+            (UI-3). So: switch at `lg`, never wrap a label, and let the tighter
+            spacing come from each item's own padding.
+          */}
+          <div className="hidden lg:flex items-center space-x-1">
             {navItems.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors"
               >
                 {item.name}
               </Link>
             ))}
             <Link
               to="/expert/onboarding"
-              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+              className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors"
             >
               Become an Expert
             </Link>
             {isAdmin && (
               <Link
                 to="/admin"
-                className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                className="whitespace-nowrap bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
               >
-                <Shield className="h-3.5 w-3.5" />
-                Admin Console
+                <Shield className="h-3.5 w-3.5" aria-hidden="true" />
+                Admin<span className="hidden xl:inline">&nbsp;Console</span>
               </Link>
             )}
             {user ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 <NotificationCenter />
+                {/*
+                  The account links show icon-only between lg and xl, where the
+                  full row would not fit. `aria-label` carries the name at every
+                  width, so the label is never lost. (`not-sr-only` would have
+                  been the obvious choice, but it also resets
+                  `white-space: normal`, re-introducing the wrap this fixes.)
+                */}
                 {profile?.user_type === 'expert' && (
                   <Link
                     to="/expert/dashboard"
-                    className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                    aria-label="Expert Desk"
+                    className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
                   >
-                    <Briefcase className="h-4 w-4" />
-                    Expert Desk
+                    <Briefcase className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden xl:inline">Expert Desk</span>
                   </Link>
                 )}
                 <Link
                   to="/dashboard"
-                  className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  aria-label="Dashboard"
+                  className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
                 >
-                  <User className="h-4 w-4" />
-                  Dashboard
+                  <User className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden xl:inline">Dashboard</span>
                 </Link>
                 <Link
                   to="/settings"
-                  className="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  aria-label="Settings"
+                  className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
                 >
-                  <Settings className="h-4 w-4" />
-                  Settings
+                  <Settings className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden xl:inline">Settings</span>
                 </Link>
                 <div className="pl-2 border-l border-gray-200">
                   <DropdownMenu>
@@ -156,7 +174,7 @@ const Navigation = () => {
             ) : (
               <Link
                 to="/auth"
-                className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-1"
+                className="whitespace-nowrap bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-1"
               >
                 <LogIn className="h-3 w-3" />
                 Sign In
@@ -165,7 +183,7 @@ const Navigation = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center space-x-2">
+          <div className="lg:hidden flex items-center space-x-2">
             {isAdmin && (
               <Link
                 to="/admin"
@@ -196,7 +214,7 @@ const Navigation = () => {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden" id="mobile-navigation">
+          <div className="lg:hidden" id="mobile-navigation">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
               {navItems.map((item) => (
                 <Link

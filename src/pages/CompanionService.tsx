@@ -28,7 +28,10 @@ const CompanionService = () => {
     setLoading(true);
     setFailed(false);
 
-    searchExperts({ service: service.slug, limit: 24 })
+    // `companionsOnly` is redundant next to a service slug today, but it states
+    // the service boundary explicitly so this page can never regress into
+    // listing advisory experts (COMP-4).
+    searchExperts({ service: service.slug, companionsOnly: true, limit: 24 })
       .then((results) => {
         if (!cancelled) setCompanions(results);
       })
@@ -148,14 +151,14 @@ const CompanionService = () => {
                   we will match you as soon as someone is verified nearby — or apply
                   yourself and be the first.
                 </p>
+                {/* Companionship CTAs must not hand the user off to the expert
+                    surfaces (COMP-2, COMP-3). */}
                 <div className="mt-5 flex flex-wrap justify-center gap-3">
                   <Button asChild>
-                    <Link to="/expert/onboarding">Become a companion</Link>
+                    <Link to="/companionship/apply">Become a companion</Link>
                   </Button>
                   <Button asChild variant="outline">
-                    <Link to={`/experts?q=${encodeURIComponent(service.name)}`}>
-                      Search everyone
-                    </Link>
+                    <Link to="/companionship/search">Browse all companions</Link>
                   </Button>
                 </div>
               </div>
