@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatAndValidatePhone } from '@/lib/phoneUtils'
 import { validateExpertiseAreas } from '@/lib/expertiseValidation'
 import { profileNotificationService } from '@/lib/profileNotifications'
+import Seo from "@/components/Seo";
 
 interface ProfileData {
   full_name: string
@@ -472,7 +473,7 @@ export default function Settings() {
     if (!user || deleteConfirm !== 'DELETE') return
     setDeleting(true)
     try {
-      const { error } = await supabase.functions.invoke('delete-account')
+      const { error } = await supabase.rpc('delete_account')
       if (error) throw error
 
       await supabase.auth.signOut()
@@ -491,7 +492,7 @@ export default function Settings() {
   if (authLoading) {
     return (
       <div className="min-h-screen">
-        <Navigation />
+              <Navigation />
         <div className="pt-24 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
         </div>
@@ -503,6 +504,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Seo title="Account Settings" description="Manage your irookee profile, notifications and account preferences." noindex />
       <Navigation />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 max-w-5xl flex-1">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">

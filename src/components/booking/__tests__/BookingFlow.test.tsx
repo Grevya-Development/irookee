@@ -86,6 +86,7 @@ describe('BUG 1 Audit: Booking Execution & Profile Integrity', () => {
       consumer_id: mockUser.id,
       scheduled_at: '2026-07-29T10:00:00Z',
       duration_minutes: 30,
+      total_amount: 0,
       status: 'confirmed',
     });
 

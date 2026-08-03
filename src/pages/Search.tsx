@@ -7,6 +7,8 @@ import SearchFilters from "@/components/SearchFilters";
 import { SearchBar } from "@/components/booking/SearchBar";
 import ExpertGrid from "@/components/ExpertGrid";
 import type { SearchFilters as SearchFiltersType } from "@/types/promptpeople";
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,6 +93,11 @@ export default function Search() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
+      <Seo
+        title={ROUTE_SEO.experts.title}
+        description={ROUTE_SEO.experts.description}
+        path={ROUTE_SEO.experts.path}
+      />
       <Navigation />
       <div className="container mx-auto px-4 pt-28 pb-20 flex-1">
         <div className="mb-8">

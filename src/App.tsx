@@ -22,6 +22,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const About = lazy(() => import("./pages/About"));
 const Blog = lazy(() => import("./pages/Blog"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
 const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -85,6 +86,7 @@ const AnimatedRoutes = () => {
           <Route path="/speakers" element={<Search />} />
           <Route path="/about" element={<About />} />
           <Route path="/blog" element={<Blog />} />
+          <Route path="/auth/reset-password" element={<ResetPassword />} />
           <Route path="/auth/*" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/user-dashboard" element={<Navigate to="/dashboard" replace />} />

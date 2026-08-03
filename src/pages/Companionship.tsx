@@ -6,13 +6,17 @@ import Seo from '@/components/Seo';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/booking/SearchBar';
 import { COMPANION_SERVICES, TRUST_POINTS } from '@/lib/companionship';
+import { buildCompanionshipHubJsonLd } from '@/lib/structuredData';
+import { ROUTE_SEO, HOME_CRUMB } from '@/lib/seoMeta';
 
 const Companionship = () => (
   <div className="min-h-screen bg-background flex flex-col">
     <Seo
-      title="Companionship — book a trusted companion"
-      description="Book a verified companion for hospital visits, shopping, errands, travel, outings, social time, digital help, events, and caregiver respite."
-      path="/companionship"
+      title={ROUTE_SEO.companionship.title}
+      description={ROUTE_SEO.companionship.description}
+      path={ROUTE_SEO.companionship.path}
+      breadcrumbs={[HOME_CRUMB, { name: 'Companionship', path: '/companionship' }]}
+      structuredData={buildCompanionshipHubJsonLd(COMPANION_SERVICES)}
     />
     <Navigation />
 

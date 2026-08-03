@@ -13,6 +13,7 @@ import { searchExperts } from "@/lib/searchExperts";
 import Seo from "@/components/Seo";
 import { usePlatformStats } from "@/hooks/usePlatformStats";
 import { track } from "@/lib/analytics";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 const PromptPeople = memo(() => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,9 +104,9 @@ const PromptPeople = memo(() => {
   return (
     <div className="min-h-screen bg-background">
       <Seo
-        title="irookee  -  Find verified experts, mentors & guides"
-        description="Connect instantly with verified professionals, mentors, and guides for any career, travel, or personal-growth situation. People for People."
-        path="/"
+        title={ROUTE_SEO.home.title}
+        description={ROUTE_SEO.home.description}
+        path={ROUTE_SEO.home.path}
       />
       <Navigation />
       
@@ -124,38 +125,52 @@ const PromptPeople = memo(() => {
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-12">
+            {/* The clear (X) and Search controls were both absolutely positioned
+                from the right edge, so the X sat *inside* the Search button
+                (UI-1). They now share a flex row pinned to the right, which
+                cannot overlap regardless of button width or label length. */}
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5 pointer-events-none"
+                aria-hidden="true"
+              />
+              <label htmlFor="home-search" className="sr-only">
+                Describe what you need
+              </label>
               <Input
-                type="text"
+                id="home-search"
+                type="search"
                 placeholder="e.g., 'I need a mentor for switching to tech' or 'Local guide in Paris'"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-44 py-6 text-lg rounded-full border-2 focus:border-primary"
+                className="pl-12 pr-40 sm:pr-44 py-6 text-lg rounded-full border-2 focus:border-primary [&::-webkit-search-cancel-button]:appearance-none"
               />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="absolute right-[96px] top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              )}
-              <Button 
-                type="submit"
-                disabled={isSearching}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full px-8"
-              >
-                {isSearching ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  "Search"
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <X className="h-5 w-5" aria-hidden="true" />
+                  </button>
                 )}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSearching}
+                  className="rounded-full px-6 sm:px-8"
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                      Searching...
+                    </>
+                  ) : (
+                    "Search"
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
 

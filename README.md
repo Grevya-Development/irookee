@@ -3,9 +3,9 @@
 irookee is a peer-to-peer expertise marketplace that connects people with verified experts, mentors, and guides for one-on-one sessions across career, life, travel, health, finance, and more. A visitor describes what they need in plain language, gets matched to relevant experts, books a free session (with an auto-generated video link), and can review the expert afterward.
 
 - **Frontend:** Vite + React 18 + TypeScript, Tailwind CSS, shadcn/ui (Radix), React Router, TanStack Query
-- **Backend:** Supabase — PostgreSQL + Row Level Security, Auth, Storage, and Deno Edge Functions
+- **Backend:** Supabase — PostgreSQL + Row Level Security, Auth, Storage (no edge functions; all backend logic lives in SQL — RLS, triggers, and RPCs like `delete_account()`)
 - **Analytics:** PostHog (product events + session replay), Vercel Analytics (traffic), Vercel Speed Insights (Core Web Vitals)
-- **Payments:** Stripe scaffolding exists server-side (Supabase Edge Function); sessions are currently **free**
+- **Payments:** sessions are currently **free**; only client-side Stripe publishable-key scaffolding remains
 - **Hosting:** Vercel (single-page app)
 
 ---
@@ -33,7 +33,7 @@ irookee is a peer-to-peer expertise marketplace that connects people with verifi
 - **Live, accurate stats** — homepage hero pulls real expert/category counts and average rating from the database.
 - **Trust & conversion signals** — "Verified", "Top rated", and "Popular" chips derived from real data; sticky mobile booking CTA; meaningful empty states.
 - **Robustness** — app-wide React error boundary, loading skeletons, and retry-able error states on data fetches.
-- **SEO** — per-page and per-expert `<title>`, description, Open Graph, and Twitter Card tags; canonical URLs.
+- **SEO** — unique `<title>`/description per route, Open Graph + Twitter Cards, canonical URLs on a single host, `robots.txt`, a build-time `sitemap.xml` (static + companionship + every verified expert), JSON-LD structured data (Organization, WebSite + SearchAction, ProfilePage/Person with AggregateRating, Service, BreadcrumbList), and `noindex` on private and 404 routes. See [SEO](#seo).
 
 ---
 
@@ -41,7 +41,7 @@ irookee is a peer-to-peer expertise marketplace that connects people with verifi
 
 - **Node.js** 18+ and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 - A **Supabase** project (free tier is fine)
-- The **Supabase CLI** to run migrations / deploy edge functions — [docs](https://supabase.com/docs/guides/cli)
+- Optional: the **Supabase CLI** for local development — [docs](https://supabase.com/docs/guides/cli); the schema can also be applied straight from the SQL editor
 - Optional: a **PostHog** project (analytics), a **Vercel** account (hosting + traffic/perf analytics), a **Stripe** account (if you enable paid sessions)
 
 ---
@@ -69,16 +69,16 @@ cp .env.example .env
 | `VITE_SITE_URL` | recommended | Canonical app URL for auth/redirect/SEO (e.g. `https://irookee.com`). Blank falls back to `window.location.origin`. |
 | `VITE_PUBLIC_POSTHOG_KEY` | optional | PostHog project API key (`phc_…`). Blank disables analytics. |
 | `VITE_PUBLIC_POSTHOG_HOST` | optional | PostHog host (default `https://us.i.posthog.com`) |
-| `VITE_CHAT_FUNCTION_URL` | optional | URL of a chat edge function, if enabled |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | optional | Stripe publishable key (only if enabling client-side payments) |
 
-> Only `VITE_`-prefixed variables reach the browser. Server-side secrets (Stripe secret key, service-role key, AI keys) belong in Supabase Edge Function secrets, never in this app. The non-`VITE_` `POSTHOG_*` keys in `.env` are for server/CLI tooling only.
+> Only `VITE_`-prefixed variables reach the browser. Server-side secrets (Stripe secret key, service-role key, AI keys) must never be put in this app — everything here ships to every visitor. The non-`VITE_` `POSTHOG_*` keys in `.env` are for server/CLI tooling only.
 
 ### 3. Set up the database
 
+The full schema (tables, RLS policies, functions, triggers, storage buckets) lives in a single file: [`supabase/schema.sql`](supabase/schema.sql). Run it in the Supabase SQL editor, or via psql:
+
 ```sh
-supabase link --project-ref <your-project-ref>
-supabase db push
+psql "$DATABASE_URL" -f supabase/schema.sql
 ```
 
 Optional seed data lives in [`scripts/`](scripts/) (`seed-database.sql`, `seed-v2-full-platform.sql`, `seed-v3-referrals-reviews.sql`, `fix-storage-policies.sql`) — run these in the Supabase SQL editor as needed.
@@ -119,15 +119,34 @@ Three complementary layers, all wired into [`src/App.tsx`](src/App.tsx) / [`src/
 
 ---
 
+## SEO
+
+| Piece | Where |
+| --- | --- |
+| Base tags, canonical host, Organization + WebSite JSON-LD | [`index.html`](index.html) |
+| Per-route title/description/OG/Twitter, canonical, robots, JSON-LD | [`src/components/Seo.tsx`](src/components/Seo.tsx) |
+| Route copy (one place to review every title & description) | [`src/lib/seoMeta.ts`](src/lib/seoMeta.ts) |
+| schema.org builders | [`src/lib/structuredData.ts`](src/lib/structuredData.ts) |
+| Crawl rules | [`public/robots.txt`](public/robots.txt) |
+| Sitemap generator (runs in `npm run build`) | [`scripts/generate-sitemap.mjs`](scripts/generate-sitemap.mjs) |
+
+**Canonical host.** `VITE_SITE_URL` drives canonical and OG URLs, and the sitemap's `<loc>` values. It must be set in production — `irookee.com` and `irookee.vercel.app` serve identical content, so without it they compete as duplicates.
+
+**Sitemap.** Regenerate any time with `npm run sitemap`. It queries Supabase for verified experts, so `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` must be present at build time; without them it still emits the static and companionship routes and warns rather than failing the build.
+
+**Private routes** (`/dashboard`, `/settings`, `/booking`, `/admin`, `/auth`, `/profile-setup`) are `Disallow`ed in robots.txt *and* carry `noindex` — belt and braces, because the SPA rewrite means they return HTTP 200 rather than a redirect.
+
+**Known limitation — soft 404s.** `vercel.json` rewrites every path to `index.html`, so unknown URLs return **HTTP 200** with the 404 page rather than a 404 status. `noindex` on `NotFound` keeps them out of the index, but Search Console may still report them as Soft 404s. A real fix needs prerendering or an edge function that returns a genuine 404 status.
+
 ## Admin Console
 
 A **separate, self-contained route** at `/admin` with its own login screen (independent of `/auth`).
 
 - Authentication goes through Supabase Auth (`signInWithPassword`); no credentials are stored in the client.
 - After sign-in, access is verified against the backend `is_admin()` RPC (backed by the `user_roles` table + RLS). Non-admin accounts are signed out automatically.
-- Admins are granted the `admin` role on signup via the `handle_new_user()` trigger; see [`supabase/migrations/20260617000000_admin_grevya.sql`](supabase/migrations/20260617000000_admin_grevya.sql).
+- Admins are granted the `admin` role on signup via the `handle_new_user()` trigger; see the "admin_grevya" section of [`supabase/schema.sql`](supabase/schema.sql).
 
-**Create an admin user:** add the user in the Supabase dashboard (Authentication → Users → *Add user*, auto-confirm). The trigger grants the admin role for the configured admin email automatically. Keep the email consistent between [`src/lib/auth.ts`](src/lib/auth.ts) and the migration trigger.
+**Create an admin user:** add the user in the Supabase dashboard (Authentication → Users → *Add user*, auto-confirm). The trigger grants the admin role for the configured admin email automatically. Keep the email consistent between [`src/lib/auth.ts`](src/lib/auth.ts) and the trigger in `schema.sql`.
 
 ---
 
@@ -138,12 +157,7 @@ A **separate, self-contained route** at `/admin` with its own login screen (inde
 ├── public/                     # Static assets (favicons, logos, OG image)
 ├── scripts/                    # SQL seed / fix scripts
 ├── supabase/
-│   ├── migrations/             # Database schema migrations
-│   └── functions/              # Deno edge functions
-│       ├── chat/
-│       ├── create-booking/     # Stripe payment + booking creation
-│       ├── search/
-│       └── search-experts/
+│   └── schema.sql              # Full database schema in one file (tables, RLS, functions, triggers)
 ├── src/
 │   ├── components/
 │   │   ├── admin/              # Admin console + dedicated AdminLogin
@@ -216,13 +230,7 @@ Steps:
 3. Enable **Analytics** and **Speed Insights** in the Vercel project dashboard.
 4. Push to deploy.
 
-Deploy Supabase Edge Functions separately:
-
-```sh
-supabase functions deploy create-booking
-supabase functions deploy search-experts
-supabase secrets set STRIPE_SECRET_KEY=sk_live_...   # only if enabling payments
-```
+There is nothing else to deploy — the app has no edge functions or server components; all backend behavior is enforced in the database (`supabase/schema.sql`).
 
 ---
 

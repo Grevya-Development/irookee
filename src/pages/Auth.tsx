@@ -1,30 +1,36 @@
 import Footer from "@/components/sections/Footer";
-import { Link, useSearchParams } from "react-router-dom";
-import { SignIn, SignUp } from "@clerk/react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import AuthForms from "@/components/auth/AuthForms";
+import { useAuth } from "@/components/AuthProvider";
+import { useEffect } from "react";
 import { safeRedirect } from "@/lib/redirects";
 import { Sparkles, ShieldCheck, Video, Users, Star, ArrowLeft } from "lucide-react";
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 const Auth = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get("mode");
-  const isSignUp = mode === "signup";
   const redirectTo = safeRedirect(searchParams.get("redirect"));
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
-  // The tab lives in the URL rather than in local state: Clerk re-renders and
-  // navigations must not silently flip the user back to the sign-in form.
-  const setIsSignUp = (next: boolean) => {
-    const params = new URLSearchParams(searchParams);
-    if (next) params.set("mode", "signup");
-    else params.delete("mode");
-    setSearchParams(params, { replace: true });
-  };
-
-  const signUpUrl = `/auth?mode=signup${redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : ""}`;
-  const signInUrl = `/auth${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`;
+  // An already-signed-in visitor has no reason to see the sign-in form.
+  useEffect(() => {
+    if (!loading && user) {
+      navigate(redirectTo || "/dashboard", { replace: true });
+    }
+  }, [loading, user, redirectTo, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between overflow-x-hidden">
-      {/* Top Bar for Mobile */}
+      <Seo
+        title={ROUTE_SEO.auth.title}
+        description={ROUTE_SEO.auth.description}
+        path={ROUTE_SEO.auth.path}
+        noindex
+      />
+            {/* Top Bar for Mobile */}
       <div className="lg:hidden px-6 pt-6 pb-2 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
           <img src="/irookee-mark.svg" alt="irookee" className="h-10 w-10 object-contain drop-shadow-md" />
@@ -112,66 +118,16 @@ const Auth = () => {
         <div className="lg:col-span-6 flex flex-col items-center justify-center">
           <div className="w-full max-w-md bg-white/95 dark:bg-slate-950/90 p-6 sm:p-8 rounded-2xl shadow-2xl border border-white/20 backdrop-blur-xl text-slate-900 dark:text-white transition-all">
             
-            {/* Pill Tab Switcher */}
-            <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl mb-6 border border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(false)}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                  !isSignUp
-                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSignUp(true)}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                  isSignUp
-                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                Create Account
-              </button>
-            </div>
-
-            {/* Form Container */}
-            <div className="flex flex-col items-center justify-center w-full min-h-[380px]">
-              {isSignUp ? (
-                <SignUp
-                  routing="hash"
-                  signInUrl={signInUrl}
-                  fallbackRedirectUrl={redirectTo || "/profile-setup"}
-                  appearance={{
-                    variables: {
-                      colorPrimary: "#2563eb",
-                    },
-                    elements: {
-                      formButtonPrimary: "!bg-blue-600 hover:!bg-blue-700 !text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 border-none transition-all py-2.5",
-                      footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
-                    },
-                  }}
-                />
-              ) : (
-                <SignIn
-                  routing="hash"
-                  signUpUrl={signUpUrl}
-                  fallbackRedirectUrl={redirectTo || "/dashboard"}
-                  appearance={{
-                    variables: {
-                      colorPrimary: "#2563eb",
-                    },
-                    elements: {
-                      formButtonPrimary: "!bg-blue-600 hover:!bg-blue-700 !text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 border-none transition-all py-2.5",
-                      footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
-                    },
-                  }}
-                />
-              )}
-            </div>
+            <AuthForms
+              mode={mode === "signup" ? "signup" : mode === "forgot" ? "forgot" : "signin"}
+              onModeChange={(next) => {
+                const params = new URLSearchParams(searchParams);
+                if (next === "signin") params.delete("mode");
+                else params.set("mode", next);
+                setSearchParams(params, { replace: true });
+              }}
+              redirectTo={redirectTo || "/dashboard"}
+            />
 
             <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6 pt-4 border-t border-slate-200 dark:border-slate-800">
               By continuing, you agree to our{" "}

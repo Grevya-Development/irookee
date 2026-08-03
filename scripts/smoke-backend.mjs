@@ -91,10 +91,16 @@ console.log('\n=== 4. PII exposure check ===');
     : ok('profiles does not leak email/phone to anon');
 }
 
-console.log('\n=== 5. Edge functions ===');
-for (const f of ['send-notification-email', 'delete-account', 'create-booking', 'search-experts']) {
-  const r = await fetch(`${SB}/functions/v1/${f}`, { method: 'OPTIONS', headers: H });
-  r.status === 404 ? no(`${f} NOT deployed`) : ok(`${f} deployed (HTTP ${r.status})`);
+console.log('\n=== 5. delete_account RPC posture ===');
+{
+  // Edge functions were removed; account deletion now lives in the database as
+  // public.delete_account(). EXECUTE is revoked from anon, so an anonymous
+  // call must be rejected — a 2xx here means the grants are wrong.
+  const r = await fetch(`${SB}/rest/v1/rpc/delete_account`, { method: 'POST', headers: H, body: '{}' });
+  const text = await r.text();
+  r.status >= 400
+    ? ok(`anonymous delete_account rejected (HTTP ${r.status})`)
+    : no(`ANONYMOUS delete_account call returned HTTP ${r.status} — revoke EXECUTE from anon! (${text.slice(0, 100)})`);
 }
 
 console.log('\n=== 6. Logic checks from the original smoke script ===');

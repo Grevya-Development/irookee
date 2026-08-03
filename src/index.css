@@ -1,5 +1,3 @@
-@import '@clerk/ui/themes/shadcn.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -125,54 +123,4 @@
     from { opacity: 0; transform: translateY(-16px); }
     to { opacity: 1; transform: translateY(0); }
   }
-}
-
-/* Fix Clerk UI transparency by mapping shadcn variables to valid HSL colors in Clerk components */
-.cl-rootBox,
-.cl-userButtonPopoverCard,
-.cl-popover,
-.cl-card,
-.cl-modalContent {
-  --card: hsl(0 0% 100%);
-  --foreground: hsl(222.2 84% 4.9%);
-  --muted: hsl(210 40% 96.1%);
-  --muted-foreground: hsl(215.4 16.3% 46.9%);
-  --primary: hsl(222.2 47.4% 11.2%);
-  --primary-foreground: hsl(210 40% 98%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --input: hsl(214.3 31.8% 91.4%);
-  --ring: hsl(222.2 84% 4.9%);
-  background-color: hsl(0 0% 100%) !important;
-  color: hsl(222.2 84% 4.9%) !important;
-}
-
-.dark .cl-rootBox,
-.dark .cl-userButtonPopoverCard,
-.dark .cl-popover,
-.dark .cl-card,
-.dark .cl-modalContent {
-  --card: hsl(222.2 84% 4.9%);
-  --foreground: hsl(210 40% 98%);
-  --muted: hsl(217.2 32.6% 17.5%);
-  --muted-foreground: hsl(215 20.2% 65.1%);
-  --primary: hsl(210 40% 98%);
-  --primary-foreground: hsl(222.2 47.4% 11.2%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --input: hsl(217.2 32.6% 17.5%);
-  --ring: hsl(212.7 26.8% 83.9%);
-  background-color: hsl(222.2 84% 4.9%) !important;
-  color: hsl(210 40% 98%) !important;
-}
-
-/* Specific elements to ensure proper solid backgrounds and borders */
-.cl-userButtonPopoverCard,
-.cl-popover {
-  background-color: hsl(0 0% 100%) !important;
-  border: 1px solid hsl(214.3 31.8% 91.4%) !important;
-}
-
-.dark .cl-userButtonPopoverCard,
-.dark .cl-popover {
-  background-color: hsl(222.2 84% 4.9%) !important;
-  border: 1px solid hsl(217.2 32.6% 17.5%) !important;
 }

@@ -29,7 +29,6 @@ const no = (m, d) => { console.log(`  FAIL  ${m}${d ? ' :: ' + d : ''}`); fail++
 const t = (m, cond, d) => (cond ? ok(m, d) : no(m, d));
 
 const IGNORE = [
-  /Clerk has been loaded with development keys/,
   /Structural CSS detected/,
   /404 Error: User attempted/,
   /script-src.*not explicitly set/,
@@ -160,7 +159,7 @@ const ROUTES = [
 
     await go(page, '/companionship/not-real');
     await page.waitForTimeout(4000);
-    const is404 = await page.evaluate(() => /Page not found/i.test(document.getElementById('root')?.innerText || ''));
+    const is404 = await page.evaluate(() => /couldn.t find that page|Page not found/i.test(document.getElementById('root')?.innerText || ''));
     t('unknown service slug 404s', is404);
     await ctx.close();
   }
@@ -186,21 +185,33 @@ const ROUTES = [
   {
     const { ctx, page } = await mk(browser);
     await go(page, '/auth');
-    await page.waitForSelector('[data-clerk-component]', { timeout: 35000 });
+    await page.waitForSelector('#auth-email', { timeout: 35000 });
     await page.waitForTimeout(2000);
-    let s = await page.evaluate(() => document.querySelector('[data-clerk-component]')?.getAttribute('data-clerk-component'));
-    t('sign-in form renders', s === 'SignIn', String(s));
-    await page.getByRole('button', { name: /^Create Account$/ }).click();
-    await page.waitForTimeout(5000);
+    let s = await page.evaluate(() => ({
+      email: !!document.getElementById('auth-email'),
+      password: !!document.getElementById('auth-password'),
+      submit: document.querySelector('form button[type="submit"]')?.textContent?.trim(),
+    }));
+    t('sign-in form renders', s.email && s.password && /Sign in/i.test(s.submit || ''), JSON.stringify(s));
+    await page.getByRole('button', { name: /^Create an account$/ }).click();
+    await page.waitForTimeout(3000);
     s = await page.evaluate(() => ({
-      c: document.querySelector('[data-clerk-component]')?.getAttribute('data-clerk-component'),
+      name: !!document.getElementById('auth-name'),
+      submit: document.querySelector('form button[type="submit"]')?.textContent?.trim(),
       q: location.search,
     }));
-    t('tab switches to sign-up', s.c === 'SignUp' && s.q.includes('mode=signup'), JSON.stringify(s));
-    await go(page, '/auth/verify-email-address');
-    await page.waitForTimeout(12000);
-    const sub = await page.evaluate(() => ({ p: location.pathname, is404: /Page not found/i.test(document.getElementById('root')?.innerText || '') }));
-    t('clerk sub-route does not 404', sub.p !== '/sign-in' && !sub.is404, JSON.stringify(sub));
+    t('switches to sign-up', s.name && /Create account/i.test(s.submit || '') && s.q.includes('mode=signup'), JSON.stringify(s));
+    await go(page, '/auth?mode=forgot');
+    await page.waitForTimeout(3000);
+    const forgot = await page.evaluate(() => ({
+      submit: document.querySelector('form button[type="submit"]')?.textContent?.trim(),
+      password: !!document.getElementById('auth-password'),
+    }));
+    t('forgot-password mode renders', /Send reset link/i.test(forgot.submit || '') && !forgot.password, JSON.stringify(forgot));
+    await go(page, '/auth/reset-password');
+    await page.waitForTimeout(8000);
+    const sub = await page.evaluate(() => ({ p: location.pathname, is404: /couldn.t find that page|Page not found/i.test(document.getElementById('root')?.innerText || '') }));
+    t('reset-password route does not 404', sub.p === '/auth/reset-password' && !sub.is404, JSON.stringify(sub));
     await ctx.close();
   }
 

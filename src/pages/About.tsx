@@ -4,12 +4,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Shield, Users, Sparkles, Globe, Heart, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 const About = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title={ROUTE_SEO.about.title}
+        description={ROUTE_SEO.about.description}
+        path={ROUTE_SEO.about.path}
+      />
       <Navigation />
 
       {/* Hero */}

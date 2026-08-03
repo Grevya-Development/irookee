@@ -2,10 +2,17 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import LeaderboardTable from '@/components/gamification/LeaderboardTable'
 import { Trophy, TrendingUp, Star } from 'lucide-react'
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 export default function Leaderboard() {
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title={ROUTE_SEO.leaderboard.title}
+        description={ROUTE_SEO.leaderboard.description}
+        path={ROUTE_SEO.leaderboard.path}
+      />
       <Navigation />
 
       <section className="pt-24 pb-8 bg-gradient-to-b from-primary/5 to-background">

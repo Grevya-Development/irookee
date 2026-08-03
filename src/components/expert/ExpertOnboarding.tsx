@@ -182,7 +182,7 @@ export function ExpertOnboarding() {
     let code = "";
     if (error instanceof Error) {
       msg = error.message;
-      const errObj = error as Record<string, unknown>;
+      const errObj = error as unknown as Record<string, unknown>;
       if (typeof errObj.code === 'string') code = errObj.code;
     } else if (typeof error === 'object' && error !== null) {
       const errObj = error as Record<string, unknown>;

@@ -93,6 +93,10 @@ const allowsEmail = (
   key: keyof Pick<NotificationPreferences, 'email_booking_confirmed' | 'email_expert_application' | 'email_expert_approved'>
 ) => preferences?.[key] !== false
 
+/** Email delivery requires a server-side secret (Resend/SMTP), which a
+ *  client-only app cannot hold safely. With the edge functions removed this is
+ *  a no-op; in-app notifications are the delivery channel. The signature is
+ *  kept so call sites keep working if an email backend is reintroduced. */
 export const sendNotificationEmail = async (payload: {
   to: string
   subject: string
@@ -100,32 +104,7 @@ export const sendNotificationEmail = async (payload: {
   eventType: string
   userId?: string | null
 }) => {
-  if (payload.userId) {
-    const preferences = await getNotificationPreferences(payload.userId)
-    if (preferences) {
-      let allowed = true
-      if (payload.eventType === 'email_expert_application') {
-        allowed = allowsEmail(preferences, 'email_expert_application')
-      } else if (payload.eventType === 'email_expert_approved' || payload.eventType === 'expert_approved') {
-        allowed = allowsEmail(preferences, 'email_expert_approved')
-      } else if (payload.eventType === 'email_booking_confirmed' || payload.eventType.startsWith('booking_')) {
-        allowed = allowsEmail(preferences, 'email_booking_confirmed')
-      }
-      
-      if (!allowed) {
-        console.log(`Skipping notification email ${payload.eventType} as user disabled it in preferences`)
-        return
-      }
-    }
-  }
-
-  const { error } = await supabase.functions.invoke('send-notification-email', {
-    body: payload,
-  })
-
-  if (error) {
-    console.error('Failed to send notification email:', error)
-  }
+  console.info(`Email notifications are disabled (no server backend); skipping "${payload.eventType}" email to ${payload.to}`)
 }
 
 export const notifyAdmins = async ({

@@ -9,6 +9,7 @@ import ExpertCard from '@/components/ExpertCard';
 import { ExpertGridSkeleton } from '@/components/ExpertCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { getCompanionService } from '@/lib/companionship';
+import { buildCompanionServiceJsonLd } from '@/lib/structuredData';
 import { searchExperts } from '@/lib/searchExperts';
 import type { ExpertProfile } from '@/types/promptpeople';
 
@@ -52,9 +53,15 @@ const CompanionService = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Seo
-        title={`${service.name} — irookee Companionship`}
+        title={`${service.name} — Book a Verified Companion`}
         description={service.description}
         path={`/companionship/${service.slug}`}
+        breadcrumbs={[
+          { name: 'Home', path: '/' },
+          { name: 'Companionship', path: '/companionship' },
+          { name: service.name, path: `/companionship/${service.slug}` },
+        ]}
+        structuredData={buildCompanionServiceJsonLd(service)}
       />
       <Navigation />
 

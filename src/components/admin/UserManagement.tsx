@@ -11,6 +11,16 @@ import { Search, Loader2, Eye, Edit, Trash2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+/** Columns that exist in the database but not yet in the generated types. */
+type SuspendableSpeaker = {
+  id?: string
+  user_id?: string | null
+  verification_status?: string | null
+  is_verified?: boolean | null
+  suspension_history?: unknown
+}
+
+
 interface UserRow {
   id: string;
   email: string | null;
@@ -98,40 +108,74 @@ const UserManagement = () => {
 
   const handleToggleSuspend = async (user: UserRow) => {
     setActionLoading(user.id);
-    const nextType = user.user_type === 'suspended' ? 'consumer' : 'suspended';
+    const suspending = user.user_type !== 'suspended';
     try {
+      // Read the speaker row first: unsuspending has to restore what was there
+      // before, not guess.
+      const { data: speakerRow } = await supabase
+        .from('speakers')
+        .select('id, suspension_history, verification_status, is_verified')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const speaker = speakerRow as unknown as SuspendableSpeaker | null;
+
+      const history = Array.isArray(speaker?.suspension_history) ? speaker!.suspension_history : [];
+      const lastSuspension = [...history]
+        .reverse()
+        .find((entry) => (entry as { action?: string })?.action === 'suspended') as
+        | { previous_status?: string; previous_user_type?: string; previous_is_verified?: boolean }
+        | undefined;
+
+      // Unsuspend used to hardcode profiles.user_type='consumer' while setting
+      // speakers.verification_status='verified'. That combination silently undid
+      // a deliberate Consumer type change and left the two tables disagreeing.
+      const nextType = suspending
+        ? 'suspended'
+        : lastSuspension?.previous_user_type || 'consumer';
+
       const { error } = await supabase
         .from('profiles')
         .update({ user_type: nextType })
         .eq('id', user.id);
       if (error) throw error;
 
-      // Sync suspension to speakers table if exists
-      const { data: speaker } = await supabase
-        .from('speakers')
-        .select('id, suspension_history')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
       if (speaker) {
-        const history = Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
-        const action = nextType === 'suspended' ? 'suspended' : 'unsuspended';
+        const reason = suspending
+          ? 'Suspended by admin in User Management'
+          : 'Unsuspended by admin in User Management';
+
         const updatedHistory = [
           ...history,
-          {
-            action,
-            reason: nextType === 'suspended' ? "Suspended by admin in User Management" : "Unsuspended by admin in User Management",
-            timestamp: new Date().toISOString(),
-          }
+          suspending
+            ? {
+                action: 'suspended',
+                reason,
+                previous_status: speaker.verification_status || 'verified',
+                previous_user_type: user.user_type || 'consumer',
+                previous_is_verified: Boolean(speaker.is_verified),
+                timestamp: new Date().toISOString(),
+              }
+            : {
+                action: 'unsuspended',
+                reason,
+                restored_status: lastSuspension?.previous_status || 'verified',
+                timestamp: new Date().toISOString(),
+              },
         ];
 
         await supabase
           .from('speakers')
           .update({
-            verification_status: nextType === 'suspended' ? 'suspended' : 'verified',
-            is_verified: nextType === 'suspended' ? false : undefined,
-            suspension_reason: nextType === 'suspended' ? "Suspended by admin in User Management" : null,
-            suspended_at: nextType === 'suspended' ? new Date().toISOString() : null,
+            verification_status: suspending
+              ? 'suspended'
+              : lastSuspension?.previous_status || 'verified',
+            // `undefined` was stripped by JSON.stringify, so the badge was never
+            // restored on unsuspend. Always send an explicit boolean.
+            is_verified: suspending
+              ? false
+              : lastSuspension?.previous_is_verified ?? Boolean(speaker.is_verified),
+            suspension_reason: suspending ? reason : null,
+            suspended_at: suspending ? new Date().toISOString() : null,
             suspension_history: updatedHistory,
           } as never)
           .eq('id', speaker.id);
@@ -158,8 +202,8 @@ const UserManagement = () => {
     if (!window.confirm("Are you absolutely sure you want to delete this user? This will delete all of their bookings, reviews, and profile data permanently!")) return;
     setActionLoading(userId);
     try {
-      const { error: funcError } = await supabase.functions.invoke('delete-account', {
-        body: { target_user_id: userId },
+      const { error: funcError } = await supabase.rpc('delete_account', {
+        target_user_id: userId,
       });
 
       if (funcError) throw funcError;

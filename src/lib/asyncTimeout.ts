@@ -1,5 +1,7 @@
+// PromiseLike, not Promise: Supabase query builders are thenables that only
+// become real promises when awaited, and they are this helper's main input.
 export const withTimeout = async <T>(
-  promise: Promise<T>,
+  promise: PromiseLike<T>,
   timeoutMs: number,
   message = 'Request timed out'
 ) => {

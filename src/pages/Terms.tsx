@@ -1,9 +1,16 @@
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 export default function Terms() {
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title={ROUTE_SEO.terms.title}
+        description={ROUTE_SEO.terms.description}
+        path={ROUTE_SEO.terms.path}
+      />
       <Navigation />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 max-w-4xl prose prose-gray dark:prose-invert">
         <h1 className="text-4xl font-bold mb-2">Terms of Service</h1>

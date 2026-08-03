@@ -9,6 +9,15 @@ interface SeoProps {
   image?: string;
   /** og:type  -  "website" (default) or "profile" for expert pages. */
   type?: "website" | "profile" | "article";
+  /**
+   * Keep the page out of the index. Use for account/private routes and the 404,
+   * which this SPA otherwise serves with a 200 status (a soft 404).
+   */
+  noindex?: boolean;
+  /** schema.org entity for this page, injected as JSON-LD. */
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
+  /** Trail for a BreadcrumbList, ordered root -> current. */
+  breadcrumbs?: { name: string; path: string }[];
 }
 
 const DEFAULT_DESCRIPTION =
@@ -54,15 +63,40 @@ function setCanonical(href: string) {
   el.setAttribute("href", href);
 }
 
+/** Marker so page-level JSON-LD can be swapped without touching index.html's. */
+const LD_ID = "seo-structured-data";
+
+function setStructuredData(payload: unknown) {
+  document.getElementById(LD_ID)?.remove();
+  if (!payload) return;
+  const script = document.createElement("script");
+  script.type = "application/ld+json";
+  script.id = LD_ID;
+  script.textContent = JSON.stringify(payload);
+  document.head.appendChild(script);
+}
+
 /**
  * Per-page SEO + social-share tags. The base index.html ships generic tags; this
  * overrides them per route so expert profiles and key pages are discoverable and
  * render proper cards when shared on social/messaging apps. No dependency needed  - 
  * it manages document.head directly.
  */
-const Seo = ({ title, description, path, image, type = "website" }: SeoProps) => {
+const Seo = ({
+  title,
+  description,
+  path,
+  image,
+  type = "website",
+  noindex = false,
+  structuredData,
+  breadcrumbs,
+}: SeoProps) => {
   const fullTitle = title.includes("irookee") ? title : `${title} | irookee`;
   const desc = description || DEFAULT_DESCRIPTION;
+  // Serialised so the effect re-runs on content change, not object identity.
+  const ldKey = structuredData ? JSON.stringify(structuredData) : "";
+  const crumbKey = breadcrumbs ? JSON.stringify(breadcrumbs) : "";
 
   useEffect(() => {
     const base = getSiteUrl() || window.location.origin;
@@ -92,10 +126,21 @@ const Seo = ({ title, description, path, image, type = "website" }: SeoProps) =>
         document.head
           .querySelector<HTMLLinkElement>('link[rel="canonical"]')
           ?.getAttribute("href") ?? null,
+      robots:
+        document.head
+          .querySelector<HTMLMetaElement>('meta[name="robots"]')
+          ?.getAttribute("content") ?? null,
     };
 
     document.title = fullTitle;
     setMeta("name", "description", desc);
+    setMeta(
+      "name",
+      "robots",
+      noindex
+        ? "noindex, nofollow"
+        : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    );
 
     // Open Graph
     setMeta("property", "og:title", fullTitle);
@@ -112,18 +157,43 @@ const Seo = ({ title, description, path, image, type = "website" }: SeoProps) =>
 
     setCanonical(url);
 
+    // Page-level JSON-LD. A noindex page gets none — there is nothing to
+    // surface in results.
+    if (!noindex) {
+      const graph: Record<string, unknown>[] = [];
+      if (structuredData) {
+        graph.push(...(Array.isArray(structuredData) ? structuredData : [structuredData]));
+      }
+      if (breadcrumbs?.length) {
+        graph.push({
+          "@type": "BreadcrumbList",
+          itemListElement: breadcrumbs.map((crumb, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: crumb.name,
+            item: crumb.path.startsWith("http") ? crumb.path : `${base}${crumb.path}`,
+          })),
+        });
+      }
+      if (graph.length) {
+        setStructuredData({ "@context": "https://schema.org", "@graph": graph });
+      }
+    }
+
     return () => {
       document.title = previous.title;
       previous.meta.forEach(({ attr, key, content }) => {
         if (content !== null) setMeta(attr, key, content);
       });
+      if (previous.robots !== null) setMeta("name", "robots", previous.robots);
       if (previous.canonical !== null) setCanonical(previous.canonical);
       else
         document.head
           .querySelector<HTMLLinkElement>('link[rel="canonical"]')
           ?.remove();
+      setStructuredData(null);
     };
-  }, [fullTitle, desc, path, image, type]);
+  }, [fullTitle, desc, path, image, type, noindex, ldKey, crumbKey, structuredData, breadcrumbs]);
 
   return null;
 };

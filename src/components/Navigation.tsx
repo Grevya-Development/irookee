@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, User, LogIn, Settings, Shield, Briefcase } from "lucide-react";
+import { Menu, X, User, LogIn, LogOut, Settings, Shield, Briefcase } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { UserButton } from "@clerk/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { isCurrentUserAdmin } from "@/lib/auth";
 
 const Navigation = () => {
@@ -35,6 +42,11 @@ const Navigation = () => {
     await signOut();
     setIsOpen(false);
   };
+
+  const accountInitial = (profile?.full_name || user?.email || "U")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-50">
@@ -100,9 +112,45 @@ const Navigation = () => {
                   Settings
                 </Link>
                 <div className="pl-2 border-l border-gray-200">
-                  {/* afterSignOutUrl is configured on ClerkProvider; it is not a
-                      valid UserButton prop in @clerk/react v6 and was ignored here. */}
-                  <UserButton />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Account menu"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                      >
+                        {accountInitial}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel className="font-normal">
+                        <span className="block text-sm font-medium text-foreground">
+                          {profile?.full_name || 'Your account'}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {user?.email}
+                        </span>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/dashboard">
+                          <User className="mr-2 h-4 w-4" aria-hidden="true" />
+                          My dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/settings">
+                          <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Settings
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ) : (

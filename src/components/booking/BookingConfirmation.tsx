@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { Loader2, CheckCircle2 } from 'lucide-react'
 import { buildBookingTimeFields } from '@/lib/bookingUtils'
+import { isSameSlot } from '@/lib/bookingRules'
 import { notifyBookingEvent } from '@/lib/notifications'
 import { ensureUserProfileExists } from '@/lib/userUtils'
 
@@ -110,6 +111,15 @@ export function BookingConfirmation({ expertId, scheduledAt, duration, bookingId
             .eq('expert_id', expertId)
             .maybeSingle()
         : { data: null }
+
+      // A "reschedule" to the slot the session already occupies was accepted as
+      // a real change and notified both parties about a move that never
+      // happened.
+      if (bookingId && existingBooking && isSameSlot(existingBooking, scheduledAt, duration)) {
+        toast.error('This session is already booked for that date and time. Pick a different slot to reschedule.')
+        setLoading(false)
+        return
+      }
 
       let error
       let savedBookingId = bookingId

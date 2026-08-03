@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Star, MapPin, Shield } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Navigation from '@/components/Navigation'
+import Seo from "@/components/Seo";
 
 export default function Booking() {
   const [searchParams] = useSearchParams()
@@ -19,9 +20,14 @@ export default function Booking() {
   const [selectedDuration, setSelectedDuration] = useState<number>(60)
   const { expert, loading } = useExperts(expertId || undefined)
 
+  // Every render path here is private and must stay out of the index,
+  // including the early returns below.
+  const seo = <Seo title="Book a Session" description="Choose a date and time for your irookee session." noindex />
+
   if (!expertId) {
     return (
       <div className="min-h-screen bg-background">
+        {seo}
         <Navigation />
         <div className="container mx-auto px-4 pt-24 text-center">
           <p className="text-muted-foreground">Please select an expert to book a session</p>
@@ -34,6 +40,7 @@ export default function Booking() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
+        {seo}
         <Navigation />
         <div className="pt-24 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
@@ -45,6 +52,7 @@ export default function Booking() {
   if (!expert) {
     return (
       <div className="min-h-screen bg-background">
+        {seo}
         <Navigation />
         <div className="container mx-auto px-4 pt-24 text-center">
           <p>Expert not found</p>
@@ -56,6 +64,7 @@ export default function Booking() {
 
   return (
     <div className="min-h-screen bg-background">
+      {seo}
       <Navigation />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">

@@ -1,9 +1,16 @@
 import Navigation from "@/components/Navigation";
 import GuestProfileForm from "@/components/GuestProfileForm";
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 const GuestProfile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <Seo
+        title={ROUTE_SEO.guestProfile.title}
+        description={ROUTE_SEO.guestProfile.description}
+        path={ROUTE_SEO.guestProfile.path}
+      />
       <Navigation />
       <div className="container mx-auto px-4 pt-32 pb-20">
         <div className="max-w-2xl mx-auto">

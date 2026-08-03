@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { createInAppNotification } from "@/lib/notifications";
 
 interface ReviewFormProps {
   bookingId: string;
@@ -69,6 +70,29 @@ const ReviewForm = ({
       });
 
       if (error) throw error;
+
+      // NOT-6: a review generated no in-app notification, so the expert had no
+      // idea they had been reviewed. Notifying must not fail the submission —
+      // the review itself is already saved.
+      try {
+        const { data: expert } = await supabase
+          .from('speakers')
+          .select('user_id')
+          .eq('id', expertId)
+          .maybeSingle();
+
+        if (expert?.user_id) {
+          await createInAppNotification({
+            userId: expert.user_id,
+            title: 'You received a new review',
+            body: `A client left you a ${rating}-star review.`,
+            type: 'review_received',
+            relatedId: bookingId,
+          });
+        }
+      } catch (notifyError) {
+        console.error('Review saved, but notifying the expert failed:', notifyError);
+      }
 
       toast({
         title: "Review submitted!",

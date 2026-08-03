@@ -80,57 +80,8 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
         return;
       }
 
-      // Try AI-powered search first
-      try {
-        console.log('Using AI-powered search...');
-        const { data: aiResults, error: aiError } = await withTimeout(
-          supabase.functions.invoke('search', {
-            body: { query: searchQuery }
-          }),
-          10000,
-          'AI search timed out'
-        );
-
-        if (aiError) {
-          console.error('AI search error:', aiError);
-          throw aiError;
-        }
-
-        if (aiResults && Array.isArray(aiResults) && aiResults.length > 0) {
-          console.log('AI search results:', aiResults);
-          
-          // Transform AI results to match Person interface
-          const transformedResults: Person[] = aiResults.map(person => ({
-            id: person.id,
-            name: person.name,
-            title: person.title,
-            bio: person.bio || '',
-            expertise: person.expertise || [],
-            imageUrl: person.imageUrl || '/placeholder.svg',
-            rating: Number(person.rating) || 0,
-            price: {
-              hourly: Number(person.price?.hourly) || 0,
-              currency: person.price?.currency || 'USD'
-            },
-            location: person.location || '',
-            pastEvents: person.pastEvents || 0,
-            type: person.type || 'speaker'
-          }));
-
-          onResults(transformedResults);
-          toast({
-            title: "AI Search Complete",
-            description: `Found ${transformedResults.length} people matching your criteria using AI`,
-          });
-          return;
-        }
-      } catch (aiError) {
-        console.log('AI search failed, falling back to database search:', aiError);
-      }
-
-      // Fallback to enhanced database search
       console.log('Using enhanced database search...');
-      
+
       // Enhanced search with better text matching
       const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
       

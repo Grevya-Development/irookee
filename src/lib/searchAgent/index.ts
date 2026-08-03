@@ -17,8 +17,8 @@
  *   callers, and pre-projected into an index. A query is then a pure in-memory
  *   scan — no network, typically well under 10ms for this corpus size.
  * * **No API key required.** Ranking is deterministic and unit-testable. An LLM
- *   re-ranker can be layered on later via the `search-experts` edge function
- *   without changing this contract.
+ *   re-ranker can be layered on later behind a server without changing this
+ *   contract.
  */
 
 import { supabase } from '@/integrations/supabase/client';

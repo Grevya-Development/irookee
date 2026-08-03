@@ -5,6 +5,7 @@ import { isCurrentUserAdmin } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminLogin from "@/components/admin/AdminLogin";
+import Seo from "@/components/Seo";
 
 /**
  * Dedicated /admin entry point. Renders its own login screen (separate from the
@@ -59,7 +60,8 @@ const Admin = () => {
   if (authLoading || isAdmin === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+        <Seo title="Admin Console" description="irookee administration." noindex />
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
       </div>
     );
   }

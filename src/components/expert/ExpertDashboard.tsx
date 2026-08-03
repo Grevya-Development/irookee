@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import ExpertStatsCard from '@/components/gamification/ExpertStatsCard'
 import ExpertTierBadge from '@/components/gamification/ExpertTierBadge'
+import { canTransition, type BookingStatus } from '@/lib/bookingRules'
 import { formatBookingDuration, formatZonedBookingTime, getBookingDurationMinutes, getBookingStart, isUpcomingBooking, isPastBooking } from '@/lib/bookingUtils'
 import { notifyBookingEvent } from '@/lib/notifications'
 
@@ -157,6 +158,53 @@ export function ExpertDashboard() {
             </CardContent>
           </Card>
         </div>
+      </div>
+    )
+  }
+
+  // A suspended expert previously fell through to the "Complete Expert
+  // Onboarding" screen (or a blank profile tab) with no explanation, which
+  // invited them to submit a duplicate application.
+  if (expertProfile.verification_status === 'suspended') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <div className="container mx-auto px-4 pt-24 pb-12 max-w-2xl flex-1">
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserX className="h-5 w-5 text-destructive" aria-hidden="true" />
+                Your expert profile is suspended
+              </CardTitle>
+              <CardDescription>
+                While suspended you cannot receive new bookings, and your profile is
+                hidden from search.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {typeof expertProfile.suspension_reason === 'string' && expertProfile.suspension_reason && (
+                <div className="rounded-lg border bg-muted/50 p-4">
+                  <p className="text-sm font-medium text-foreground">Reason given</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {String(expertProfile.suspension_reason)}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Your profile, availability and past sessions are all preserved and will
+                return exactly as they were once the suspension is lifted. You do not
+                need to re-apply.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => navigate('/dashboard')}>Go to my dashboard</Button>
+                <Button variant="outline" onClick={() => navigate('/')}>
+                  Return to homepage
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Footer />
       </div>
     )
   }
@@ -319,7 +367,10 @@ export function ExpertDashboard() {
         </TabsList>
 
         <TabsContent value="bookings">
-          <BookingsList expertId={String(expertProfile.id)} />
+          <BookingsList
+            expertId={String(expertProfile.id)}
+            expertName={String(expertProfile.name || expertProfile.full_name || "your expert")}
+          />
         </TabsContent>
 
         <TabsContent value="availability">
@@ -381,7 +432,7 @@ export function ExpertDashboard() {
   )
 }
 
-function BookingsList({ expertId }: { expertId: string }) {
+function BookingsList({ expertId, expertName }: { expertId: string; expertName: string }) {
   const { user } = useAuth()
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -434,32 +485,57 @@ function BookingsList({ expertId }: { expertId: string }) {
 
   const updateStatus = async (bookingId: string, status: string) => {
     const booking = bookings.find((item) => item.id === bookingId)
+    if (!booking) return
+
+    // Shared rules, so the expert's Decline is held to the same timing guards as
+    // the consumer's Cancel, and a session cannot be completed before it starts.
+    const verdict = canTransition(booking, status as BookingStatus, { actor: 'expert' })
+    if (!verdict.allowed) {
+      toast({
+        title: 'Not allowed',
+        description: verdict.reason,
+        variant: 'destructive',
+      })
+      return
+    }
+
     const { error } = await supabase
       .from('expertise_bookings')
       .update({ status })
       .eq('id', bookingId)
 
     if (error) {
-      toast({ title: "Error", description: "Failed to update booking", variant: "destructive" })
-    } else {
-      if (booking && (status === 'confirmed' || status === 'cancelled')) {
-        await notifyBookingEvent({
-          bookingId,
-          eventType: status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled',
-          userId: booking.user_id,
-          userEmail: booking.customer_email,
-          expertUserId: user?.id,
-          expertEmail: user?.email,
-          expertName: 'Your expert',
-          customerName: booking.customer_name,
-          scheduledAt: getBookingStart(booking),
-          durationMinutes: getBookingDurationMinutes(booking),
-          meetingLink: booking.meeting_link,
-        })
-      }
-      toast({ title: "Updated", description: `Booking marked as ${status}` })
-      fetchBookings()
+      // Surface the real reason instead of a generic string. A CHECK-constraint
+      // violation (e.g. a status the database does not allow) is otherwise
+      // indistinguishable from a network failure.
+      console.error('Booking status update failed:', error)
+      toast({
+        title: 'Could not update booking',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      })
+      return
     }
+
+    if (status === 'confirmed' || status === 'cancelled') {
+      await notifyBookingEvent({
+        bookingId,
+        eventType: status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled',
+        userId: booking.user_id,
+        userEmail: booking.customer_email,
+        expertUserId: user?.id,
+        expertEmail: user?.email,
+        // Was hardcoded to 'Your expert', which shipped that literal string into
+        // the consumer's notification on the pending route.
+        expertName: expertName,
+        customerName: booking.customer_name,
+        scheduledAt: getBookingStart(booking),
+        durationMinutes: getBookingDurationMinutes(booking),
+        meetingLink: booking.meeting_link,
+      })
+    }
+    toast({ title: 'Updated', description: `Booking marked as ${status.replace('_', ' ')}` })
+    fetchBookings()
   }
 
   if (loading) return <div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" /></div>

@@ -21,10 +21,8 @@ const ProfileSetup = () => {
     id: string
     full_name: string
     email: string
-    company: string
-    phone: string
-    bio: string
-    hourly_rate: number
+    company: string | null
+    phone: string | null
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);

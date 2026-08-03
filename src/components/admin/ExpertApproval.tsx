@@ -11,6 +11,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createInAppNotification, sendNotificationEmail } from "@/lib/notifications";
 
+/** Columns that exist in the database but not yet in the generated types. */
+type SuspendableSpeaker = {
+  id?: string
+  user_id?: string | null
+  verification_status?: string | null
+  is_verified?: boolean | null
+  suspension_history?: unknown
+}
+
+
 interface ExpertRow {
   id: string;
   name: string;
@@ -125,16 +135,30 @@ const ExpertApproval = () => {
         .from('speakers')
         .select('suspension_history, verification_status, user_id')
         .eq('id', expertId)
-        .single();
+        .single() as unknown as { data: SuspendableSpeaker | null };
 
       const isUnsuspend = speaker?.verification_status === 'suspended';
       const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+
+      // Unsuspending restored 'verified' unconditionally, which published experts
+      // who had been pending or rejected before they were suspended. Restore the
+      // status recorded at suspension time instead.
+      const lastSuspension = [...history]
+        .reverse()
+        .find((entry) => (entry as { action?: string })?.action === 'suspended') as
+        | { previous_status?: string }
+        | undefined;
+      const restoredStatus = isUnsuspend
+        ? lastSuspension?.previous_status || 'verified'
+        : 'verified';
+
       const updatedHistory = isUnsuspend
         ? [
             ...history,
             {
               action: "unsuspended",
-              reason: "Unsuspended / Approved by admin",
+              reason: `Unsuspended by admin; status restored to ${restoredStatus}`,
+              restored_status: restoredStatus,
               timestamp: new Date().toISOString(),
             }
           ]
@@ -143,7 +167,7 @@ const ExpertApproval = () => {
       const { error } = await supabase
         .from('speakers')
         .update({
-          verification_status: 'verified',
+          verification_status: restoredStatus,
           suspension_reason: null,
           suspended_at: null,
           suspension_history: updatedHistory,
@@ -161,24 +185,42 @@ const ExpertApproval = () => {
       }
 
       const expert = experts.find((item) => item.id === expertId);
+
+      // A reinstatement is not an approval. Reporting it as "Expert profile
+      // approved" misdescribed the event to the expert.
+      const subject = isUnsuspend
+        ? "Your Irookee account has been reinstated"
+        : "Your Irookee expert profile was approved";
+      const notificationTitle = isUnsuspend
+        ? "Your account has been reinstated"
+        : "Expert profile approved";
+      const notificationBody = isUnsuspend
+        ? "Your suspension has been lifted and your expert profile is active again."
+        : "Your Irookee expert profile is now live and ready to receive bookings.";
+
       if (expert?.email) {
         await sendNotificationEmail({
           to: expert.email,
-          subject: "Your Irookee expert profile was approved",
-          eventType: "expert_approved",
-          html: "<p>Your Irookee expert profile was approved.</p><p>You can now receive bookings from users.</p>",
+          subject,
+          eventType: isUnsuspend ? "expert_reinstated" : "expert_approved",
+          html: `<p>${notificationBody}</p>`,
           userId: expert.user_id,
         });
       }
       await createInAppNotification({
         userId: expert?.user_id,
-        title: "Expert profile approved",
-        body: "Your Irookee expert profile is now live and ready to receive bookings.",
-        type: "expert_approved",
+        title: notificationTitle,
+        body: notificationBody,
+        type: isUnsuspend ? "expert_reinstated" : "expert_approved",
         relatedId: expertId,
       });
 
-      toast({ title: "Expert Approved", description: "Profile is now live on the platform" });
+      toast({
+        title: isUnsuspend ? "Expert Reinstated" : "Expert Approved",
+        description: isUnsuspend
+          ? `Suspension lifted; status restored to ${restoredStatus}.`
+          : "Profile is now live on the platform",
+      });
       fetchExperts();
     } catch (error: unknown) {
       console.error('Approve error:', error);
@@ -196,9 +238,9 @@ const ExpertApproval = () => {
     try {
       const { data: speaker } = await supabase
         .from('speakers')
-        .select('suspension_history, user_id')
+        .select('suspension_history, user_id, verification_status')
         .eq('id', expertId)
-        .single();
+        .single() as unknown as { data: SuspendableSpeaker | null };
 
       const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
       const updatedHistory = [
@@ -206,6 +248,9 @@ const ExpertApproval = () => {
         {
           action: "suspended",
           reason: reason.trim() || "Suspended by admin",
+          // Recorded so unsuspending restores the real prior status instead of
+          // promoting a pending/rejected expert straight to verified.
+          previous_status: speaker?.verification_status || 'verified',
           timestamp: new Date().toISOString(),
         }
       ];
@@ -229,6 +274,16 @@ const ExpertApproval = () => {
           .from('profiles')
           .update({ user_type: 'suspended' })
           .eq('id', speaker.user_id);
+
+        // Suspension previously produced no notification at all, so the expert
+        // had to discover it by finding their dashboard empty.
+        await createInAppNotification({
+          userId: speaker.user_id,
+          title: "Your expert profile has been suspended",
+          body: `${reason.trim() || 'Suspended by admin'} — contact support if you believe this is a mistake.`,
+          type: "expert_suspended",
+          relatedId: expertId,
+        });
       }
 
       toast({ title: "Expert Suspended", description: "Expert profile has been suspended" });
@@ -252,16 +307,13 @@ const ExpertApproval = () => {
 
       if (error) throw error;
 
-      // Reflect the decision on the verification request, if one exists. Wrapped
-      // because the table may not exist in every environment.
-      try {
-        await supabase
-          .from('verification_requests' as never)
-          .update({ status: value ? 'approved' : 'pending', reviewed_at: new Date().toISOString() })
-          .eq('speaker_id', expertId);
-      } catch {
-        /* no-op */
-      }
+      // Reflect the decision on the verification request, if one exists. The
+      // result error is deliberately ignored: environments without rows here
+      // simply update nothing.
+      await supabase
+        .from('verification_requests')
+        .update({ status: value ? 'approved' : 'pending', reviewed_at: new Date().toISOString() })
+        .eq('speaker_id', expertId);
 
       toast({
         title: value ? "Verified badge granted" : "Verified badge removed",
@@ -289,11 +341,9 @@ const ExpertApproval = () => {
       if (error) throw error;
 
       await supabase
-        .from('verification_requests' as never)
+        .from('verification_requests')
         .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
-        .eq('speaker_id', expertId)
-        .then(() => {})
-        .catch(() => {});
+        .eq('speaker_id', expertId);
 
       const expert = experts.find((item) => item.id === expertId);
       if (expert?.email) {

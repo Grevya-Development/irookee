@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { buildExpertJsonLd } from "@/lib/structuredData";
 
 interface ReviewRow {
   id: string
@@ -188,6 +189,12 @@ export default function ExpertProfile() {
         path={`/expert/${expert.id}`}
         image={expert.image_url || undefined}
         type="profile"
+        breadcrumbs={[
+          { name: 'Home', path: '/' },
+          { name: 'Experts', path: '/experts' },
+          { name: expert.name || 'Expert', path: `/expert/${expert.id}` },
+        ]}
+        structuredData={buildExpertJsonLd(expert)}
       />
       <Navigation />
       <div className="container mx-auto px-4 pt-24 pb-12">

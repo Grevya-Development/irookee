@@ -22,6 +22,7 @@ import ReviewForm from '@/components/ReviewForm'
 import { formatBookingDuration, formatZonedBookingTime, getBookingDurationMinutes, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
 import { notifyBookingEvent } from '@/lib/notifications'
 import { isCurrentUserAdmin } from '@/lib/auth'
+import Seo from "@/components/Seo";
 
 const getExpertName = (booking: {
   speakers?: { name?: string | null; full_name?: string | null } | null
@@ -38,6 +39,28 @@ export default function Dashboard() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  /** Bookings this user has already reviewed, so the button reflects reality. */
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set())
+
+  const loadReviewedBookings = async () => {
+    if (!user) return
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('booking_id')
+      .eq('reviewer_id', user.id)
+    if (error) {
+      console.error('Could not load review history:', error)
+      return
+    }
+    setReviewedBookingIds(
+      new Set((data || []).map((r) => r.booking_id).filter((id): id is string => Boolean(id)))
+    )
+  }
+
+  useEffect(() => {
+    loadReviewedBookings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, bookings.length])
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -141,7 +164,7 @@ export default function Dashboard() {
   if (authLoading) {
     return (
       <div className="min-h-screen py-12 container mx-auto px-4">
-        <div className="text-center">
+              <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
         </div>
       </div>
@@ -168,6 +191,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Seo title="My Dashboard" description="Manage your irookee bookings, sessions and reviews." noindex />
       <Navigation />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 max-w-6xl space-y-6 flex-1">
         <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
@@ -355,17 +379,26 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           {booking.status === 'completed' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setReviewBooking({
-                                id: booking.id,
-                                expertId: booking.expert_id,
-                                expertName: getExpertName(booking)
-                              })}
-                            >
-                              <Star className="h-3 w-3 mr-1" /> Review
-                            </Button>
+                            reviewedBookingIds.has(booking.id) ? (
+                              // The label used to stay "Review" after submitting,
+                              // implying no review had been left — and the button
+                              // still allowed a duplicate insert.
+                              <Button size="sm" variant="ghost" disabled>
+                                <Star className="h-3 w-3 mr-1 fill-current" /> Reviewed
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setReviewBooking({
+                                  id: booking.id,
+                                  expertId: booking.expert_id,
+                                  expertName: getExpertName(booking)
+                                })}
+                              >
+                                <Star className="h-3 w-3 mr-1" /> Review
+                              </Button>
+                            )
                           )}
                           {getStatusBadge(booking.status)}
                         </div>

@@ -7,29 +7,75 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>irookee - Find and Book Expert Guidance</title>
-    <meta name="description" content="Connect instantly with verified professionals, mentors, and guides for any life, career, or travel situation. People for People." />
+    <title>irookee — Book Verified Experts &amp; Companions</title>
+    <meta name="description" content="Book one-on-one sessions with verified experts, mentors and trusted companions — for career, health, finance, travel, hospital visits, errands and everyday support." />
     <meta name="author" content="irookee" />
-    
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+    <!-- Canonical. irookee.com and irookee.vercel.app serve identical content;
+         without this they compete as duplicates. Per-route canonicals are set
+         by src/components/Seo.tsx once the app mounts. -->
+    <link rel="canonical" href="https://irookee.com/" />
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://irookee.vercel.app" />
-    <meta property="og:title" content="irookee - Find and Book Expert Guidance" />
-    <meta property="og:description" content="Connect instantly with verified professionals, mentors, and guides for any life, career, or travel situation. People for People." />
+    <meta property="og:url" content="https://irookee.com/" />
+    <meta property="og:title" content="irookee — Book Verified Experts &amp; Companions" />
+    <meta property="og:description" content="Book one-on-one sessions with verified experts, mentors and trusted companions — for career, health, finance, travel, hospital visits, errands and everyday support." />
     <meta property="og:site_name" content="irookee" />
-    <meta property="og:image" content="https://irookee.vercel.app/og-image.png" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:image" content="https://irookee.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="irookee — People for People" />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://irookee.vercel.app" />
-    <meta property="twitter:title" content="irookee - Find and Book Expert Guidance" />
-    <meta property="twitter:description" content="Connect instantly with verified professionals, mentors, and guides for any life, career, or travel situation. People for People." />
-    <meta property="twitter:image" content="https://irookee.vercel.app/og-image.png" />
+    <!-- Twitter. Uses name= to match what Seo.tsx writes, so the tag is
+         updated in place instead of duplicated. -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="irookee — Book Verified Experts &amp; Companions" />
+    <meta name="twitter:description" content="Book one-on-one sessions with verified experts, mentors and trusted companions — for career, health, finance, travel, hospital visits, errands and everyday support." />
+    <meta name="twitter:image" content="https://irookee.com/og-image.png" />
+
+    <!-- Organization + WebSite. Static so crawlers that do not execute JS still
+         get them; per-page entities are injected by Seo.tsx. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://irookee.com/#organization",
+          "name": "irookee",
+          "url": "https://irookee.com/",
+          "logo": "https://irookee.com/icon-512.png",
+          "description": "A peer-to-peer marketplace connecting people with verified experts, mentors and trusted companions.",
+          "email": "kavin@irookee.com"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://irookee.com/#website",
+          "url": "https://irookee.com/",
+          "name": "irookee",
+          "publisher": { "@id": "https://irookee.com/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://irookee.com/experts?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Every page fetches expert data from Supabase; warming the connection
+         removes a DNS+TLS round trip from the critical path. -->
+    <link rel="preconnect" href="https://tlsdxbjoghpfzltubshs.supabase.co" crossorigin>
+    <link rel="dns-prefetch" href="https://tlsdxbjoghpfzltubshs.supabase.co">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>

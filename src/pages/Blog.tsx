@@ -2,6 +2,8 @@
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen } from "lucide-react";
+import Seo from "@/components/Seo";
+import { ROUTE_SEO } from "@/lib/seoMeta";
 
 const Blog = () => {
   const blogPosts = [
@@ -33,6 +35,11 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <Seo
+        title={ROUTE_SEO.blog.title}
+        description={ROUTE_SEO.blog.description}
+        path={ROUTE_SEO.blog.path}
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 pt-32">
