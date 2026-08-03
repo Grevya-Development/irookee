@@ -72,6 +72,12 @@ export interface AgentFilters {
   sortBy?: 'rating' | 'sessions' | 'experience' | 'relevance';
   /** Restrict to providers offering this companionship service slug. */
   service?: string;
+  /**
+   * Restrict to companions — providers offering at least one companionship
+   * vertical. Companionship surfaces MUST set this: experts and companions are
+   * two distinct services and cross-matching them mis-sells a booking (COMP-4).
+   */
+  companionsOnly?: boolean;
   limit?: number;
 }
 
@@ -125,7 +131,15 @@ const categoryIds = (row: SpeakerRow): string[] =>
  * provider as offering that vertical.
  */
 export function servicesFor(row: SpeakerRow): string[] {
-  const tags = [...(row.topics ?? []), ...(row.expertise ?? []), ...categoryNames(row)];
+  // `title` counts as a declaration too: a provider whose title reads "Hospital
+  // Companion" is one, even if they never filled in topic tags. Missing them
+  // here would wrongly exclude a real companion from companionship surfaces.
+  const tags = [
+    row.title,
+    ...(row.topics ?? []),
+    ...(row.expertise ?? []),
+    ...categoryNames(row),
+  ];
   const found = new Set<string>();
   for (const tag of tags) {
     if (!tag) continue;
@@ -135,12 +149,22 @@ export function servicesFor(row: SpeakerRow): string[] {
       found.add(prefixed[1]);
       continue;
     }
+    if (COMPANION_META_TAG_PREFIXES.some((prefix) => lower.startsWith(prefix))) continue;
     for (const [slug, aliases] of SERVICE_TAG_ALIASES) {
       if (aliases.some((alias) => lower.includes(alias))) found.add(slug);
     }
   }
   return Array.from(found);
 }
+
+/**
+ * Tag prefixes that carry companion metadata rather than a service declaration.
+ *
+ * Service detection is substring-based, so an unguarded coverage tag such as
+ * "Serves: Hospital Companion Road" would otherwise declare a hospital service.
+ * Tags starting with these are descriptive only — searchable, never a service.
+ */
+export const COMPANION_META_TAG_PREFIXES = ['serves:', 'available:'] as const;
 
 /** Tag text that identifies each companionship vertical. */
 const SERVICE_TAG_ALIASES: [string, string[]][] = [
@@ -250,6 +274,12 @@ const passesFilters = (
   if (minRating && doc.rating < minRating) return false;
 
   if (filters.service && !doc.services.includes(filters.service)) return false;
+
+  // Hard service boundary: a companionship surface never shows an expert who
+  // offers no companionship vertical, even when the corpus holds no companions
+  // at all. An empty state is the correct answer there — an advisory expert with
+  // a live Book Now button is a mis-sold booking (COMP-4).
+  if (filters.companionsOnly && doc.services.length === 0) return false;
 
   return true;
 };

@@ -31,6 +31,18 @@ export const ROUTE_SEO = {
       'Book a verified companion for hospital visits, shopping, errands, travel, outings, social time, digital help, events and caregiver respite.',
     path: '/companionship',
   },
+  companionSearch: {
+    title: 'Find a Verified Companion Near You',
+    description:
+      'Search verified irookee companions for hospital visits, shopping, errands, travel, outings and social time. Companions only — never expert-consulting profiles.',
+    path: '/companionship/search',
+  },
+  companionApply: {
+    title: 'Apply as an irookee Companion',
+    description:
+      'Become a verified irookee companion. Choose the companionship services you offer, set where you can travel in person, and complete ID verification.',
+    path: '/companionship/apply',
+  },
   leaderboard: {
     title: 'Top-Rated Expert Leaderboard',
     description:

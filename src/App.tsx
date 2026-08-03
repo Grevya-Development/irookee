@@ -31,6 +31,8 @@ const ExpertDashboard = lazy(() => import("./components/expert/ExpertDashboard")
 const GuestProfile = lazy(() => import("./pages/GuestProfile"));
 const Companionship = lazy(() => import("./pages/Companionship"));
 const CompanionService = lazy(() => import("./pages/CompanionService"));
+const CompanionSearch = lazy(() => import("./pages/CompanionSearch"));
+const CompanionApply = lazy(() => import("./pages/CompanionApply"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Settings = lazy(() => import("./pages/Settings"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -77,6 +79,10 @@ const AnimatedRoutes = () => {
           <Route path="/experts" element={<Search />} />
           <Route path="/search" element={<Search />} />
           <Route path="/companionship" element={<Companionship />} />
+          {/* Static segments must be declared before the :slug catch-all is read
+              by a human; React Router ranks them above it either way. */}
+          <Route path="/companionship/search" element={<CompanionSearch />} />
+          <Route path="/companionship/apply" element={<CompanionApply />} />
           <Route path="/companionship/:slug" element={<CompanionService />} />
           <Route path="/expert/:id" element={<ExpertProfile />} />
           <Route path="/booking" element={<Booking />} />

@@ -40,6 +40,7 @@ const Companionship = () => (
 
           <div className="mt-8 max-w-2xl mx-auto text-left">
             <SearchBar
+              scope="companions"
               placeholder="Try: someone to take my mother to her hospital appointment"
               label="Describe the companionship you need"
               submitLabel="Find companions"
@@ -136,14 +137,18 @@ const Companionship = () => (
             If you are patient, reliable and good with people, you can earn by
             being there for someone in your city.
           </p>
+          {/* Both CTAs stay inside the companionship service. They previously
+              pointed at /expert/onboarding and /experts, so an applicant landed
+              on the generic expert form (COMP-2) and a browser landed on a list
+              of advisory experts (COMP-3). */}
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link to="/expert/onboarding">Apply as a companion</Link>
+              <Link to="/companionship/apply">Apply as a companion</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link to="/experts">
+              <Link to="/companionship/search">
                 <Search className="mr-2 h-4 w-4" aria-hidden="true" />
-                Browse everyone
+                Browse all companions
               </Link>
             </Button>
           </div>

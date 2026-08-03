@@ -2,8 +2,8 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/sections/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Shield, Users, Sparkles, Globe, Heart, Target } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Shield, Users, Sparkles, Globe, Heart, Target, HeartHandshake } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import Seo from "@/components/Seo";
 import { ROUTE_SEO } from "@/lib/seoMeta";
 
@@ -24,11 +24,18 @@ const About = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center max-w-4xl">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">About irookee</h1>
           <p className="text-xl text-muted-foreground mb-6">
-            A world where every person  -  regardless of geography, income, language, or background  - 
+            A world where every person  -  regardless of geography, income, language, or background  -
             can access the right human expertise for any situation in their life, instantly.
           </p>
           <p className="text-lg text-muted-foreground italic">
             "The right person, for any situation, available to everyone  -  not just the privileged few."
+          </p>
+          {/* Companionship is a core offering, not an add-on (COMP-1). */}
+          <p className="text-base text-muted-foreground mt-6">
+            irookee runs on two offerings: <strong className="text-foreground">expert consulting</strong>,
+            for when you need someone who knows, and{' '}
+            <strong className="text-foreground">companionship</strong>, for when you need
+            someone there.
           </p>
         </div>
       </section>
@@ -42,10 +49,11 @@ const About = () => {
                 <Target className="h-10 w-10 text-primary mb-4" />
                 <h2 className="text-2xl font-bold mb-3">Our Mission</h2>
                 <p className="text-muted-foreground">
-                  To build the world's most trusted, accessible, and comprehensive human expertise
-                  marketplace that connects people to verified professionals across every domain of human life.
-                  From a cardiologist at midnight to a startup mentor before your investor pitch  -  irookee
-                  makes it possible.
+                  To build the world's most trusted, accessible, and comprehensive human help
+                  marketplace that connects people to verified professionals and companions across
+                  every domain of human life. From a cardiologist at midnight, to a startup mentor
+                  before your investor pitch, to a verified companion who takes your mother to her
+                  hospital appointment  -  irookee makes it possible.
                 </p>
               </CardContent>
             </Card>
@@ -69,6 +77,7 @@ const About = () => {
               { icon: Heart, title: "Democratisation", desc: "Breaking down barriers to quality expertise. 207+ categories, from healthcare to dating coaching." },
               { icon: Shield, title: "Trust & Safety", desc: "Every expert goes through rigorous KYC and document verification. No shortcuts on trust." },
               { icon: Users, title: "Inclusivity", desc: "Built for Bharat and beyond. Multilingual support, accessible design, and fair platform for all." },
+              { icon: HeartHandshake, title: "Presence", desc: "Some needs are not answered with advice. Verified companions show up in person for hospital visits, errands, outings and simple company." },
               { icon: Sparkles, title: "AI-Powered", desc: "Our Prompt Engine matches you with the perfect expert using natural language  -  describe your problem, we find the person." },
               { icon: Target, title: "Impact", desc: "Every successful connection improves someone's life. We measure success in lives changed, not just sessions booked." },
               { icon: Globe, title: "Global Reach", desc: "Connecting experts and users across borders, cultures, and industries  -  starting from India, expanding worldwide." },
@@ -102,11 +111,14 @@ const About = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Whether you need expert guidance or want to share your expertise with the world  - 
-            irookee is the place for you.
+            Whether you need expert guidance, someone beside you for the day, or want to
+            share what you can offer  -  irookee is the place for you.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Button size="lg" onClick={() => navigate('/experts')}>Find an Expert</Button>
+            <Button asChild size="lg" variant="outline">
+              <Link to="/companionship">Book a Companion</Link>
+            </Button>
             <Button size="lg" variant="outline" onClick={() => navigate('/expert/onboarding')}>Become an Expert</Button>
           </div>
         </div>

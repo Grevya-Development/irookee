@@ -5,7 +5,7 @@
  * vector) at index time, so a query only costs a walk over candidate documents.
  */
 
-import { conceptSimilarity, conceptsFor } from './concepts';
+import { COMPANIONSHIP_CONCEPT_IDS, conceptSimilarity, conceptsFor } from './concepts';
 import type { ParsedIntent } from './intent';
 import { fuzzyRatio, normalizeText, stem, STOPWORDS, words } from './tokenize';
 
@@ -98,20 +98,39 @@ export function buildDoc<T>(id: string, item: T, fields: DocFields): IndexedDoc<
     .map((v) => normalizeText(v))
     .join(' · ');
 
+  const services = (fields.services ?? []).filter(Boolean).map((s) => normalizeText(s));
+
   return {
     id,
     item,
     termWeights,
     termList: Array.from(new Set(collected)),
-    concepts: conceptsFor(Array.from(new Set(collected))),
+    concepts: projectConcepts(Array.from(new Set(collected)), services.length > 0),
     haystack,
     location: normalizeText(fields.location),
     languages: (fields.languages ?? []).filter(Boolean).map((l) => normalizeText(l)),
     rating: Number(fields.rating) || 0,
     sessions: Number(fields.sessions) || 0,
     verified: Boolean(fields.verified),
-    services: (fields.services ?? []).filter(Boolean).map((s) => normalizeText(s)),
+    services,
   };
+}
+
+/**
+ * Project a provider's text onto the concept space, enforcing the service
+ * boundary between companionship and expert consulting.
+ *
+ * A provider who offers no companionship vertical keeps every advisory concept
+ * but carries none of the companionship ones, however their bio happens to be
+ * worded. This is what stops a Public Speaking Coach from being scored — and
+ * labelled "Matched on: Companionship" — for "someone to shop" (COMP-4).
+ */
+function projectConcepts(stems: string[], offersCompanionship: boolean): Map<string, number> {
+  const concepts = conceptsFor(stems);
+  if (offersCompanionship) return concepts;
+
+  for (const id of COMPANIONSHIP_CONCEPT_IDS) concepts.delete(id);
+  return concepts;
 }
 
 export interface ScoredDoc<T> {
