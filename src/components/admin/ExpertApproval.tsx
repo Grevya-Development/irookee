@@ -1,0 +1,710 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CheckCircle, X, Eye, Loader2, FileText, Shield, AlertCircle, Search, BadgeCheck, ShieldAlert } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createInAppNotification, sendNotificationEmail } from "@/lib/notifications";
+
+/** Columns that exist in the database but not yet in the generated types. */
+type SuspendableSpeaker = {
+  id?: string
+  user_id?: string | null
+  verification_status?: string | null
+  is_verified?: boolean | null
+  suspension_history?: unknown
+}
+
+
+interface ExpertRow {
+  id: string;
+  name: string;
+  title: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  location: string | null;
+  expertise: string[] | null;
+  expertise_areas: string[] | null;
+  experience_years: number | null;
+  verification_status: string | null;
+  is_verified: boolean | null;
+  verification_documents: Record<string, unknown> | null;
+  created_at: string;
+  bio: string | null;
+  linkedin_url: string | null;
+  user_id: string | null;
+  suspension_reason?: string | null;
+  suspended_at?: string | null;
+  suspension_history?: unknown[] | null;
+}
+
+const VERIFICATION_BUCKET = "verification-documents";
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
+const ExpertApproval = () => {
+  const [experts, setExperts] = useState<ExpertRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedExpert, setSelectedExpert] = useState<ExpertRow | null>(null);
+  const [filter, setFilter] = useState<'pending' | 'verified' | 'rejected' | 'suspended' | 'all'>('pending');
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchExperts();
+  }, [filter]);
+
+  const fetchExperts = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('speakers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (filter !== 'all') {
+        query = query.eq('verification_status', filter);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Fetch error:', error);
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      }
+      setExperts((data || []) as ExpertRow[]);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openDocument = async (url: string) => {
+    try {
+      if (!url || url.startsWith('local://')) return;
+
+      if (/^https?:\/\//i.test(url) && !url.includes(`/${VERIFICATION_BUCKET}/`)) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      let normalizedPath = url;
+      if (url.includes("/" + VERIFICATION_BUCKET + "/")) {
+        normalizedPath = url.split("/" + VERIFICATION_BUCKET + "/")[1];
+      } else {
+        normalizedPath = url.replace(/^\/+/, "").replace(new RegExp(`^${VERIFICATION_BUCKET}/`), "");
+      }
+
+      try {
+        normalizedPath = decodeURIComponent(normalizedPath.split('?')[0]);
+      } catch (decodeErr) {
+        console.warn("Could not decode document URI path, using raw path:", decodeErr);
+        normalizedPath = normalizedPath.split('?')[0];
+      }
+      
+      const { data, error } = await supabase.storage
+        .from(VERIFICATION_BUCKET)
+        .createSignedUrl(normalizedPath, 300);
+
+      if (error || !data?.signedUrl) throw error || new Error("Document URL could not be created");
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error opening verification document:", error);
+      toast({
+        title: "Unable to open document",
+        description: "The verification document path or storage permissions need attention.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Approve = make the profile live (listed). The "Verified" badge is a separate,
+  // deliberate decision (handleToggleVerified) so docs are optional.
+  const handleApprove = async (expertId: string) => {
+    setActionLoading(expertId);
+    try {
+      const { data: speaker } = await supabase
+        .from('speakers')
+        .select('suspension_history, verification_status, user_id')
+        .eq('id', expertId)
+        .single() as unknown as { data: SuspendableSpeaker | null };
+
+      const isUnsuspend = speaker?.verification_status === 'suspended';
+      const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+
+      // Unsuspending restored 'verified' unconditionally, which published experts
+      // who had been pending or rejected before they were suspended. Restore the
+      // status recorded at suspension time instead.
+      const lastSuspension = [...history]
+        .reverse()
+        .find((entry) => (entry as { action?: string })?.action === 'suspended') as
+        | { previous_status?: string }
+        | undefined;
+      const restoredStatus = isUnsuspend
+        ? lastSuspension?.previous_status || 'verified'
+        : 'verified';
+
+      const updatedHistory = isUnsuspend
+        ? [
+            ...history,
+            {
+              action: "unsuspended",
+              reason: `Unsuspended by admin; status restored to ${restoredStatus}`,
+              restored_status: restoredStatus,
+              timestamp: new Date().toISOString(),
+            }
+          ]
+        : history;
+
+      const { error } = await supabase
+        .from('speakers')
+        .update({
+          verification_status: restoredStatus,
+          suspension_reason: null,
+          suspended_at: null,
+          suspension_history: updatedHistory,
+        } as never)
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      if (speaker?.user_id && isUnsuspend) {
+        // Update profiles.user_type back to expert
+        await supabase
+          .from('profiles')
+          .update({ user_type: 'expert' })
+          .eq('id', speaker.user_id);
+      }
+
+      const expert = experts.find((item) => item.id === expertId);
+
+      // A reinstatement is not an approval. Reporting it as "Expert profile
+      // approved" misdescribed the event to the expert.
+      const subject = isUnsuspend
+        ? "Your Irookee account has been reinstated"
+        : "Your Irookee expert profile was approved";
+      const notificationTitle = isUnsuspend
+        ? "Your account has been reinstated"
+        : "Expert profile approved";
+      const notificationBody = isUnsuspend
+        ? "Your suspension has been lifted and your expert profile is active again."
+        : "Your Irookee expert profile is now live and ready to receive bookings.";
+
+      if (expert?.email) {
+        await sendNotificationEmail({
+          to: expert.email,
+          subject,
+          eventType: isUnsuspend ? "expert_reinstated" : "expert_approved",
+          html: `<p>${notificationBody}</p>`,
+          userId: expert.user_id,
+        });
+      }
+      await createInAppNotification({
+        userId: expert?.user_id,
+        title: notificationTitle,
+        body: notificationBody,
+        type: isUnsuspend ? "expert_reinstated" : "expert_approved",
+        relatedId: expertId,
+      });
+
+      toast({
+        title: isUnsuspend ? "Expert Reinstated" : "Expert Approved",
+        description: isUnsuspend
+          ? `Suspension lifted; status restored to ${restoredStatus}.`
+          : "Profile is now live on the platform",
+      });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Approve error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to approve"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSuspend = async (expertId: string) => {
+    const reason = window.prompt("Enter reason for suspension:");
+    if (reason === null) return; // cancelled
+
+    setActionLoading(expertId);
+    try {
+      const { data: speaker } = await supabase
+        .from('speakers')
+        .select('suspension_history, user_id, verification_status')
+        .eq('id', expertId)
+        .single() as unknown as { data: SuspendableSpeaker | null };
+
+      const history = speaker && Array.isArray(speaker.suspension_history) ? speaker.suspension_history : [];
+      const updatedHistory = [
+        ...history,
+        {
+          action: "suspended",
+          reason: reason.trim() || "Suspended by admin",
+          // Recorded so unsuspending restores the real prior status instead of
+          // promoting a pending/rejected expert straight to verified.
+          previous_status: speaker?.verification_status || 'verified',
+          timestamp: new Date().toISOString(),
+        }
+      ];
+
+      const { error } = await supabase
+        .from('speakers')
+        .update({
+          verification_status: 'suspended',
+          is_verified: false,
+          suspension_reason: reason.trim() || "Suspended by admin",
+          suspended_at: new Date().toISOString(),
+          suspension_history: updatedHistory,
+        } as never)
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      if (speaker?.user_id) {
+        // Also update profiles.user_type to suspended
+        await supabase
+          .from('profiles')
+          .update({ user_type: 'suspended' })
+          .eq('id', speaker.user_id);
+
+        // Suspension previously produced no notification at all, so the expert
+        // had to discover it by finding their dashboard empty.
+        await createInAppNotification({
+          userId: speaker.user_id,
+          title: "Your expert profile has been suspended",
+          body: `${reason.trim() || 'Suspended by admin'} — contact support if you believe this is a mistake.`,
+          type: "expert_suspended",
+          relatedId: expertId,
+        });
+      }
+
+      toast({ title: "Expert Suspended", description: "Expert profile has been suspended" });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Suspend error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to suspend"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Grant or revoke the Verified badge (the tick mark shown to users).
+  const handleToggleVerified = async (expertId: string, value: boolean) => {
+    setActionLoading(expertId);
+    try {
+      const { error } = await supabase
+        .from('speakers')
+        .update({ is_verified: value })
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      // Reflect the decision on the verification request, if one exists. The
+      // result error is deliberately ignored: environments without rows here
+      // simply update nothing.
+      await supabase
+        .from('verification_requests')
+        .update({ status: value ? 'approved' : 'pending', reviewed_at: new Date().toISOString() })
+        .eq('speaker_id', expertId);
+
+      toast({
+        title: value ? "Verified badge granted" : "Verified badge removed",
+        description: value
+          ? "This expert now shows the Verified badge."
+          : "The Verified badge has been removed.",
+      });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Verify toggle error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to update"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (expertId: string) => {
+    setActionLoading(expertId);
+    try {
+      const { error } = await supabase
+        .from('speakers')
+        .update({ verification_status: 'rejected', is_verified: false })
+        .eq('id', expertId);
+
+      if (error) throw error;
+
+      await supabase
+        .from('verification_requests')
+        .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+        .eq('speaker_id', expertId);
+
+      const expert = experts.find((item) => item.id === expertId);
+      if (expert?.email) {
+        await sendNotificationEmail({
+          to: expert.email,
+          subject: "Your Irookee expert profile needs changes",
+          eventType: "expert_rejected",
+          html: "<p>Your Irookee expert profile was not approved yet.</p><p>Please review your profile details and submit again.</p>",
+          userId: expert.user_id,
+        });
+      }
+      await createInAppNotification({
+        userId: expert?.user_id,
+        title: "Expert profile not approved",
+        body: "Your expert profile needs changes before it can go live.",
+        type: "expert_rejected",
+        relatedId: expertId,
+      });
+
+      toast({ title: "Expert Rejected", description: "Profile has been rejected" });
+      fetchExperts();
+    } catch (error: unknown) {
+      console.error('Reject error:', error);
+      toast({ title: "Error", description: getErrorMessage(error, "Failed to reject"), variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getStatusBadge = (status: string | null) => {
+    switch (status) {
+      case 'verified': return <Badge className="bg-green-100 text-green-800"><Shield className="h-3 w-3 mr-1" />Verified</Badge>;
+      case 'rejected': return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
+      case 'suspended': return <Badge className="bg-orange-100 text-orange-800 border-orange-200"><ShieldAlert className="h-3 w-3 mr-1" />Suspended</Badge>;
+      default: return <Badge variant="secondary"><AlertCircle className="h-3 w-3 mr-1" />Pending</Badge>;
+    }
+  };
+
+  const getDocuments = (expert: ExpertRow) => {
+    const docs = expert.verification_documents as { documents?: { name: string; url: string; type: string }[] } | null;
+    return docs?.documents || [];
+  };
+
+  const getExpertise = (expert: ExpertRow): string[] => {
+    return expert.expertise || expert.expertise_areas || [];
+  };
+
+  const visibleExperts = experts.filter((expert) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+
+    return [
+      expert.name,
+      expert.title,
+      expert.email,
+      expert.location,
+      expert.company,
+      expert.bio,
+      ...getExpertise(expert),
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading experts...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Expert Verification & Approval</CardTitle>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+            <TabsList>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="verified">Verified</TabsTrigger>
+              <TabsTrigger value="rejected">Rejected</TabsTrigger>
+              <TabsTrigger value="suspended">Suspended</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search experts..."
+              className="pl-9"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">{visibleExperts.length} expert(s)</p>
+        </CardHeader>
+        <CardContent>
+          {visibleExperts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No experts in this category</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Expertise</TableHead>
+                  <TableHead>Docs</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Verified</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleExperts.map((expert) => (
+                  <TableRow key={expert.id}>
+                    <TableCell className="font-medium">{expert.name || 'N/A'}</TableCell>
+                    <TableCell>{expert.title || 'N/A'}</TableCell>
+                    <TableCell className="text-xs">{expert.email || 'N/A'}</TableCell>
+                    <TableCell>{expert.location || 'N/A'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {getExpertise(expert).slice(0, 2).map((e, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">{e}</Badge>
+                        ))}
+                        {getExpertise(expert).length > 2 && (
+                          <Badge variant="outline" className="text-xs">+{getExpertise(expert).length - 2}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        <FileText className="h-3 w-3 mr-1" />
+                        {getDocuments(expert).length}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(expert.verification_status)}</TableCell>
+                    <TableCell>
+                      {expert.is_verified ? (
+                        <Badge className="bg-blue-100 text-blue-800">
+                          <BadgeCheck className="h-3 w-3 mr-1" />Verified
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-1">
+                        <Button size="sm" variant="outline" onClick={() => setSelectedExpert(expert)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={expert.is_verified ? "outline" : "default"}
+                          title={expert.is_verified ? "Remove Verified badge" : "Grant Verified badge"}
+                          onClick={() => handleToggleVerified(expert.id, !expert.is_verified)}
+                          disabled={actionLoading === expert.id}
+                        >
+                          {actionLoading === expert.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <BadgeCheck className="h-4 w-4" />}
+                        </Button>
+                        {expert.verification_status === 'pending' && (
+                          <>
+                            <Button size="sm" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
+                              {actionLoading === expert.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleReject(expert.id)} disabled={actionLoading === expert.id}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {expert.verification_status === 'verified' && (
+                          <Button size="sm" variant="destructive" title="Suspend Expert" onClick={() => handleSuspend(expert.id)} disabled={actionLoading === expert.id}>
+                            {actionLoading === expert.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        {expert.verification_status === 'suspended' && (
+                          <Button size="sm" variant="outline" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
+                            Unsuspend
+                          </Button>
+                        )}
+                        {expert.verification_status === 'rejected' && (
+                          <Button size="sm" variant="outline" onClick={() => handleApprove(expert.id)} disabled={actionLoading === expert.id}>
+                            Re-approve
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!selectedExpert} onOpenChange={() => setSelectedExpert(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Expert Details: {selectedExpert?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedExpert && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="font-medium text-muted-foreground">Title</p><p>{selectedExpert.title || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Email</p><p>{selectedExpert.email || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Phone</p><p>{selectedExpert.phone || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Company</p><p>{selectedExpert.company || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Location</p><p>{selectedExpert.location || 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Experience</p><p>{selectedExpert.experience_years ? `${selectedExpert.experience_years} years` : 'N/A'}</p></div>
+                <div><p className="font-medium text-muted-foreground">User ID</p><p className="text-xs font-mono">{selectedExpert.user_id || 'N/A (seeded)'}</p></div>
+                <div><p className="font-medium text-muted-foreground">Submitted</p><p>{new Date(selectedExpert.created_at).toLocaleDateString()}</p></div>
+              </div>
+
+              {selectedExpert.bio && (
+                <div><p className="text-sm font-medium text-muted-foreground">Bio</p><p className="text-sm mt-1">{selectedExpert.bio}</p></div>
+              )}
+
+              {getExpertise(selectedExpert).length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Expertise</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {getExpertise(selectedExpert).map((e, i) => <Badge key={i} variant="outline">{e}</Badge>)}
+                  </div>
+                </div>
+              )}
+
+              {selectedExpert.linkedin_url && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">LinkedIn</p>
+                  <a href={selectedExpert.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">{selectedExpert.linkedin_url}</a>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Verification Documents</p>
+                {getDocuments(selectedExpert).length > 0 ? (
+                  <div className="space-y-2">
+                    {getDocuments(selectedExpert).map((doc, i) => (
+                      <div key={i} className="flex items-center gap-2 p-2 border rounded">
+                        <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                        <span className="text-sm flex-1">{doc.name}</span>
+                        <span className="text-xs text-muted-foreground">{doc.type}</span>
+                        {doc.url && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => openDocument(doc.url)}
+                          >
+                            View
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No documents uploaded</p>
+                )}
+              </div>
+
+              {selectedExpert.verification_status === 'suspended' && (
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded text-sm text-orange-800 space-y-1">
+                  <p className="font-semibold flex items-center gap-1"><ShieldAlert className="h-4 w-4" /> Account Suspended</p>
+                  <p><strong>Reason:</strong> {selectedExpert.suspension_reason || 'N/A'}</p>
+                  <p><strong>Suspended At:</strong> {selectedExpert.suspended_at ? new Date(selectedExpert.suspended_at).toLocaleString() : 'N/A'}</p>
+                </div>
+              )}
+
+              {selectedExpert.suspension_history && Array.isArray(selectedExpert.suspension_history) && selectedExpert.suspension_history.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Suspension & Action History</p>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    {(selectedExpert.suspension_history as unknown as Record<string, string>[]).map((hist, idx) => (
+                      <div key={idx} className="text-xs p-2 bg-gray-50 border rounded flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold capitalize text-gray-700">{hist.action}</p>
+                          <p className="text-gray-600 mt-0.5">{hist.reason || 'No details provided.'}</p>
+                        </div>
+                        <span className="text-gray-400 font-mono text-[10px] shrink-0">{new Date(hist.timestamp).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-4 p-3 border rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">Verified badge</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedExpert.is_verified
+                      ? "This expert shows the Verified badge."
+                      : getDocuments(selectedExpert).length > 0
+                        ? "Documents uploaded - review and grant the badge."
+                        : "No documents uploaded. You can still grant the badge manually."}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={selectedExpert.is_verified ? "outline" : "default"}
+                  onClick={() => { handleToggleVerified(selectedExpert.id, !selectedExpert.is_verified); setSelectedExpert(null); }}
+                  disabled={actionLoading === selectedExpert.id}
+                >
+                  <BadgeCheck className="h-4 w-4 mr-1" />
+                  {selectedExpert.is_verified ? "Remove badge" : "Grant Verified"}
+                </Button>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Current Status</p>
+                <div className="mt-1">{getStatusBadge(selectedExpert.verification_status)}</div>
+              </div>
+
+               {selectedExpert.verification_status === 'pending' && (
+                 <div className="flex gap-3 pt-4 border-t">
+                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
+                     <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                   </Button>
+                   <Button variant="destructive" onClick={() => { handleReject(selectedExpert.id); setSelectedExpert(null); }} className="flex-1">
+                     <X className="h-4 w-4 mr-2" /> Reject
+                   </Button>
+                 </div>
+               )}
+               {selectedExpert.verification_status === 'verified' && (
+                 <div className="pt-4 border-t">
+                   <Button variant="destructive" onClick={() => { handleSuspend(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                     <ShieldAlert className="h-4 w-4 mr-2" /> Suspend Expert
+                   </Button>
+                 </div>
+               )}
+               {selectedExpert.verification_status === 'suspended' && (
+                 <div className="pt-4 border-t">
+                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                     <CheckCircle className="h-4 w-4 mr-2" /> Unsuspend Expert
+                   </Button>
+                 </div>
+               )}
+               {selectedExpert.verification_status === 'rejected' && (
+                 <div className="pt-4 border-t">
+                   <Button onClick={() => { handleApprove(selectedExpert.id); setSelectedExpert(null); }} className="w-full">
+                     <CheckCircle className="h-4 w-4 mr-2" /> Re-approve Expert
+                   </Button>
+                 </div>
+               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+export default ExpertApproval;

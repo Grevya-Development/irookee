@@ -1,0 +1,25 @@
+# irookee — https://irookee.com
+#
+# Private/account routes are excluded: they require auth, render nothing useful
+# to a crawler, and would otherwise be indexed as near-empty duplicates.
+
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /user-dashboard
+Disallow: /settings
+Disallow: /profile-setup
+Disallow: /expert/dashboard
+Disallow: /expert/onboarding
+Disallow: /booking
+Disallow: /auth
+
+# Search result pages: allow the landing views, keep parameterised permutations
+# out of the index so crawl budget goes to expert and service pages.
+Disallow: /experts?
+Disallow: /search?
+Disallow: /speakers?
+
+Sitemap: https://irookee.com/sitemap.xml
