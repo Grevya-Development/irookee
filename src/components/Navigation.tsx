@@ -1,299 +1,170 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X, User, LogIn, LogOut, Settings, Shield, Briefcase } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
-import { NotificationCenter } from "@/components/NotificationCenter";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Sparkles, User, LogOut, LayoutDashboard, Menu, X, Shield, Settings } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { isCurrentUserAdmin } from "@/lib/auth";
+} from '@/components/ui/dropdown-menu';
 
-const Navigation = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const { user, profile, signOut } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const checkAdminState = async () => {
-      if (user) {
-        const adminStatus = await isCurrentUserAdmin();
-        setIsAdmin(adminStatus);
-      } else {
-        setIsAdmin(false);
-      }
-    };
-    checkAdminState();
-  }, [user]);
-
-  const navItems = [
-    { name: "Home", href: "/" },
-    { name: "Experts", href: "/experts" },
-    { name: "Companionship", href: "/companionship" },
-    { name: "Leaderboard", href: "/leaderboard" },
-    { name: "About", href: "/about" },
-  ];
-
-  const handleSignOut = async () => {
-    await signOut();
-    setIsOpen(false);
-  };
-
-  const accountInitial = (profile?.full_name || user?.email || "U")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
+export const Navigation: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-50">
+    <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <img src="/irookee-mark.svg" alt="irookee" className="h-9 w-9 object-contain" />
-              <span className="text-xl font-bold text-gray-900">irookee</span>
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-300">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+              irookee
+            </span>
+          </Link>
+
+          {/* Desktop Nav Links */}
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/search" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Find Experts
             </Link>
-          </div>
-
-          {/*
-            Desktop Navigation.
-
-            Adding "Companionship" made this row wider than the `md` breakpoint it
-            used to switch on at, and with nothing forbidding wrapping, flex broke
-            "Become an Expert" and "Expert Desk" onto two lines inside a 64px row
-            (UI-3). So: switch at `lg`, never wrap a label, and let the tighter
-            spacing come from each item's own padding.
-          */}
-          <div className="hidden lg:flex items-center space-x-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors"
-              >
-                {item.name}
-              </Link>
-            ))}
-            <Link
-              to="/expert/onboarding"
-              className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors"
-            >
+            <Link to="/about" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              How it Works
+            </Link>
+            <Link to="/companion-apply" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               Become an Expert
             </Link>
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className="whitespace-nowrap bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
-              >
-                <Shield className="h-3.5 w-3.5" aria-hidden="true" />
-                Admin<span className="hidden xl:inline">&nbsp;Console</span>
-              </Link>
-            )}
+          </div>
+
+          {/* User Auth / CTA */}
+          <div className="hidden md:flex items-center gap-4">
             {user ? (
-              <div className="flex items-center space-x-1">
-                <NotificationCenter />
-                {/*
-                  The account links show icon-only between lg and xl, where the
-                  full row would not fit. `aria-label` carries the name at every
-                  width, so the label is never lost. (`not-sr-only` would have
-                  been the obvious choice, but it also resets
-                  `white-space: normal`, re-introducing the wrap this fixes.)
-                */}
-                {profile?.user_type === 'expert' && (
-                  <Link
-                    to="/expert/dashboard"
-                    aria-label="Expert Desk"
-                    className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
-                  >
-                    <Briefcase className="h-4 w-4" aria-hidden="true" />
-                    <span className="hidden xl:inline">Expert Desk</span>
-                  </Link>
-                )}
-                <Link
-                  to="/dashboard"
-                  aria-label="Dashboard"
-                  className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
-                >
-                  <User className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden xl:inline">Dashboard</span>
-                </Link>
-                <Link
-                  to="/settings"
-                  aria-label="Settings"
-                  className="whitespace-nowrap text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition-colors flex items-center gap-1"
-                >
-                  <Settings className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden xl:inline">Settings</span>
-                </Link>
-                <div className="pl-2 border-l border-gray-200">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Account menu"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-                      >
-                        {accountInitial}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel className="font-normal">
-                        <span className="block text-sm font-medium text-foreground">
-                          {profile?.full_name || 'Your account'}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {user?.email}
-                        </span>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link to="/dashboard">
-                          <User className="mr-2 h-4 w-4" aria-hidden="true" />
-                          My dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/settings">
-                          <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
-                          Settings
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={handleSignOut}>
-                        <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Sign out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full ring-2 ring-slate-700/50 hover:ring-blue-500/50 transition-all p-0 overflow-hidden">
+                    <img
+                      src={user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'}
+                      alt={user.email || 'User'}
+                      className="w-full h-full object-cover"
+                    />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-slate-800 text-slate-200">
+                  <div className="px-3 py-2 border-b border-slate-800">
+                    <p className="text-sm font-semibold text-white truncate">{user.user_metadata?.full_name || 'Account'}</p>
+                    <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                  </div>
+
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer focus:bg-slate-800 focus:text-white">
+                    <LayoutDashboard className="w-4 h-4 mr-2 text-blue-400" />
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer focus:bg-slate-800 focus:text-white">
+                    <Settings className="w-4 h-4 mr-2 text-indigo-400" />
+                    Settings
+                  </DropdownMenuItem>
+                  
+                  {user.user_metadata?.role === 'admin' && (
+                    <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer focus:bg-slate-800 focus:text-white">
+                      <Shield className="w-4 h-4 mr-2 text-purple-400" />
+                      Admin Panel
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator className="bg-slate-800" />
+                  <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer text-rose-400 focus:bg-rose-500/10 focus:text-rose-300">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <Link
-                to="/auth"
-                className="whitespace-nowrap bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-1"
-              >
-                <LogIn className="h-3 w-3" />
-                Sign In
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link to="/auth">
+                  <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/auth?mode=signup">
+                  <Button variant="gradient" size="sm" className="shadow-lg shadow-blue-500/20">
+                    Get Started
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <div className="lg:hidden flex items-center space-x-2">
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
-              >
-                <Shield className="h-3 w-3" />
-                Admin
-              </Link>
-            )}
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center">
             <button
-              type="button"
-              onClick={() => setIsOpen(!isOpen)}
-              aria-label={isOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isOpen}
-              aria-controls="mobile-navigation"
-              // -mr-2 keeps the icon optically aligned while the tap area meets
-              // the 44x44 minimum.
-              className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded text-gray-700 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             >
-              {isOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
-
-        {/* Mobile Navigation */}
-        {isOpen && (
-          <div className="lg:hidden" id="mobile-navigation">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))}
-              <Link
-                to="/expert/onboarding"
-                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                Become an Expert
-              </Link>
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="text-purple-700 font-semibold block px-3 py-2 text-base transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Admin Console
-                </Link>
-              )}
-              {user ? (
-                <>
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <span className="text-base font-medium text-gray-700">Notifications</span>
-                    <NotificationCenter />
-                  </div>
-                  {profile?.user_type === 'expert' && (
-                    <Link
-                      to="/expert/dashboard"
-                      className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Expert Dashboard
-                    </Link>
-                  )}
-                  <Link
-                    to="/dashboard"
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Client Dashboard
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Settings
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors w-full text-left"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <Link
-                  to="/auth"
-                  className="bg-blue-600 text-white block px-3 py-2 rounded-md text-base font-medium hover:bg-blue-700 transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Sign In
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-6 space-y-3">
+          <Link
+            to="/search"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+          >
+            Find Experts
+          </Link>
+          <Link
+            to="/about"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+          >
+            How it Works
+          </Link>
+          <Link
+            to="/companion-apply"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+          >
+            Become an Expert
+          </Link>
+
+          {user ? (
+            <div className="pt-4 border-t border-slate-800 space-y-2">
+              <Button onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }} variant="outline" className="w-full justify-start border-slate-700 text-slate-200">
+                <LayoutDashboard className="w-4 h-4 mr-2 text-blue-400" />
+                Dashboard
+              </Button>
+              <Button onClick={() => { signOut(); setMobileMenuOpen(false); }} variant="ghost" className="w-full justify-start text-rose-400 hover:bg-rose-500/10">
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            <div className="pt-4 border-t border-slate-800 grid grid-cols-2 gap-3">
+              <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="outline" className="w-full border-slate-700 text-slate-200">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/auth?mode=signup" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="gradient" className="w-full">
+                  Get Started
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 };
-
-export default Navigation;
-

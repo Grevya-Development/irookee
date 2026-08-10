@@ -1,214 +1,42 @@
-import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { withTimeout } from "@/lib/asyncTimeout";
+import React, { useState } from 'react';
+import { Search, Sparkles, X, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
-interface Person {
-  id: string;
-  name: string;
-  title: string;
-  bio: string;
-  expertise: string[];
-  imageUrl: string;
-  rating: number;
-  price: {
-    hourly: number;
-    currency: string;
-  };
-  location: string;
-  pastEvents: number;
-  type: string;
-}
-
-interface IntelligentSearchProps {
-  onResults: (people: Person[]) => void;
-  onLoading: (loading: boolean) => void;
-  onError: (error: string) => void;
-  initialQuery?: string;
-}
-
-const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }: IntelligentSearchProps) => {
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [isSearching, setIsSearching] = useState(false);
-  const { toast } = useToast();
-
-  // Set initial query when component mounts
-  useEffect(() => {
-    if (initialQuery) {
-      setSearchQuery(initialQuery);
-    }
-  }, [initialQuery]);
-
-  const handleSearch = async () => {
-    try {
-      setIsSearching(true);
-      onLoading(true);
-      onError('');
-      
-      console.log('Searching for:', searchQuery);
-      
-      if (!searchQuery.trim()) {
-        // If empty query, load all speakers
-        const { data: speakers, error } = await supabase
-          .from('speakers')
-          .select('*')
-          .limit(20);
-
-        if (error) throw error;
-
-        const transformedPeople: Person[] = (speakers || []).map(speaker => ({
-          id: speaker.id,
-          name: speaker.name,
-          title: speaker.title,
-          bio: speaker.bio || '',
-          expertise: speaker.expertise || [],
-          imageUrl: speaker.image_url || '/placeholder.svg',
-          rating: Number(speaker.rating) || 0,
-          price: {
-            hourly: Number(speaker.hourly_rate) || 0,
-            currency: speaker.currency || 'USD'
-          },
-          location: speaker.location || '',
-          pastEvents: speaker.past_events || 0,
-          type: 'speaker'
-        }));
-
-        onResults(transformedPeople);
-        return;
-      }
-
-      console.log('Using enhanced database search...');
-
-      // Enhanced search with better text matching
-      const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
-      
-      let query = supabase.from('speakers').select('*');
-      
-      // Build comprehensive search conditions
-      const searchConditions = [];
-      
-      searchTerms.forEach(term => {
-        searchConditions.push(
-          `name.ilike.%${term}%`,
-          `title.ilike.%${term}%`,
-          `bio.ilike.%${term}%`,
-          `location.ilike.%${term}%`
-        );
-      });
-
-      // Also search for common professional terms
-      const professionalTerms = {
-        'founder': ['entrepreneur', 'startup', 'ceo', 'founder'],
-        'entrepreneur': ['startup', 'business', 'founder', 'ceo'],
-        'chef': ['culinary', 'cooking', 'food', 'restaurant'],
-        'doctor': ['medical', 'physician', 'health', 'medicine'],
-        'ai': ['artificial intelligence', 'machine learning', 'technology'],
-        'business': ['strategy', 'consultant', 'management', 'leadership'],
-        'yoga': ['wellness', 'meditation', 'fitness', 'instructor'],
-        'pilot': ['aviation', 'flight', 'aircraft'],
-        'teacher': ['education', 'tutor', 'professor', 'academic']
-      };
-
-      Object.entries(professionalTerms).forEach(([key, terms]) => {
-        if (searchQuery.toLowerCase().includes(key)) {
-          terms.forEach(term => {
-            searchConditions.push(
-              `name.ilike.%${term}%`,
-              `title.ilike.%${term}%`,
-              `bio.ilike.%${term}%`
-            );
-          });
-        }
-      });
-
-      if (searchConditions.length > 0) {
-        query = query.or(searchConditions.join(','));
-      }
-
-      const { data: speakers, error } = await withTimeout(
-        query.limit(20),
-        12000,
-        'Database search timed out'
-      );
-
-      if (error) throw error;
-
-      const transformedPeople: Person[] = (speakers || []).map(speaker => ({
-        id: speaker.id,
-        name: speaker.name,
-        title: speaker.title,
-        bio: speaker.bio || '',
-        expertise: speaker.expertise || [],
-        imageUrl: speaker.image_url || '/placeholder.svg',
-        rating: Number(speaker.rating) || 0,
-        price: {
-          hourly: Number(speaker.hourly_rate) || 0,
-          currency: speaker.currency || 'USD'
-        },
-        location: speaker.location || '',
-        pastEvents: speaker.past_events || 0,
-        type: 'speaker'
-      }));
-
-      console.log('Database search results:', transformedPeople);
-      onResults(transformedPeople);
-      
-      toast({
-        title: "Search Complete",
-        description: `Found ${transformedPeople.length} people matching your search`,
-      });
-      
-    } catch (error) {
-      console.error('Search error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to search people. Please try again.";
-      onError(errorMessage);
-      toast({
-        title: "Search Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsSearching(false);
-      onLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
+export const IntelligentSearch: React.FC = () => {
+  const [query, setQuery] = useState('');
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 w-full">
-      <div className="flex-1 relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+    <div className="w-full max-w-2xl mx-auto relative group">
+      <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl blur-md opacity-30 group-hover:opacity-60 transition duration-500"></div>
+      
+      <div className="relative bg-slate-900/90 border border-slate-800/90 rounded-2xl p-2 flex items-center gap-2 shadow-2xl backdrop-blur-xl">
+        <div className="pl-3 text-blue-400">
+          <Sparkles className="w-5 h-5 animate-pulse" />
+        </div>
+
         <Input
-          placeholder="Try: 'I need a startup founder', 'AI expert for my company', 'chef for cooking class'"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyPress={handleKeyPress}
-          className="pl-10"
-          disabled={isSearching}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Ask AI: 'Find a Senior React Architect with Fintech experience...'"
+          className="border-none bg-transparent text-slate-100 placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
         />
-      </div>
-      <Button
-        onClick={handleSearch}
-        disabled={isSearching}
-        className="flex items-center gap-2"
-      >
-        {isSearching ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Search className="h-4 w-4" />
+
+        {query && (
+          <button 
+            onClick={() => setQuery('')}
+            className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         )}
-        {isSearching ? 'Searching...' : 'Search'}
-      </Button>
+
+        <Button variant="gradient" className="rounded-xl px-5 shadow-lg shadow-blue-500/20">
+          <Search className="w-4 h-4 mr-2" />
+          Search
+        </Button>
+      </div>
     </div>
   );
 };
-
-export default IntelligentSearch;

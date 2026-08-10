@@ -1,105 +1,66 @@
-import { Link } from "react-router-dom";
-import { Facebook, Instagram, MessageCircle } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Sparkles, Github, Twitter, Linkedin } from 'lucide-react';
 
-const socialLinks = [
-  { label: "X", href: "https://x.com/irookee", icon: "x" },
-  { label: "Instagram", href: "https://www.instagram.com/irookee_official", icon: Instagram },
-  { label: "Facebook", href: "https://www.facebook.com/irookee.official", icon: Facebook },
-  { label: "Reddit", href: "https://www.reddit.com/user/irookee_official/", icon: MessageCircle },
-];
-
-const Footer = () => {
-  const { user } = useAuth();
-
-  const protectedHref = (path: string) =>
-    user ? path : `/auth?redirect=${encodeURIComponent(path)}`;
-
+export const Footer: React.FC = () => {
   return (
-    <footer className="bg-gray-900 text-white pt-16 pb-8">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-          {/* Brand */}
-          <div>
-            <div className="bg-white rounded-xl p-4 mb-4 inline-block">
-              <img src="/irookee.svg" alt="irookee  -  Find people, get connected." className="h-28 w-auto object-contain" />
-            </div>
-            <p className="text-lg font-semibold text-purple-400 mb-3">People for People</p>
-            <p className="text-gray-400 text-sm mb-4">
-              Democratizing the way people connect with each other. The right person, for any situation, available to everyone.
+    <footer className="bg-slate-950 border-t border-slate-900 pt-16 pb-12 text-slate-400 text-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+          {/* Brand Column */}
+          <div className="space-y-4">
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-lg font-bold text-white tracking-tight">irookee</span>
+            </Link>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              The premier platform for instant 1:1 video consultation with world-class domain specialists and industry leaders.
             </p>
-            <div className="mb-4">
-              <a href="mailto:kavin@irookee.com" className="text-purple-400 hover:text-purple-300 text-sm transition-colors">
-                kavin@irookee.com
+          </div>
+
+          {/* Platform Links */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-200 mb-4">Platform</h4>
+            <ul className="space-y-2.5 text-xs">
+              <li><Link to="/search" className="hover:text-white transition-colors">Find Experts</Link></li>
+              <li><Link to="/about" className="hover:text-white transition-colors">How it Works</Link></li>
+              <li><Link to="/companion-apply" className="hover:text-white transition-colors">Become an Advisor</Link></li>
+            </ul>
+          </div>
+
+          {/* Company Links */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-200 mb-4">Company</h4>
+            <ul className="space-y-2.5 text-xs">
+              <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
+              <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+            </ul>
+          </div>
+
+          {/* Connect */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-200 mb-4">Connect</h4>
+            <div className="flex items-center gap-3">
+              <a href="#" className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-700 transition-colors">
+                <Twitter className="w-4 h-4" />
+              </a>
+              <a href="#" className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-700 transition-colors">
+                <Linkedin className="w-4 h-4" />
+              </a>
+              <a href="#" className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-700 transition-colors">
+                <Github className="w-4 h-4" />
               </a>
             </div>
-            <div className="flex items-center gap-2">
-              {socialLinks.map((social) => {
-                const Icon = social.icon;
-                return (
-                  <a
-                    key={social.label}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={social.label}
-                    className="h-9 w-9 rounded-full bg-gray-800 text-gray-300 hover:bg-purple-600 hover:text-white transition-colors flex items-center justify-center"
-                  >
-                    {Icon === "x" ? (
-                      <span className="text-sm font-bold">X</span>
-                    ) : (
-                      <Icon className="h-4 w-4" />
-                    )}
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Platform */}
-          <div>
-            <h4 className="font-semibold mb-5">Platform</h4>
-            <ul className="space-y-3 text-sm">
-              <li><Link to="/" className="text-gray-400 hover:text-white transition-colors">Home</Link></li>
-              <li><Link to="/experts" className="text-gray-400 hover:text-white transition-colors">Browse Experts</Link></li>
-              <li><Link to="/companionship" className="text-gray-400 hover:text-white transition-colors">Companionship</Link></li>
-              <li><Link to="/search" className="text-gray-400 hover:text-white transition-colors">Search</Link></li>
-              <li><Link to="/leaderboard" className="text-gray-400 hover:text-white transition-colors">Leaderboard</Link></li>
-              <li><Link to="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
-            </ul>
-          </div>
-
-          {/* For Experts */}
-          <div>
-            <h4 className="font-semibold mb-5">For Experts</h4>
-            <ul className="space-y-3 text-sm">
-              <li><Link to="/expert/onboarding" className="text-gray-400 hover:text-white transition-colors">Become an Expert</Link></li>
-              <li><Link to={protectedHref("/expert/dashboard")} className="text-gray-400 hover:text-white transition-colors">Expert Dashboard</Link></li>
-              <li><Link to={protectedHref("/dashboard")} className="text-gray-400 hover:text-white transition-colors">My Dashboard</Link></li>
-              <li><Link to={protectedHref("/settings")} className="text-gray-400 hover:text-white transition-colors">Settings</Link></li>
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <h4 className="font-semibold mb-5">Legal</h4>
-            <ul className="space-y-3 text-sm">
-              <li><Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
-              <li><Link to="/cookies" className="text-gray-400 hover:text-white transition-colors">Cookie Policy</Link></li>
-              <li><a href="mailto:kavin@irookee.com" className="text-gray-400 hover:text-white transition-colors">Contact Us</a></li>
-            </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 pt-6">
-          <p className="text-gray-500 text-sm text-center">
-            &copy; 2026 irookee. All rights reserved.
-          </p>
+        <div className="pt-8 border-t border-slate-900 text-center text-xs text-slate-400">
+          © {new Date().getFullYear()} irookee Inc. All rights reserved.
         </div>
       </div>
     </footer>
   );
 };
-
-export default Footer;
