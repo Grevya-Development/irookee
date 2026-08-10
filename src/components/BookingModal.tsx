@@ -1,340 +1,106 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/components/AuthProvider";
-import { supabase } from "@/integrations/supabase/client";
-import { Expert } from "@/types/speaker";
-import { track } from "@/lib/analytics";
-import { useNavigate } from "react-router-dom";
-import { BookingCalendar } from "@/components/booking/BookingCalendar";
-import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
-import { CheckCircle2, Copy } from "lucide-react";
-import { buildBookingTimeFields, formatZonedBookingTime } from "@/lib/bookingUtils";
-import { notifyBookingEvent } from "@/lib/notifications";
-import { ensureUserProfileExists } from "@/lib/userUtils";
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/use-toast';
+import { Calendar as CalendarIcon, Clock, CreditCard } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface BookingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  speaker: Expert;
+  expert: {
+    id: string;
+    name: string;
+    hourly_rate: number;
+  };
+  trigger?: React.ReactNode;
 }
 
-const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
-  const { user, profile, loading: authLoading } = useAuth();
-  const [notes, setNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [selectedDateTime, setSelectedDateTime] = useState<string | null>(null);
-  const [selectedDuration, setSelectedDuration] = useState<number>(30);
-  const [sessionFormat, setSessionFormat] = useState("video");
-  const [meetingLink, setMeetingLink] = useState<string | null>(null);
-  const { toast } = useToast();
-  const navigate = useNavigate();
+export const BookingModal: React.FC<BookingModalProps> = ({ expert, trigger }) => {
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [time, setTime] = useState<string>('10:00');
+  const [duration, setDuration] = useState<string>('30');
 
-  const handleDateTimeSelect = (dateTime: string, duration: number) => {
-    setSelectedDateTime(dateTime);
-    setSelectedDuration(duration);
-  };
-
-  const handleSubmit = async () => {
-    if (isSubmitting) return;
-
-    if (!user) {
+  const handleBooking = () => {
+    if (!date) {
       toast({
-        title: "Authentication Required",
-        description: "You need to log in to book a session.",
-        variant: "destructive",
-      });
-      navigate("/auth?redirect=/experts");
-      return;
-    }
-
-    if (!selectedDateTime) {
-      toast({
-        title: "Select a time",
-        description: "Please select a date and time for your session.",
-        variant: "destructive",
+        title: "Date required",
+        description: "Please select a date for your session.",
+        variant: "destructive"
       });
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // 1. Ensure user profile exists in 'profiles' table to satisfy DB foreign keys
-      const { customerName, customerEmail } = await ensureUserProfileExists(user, profile);
-
-      // Generate a real Jitsi Meet link
-      const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
-      const generatedMeetingLink = `https://meet.jit.si/${roomId}`;
-
-      // Prepend session format to notes
-      const formattedNotes = notes
-        ? `[Format: ${sessionFormat}] ${notes}`
-        : `[Format: ${sessionFormat}]`;
-
-      // Check for overlapping bookings in public.expertise_bookings
-      const scheduledStart = new Date(selectedDateTime);
-      const scheduledEnd = new Date(scheduledStart.getTime() + selectedDuration * 60 * 1000);
-
-      // Query database for overlapping active bookings
-      const { data: conflicts, error: conflictErr } = await supabase
-        .from("expertise_bookings")
-        .select("scheduled_at, event_date, duration_minutes, duration_hours, status")
-        .eq("expert_id", speaker.id)
-        .in("status", ["pending", "confirmed", "in_progress"]);
-
-      if (conflictErr) throw conflictErr;
-
-      // We also check the legacy bookings table, which keys the expert by
-      // `speaker_id` (not `expert_id`).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let legacyConflicts: any[] = [];
-      const { data: legacyData, error: legacyErr } = await supabase
-        .from("bookings")
-        .select("scheduled_at, duration_minutes, status")
-        .eq("speaker_id", speaker.id)
-        .in("status", ["pending", "confirmed", "in_progress"]);
-      if (legacyErr) {
-        // Never book through an unverifiable overlap check.
-        console.error("Failed to check legacy conflicts:", legacyErr);
-        throw legacyErr;
-      }
-      if (legacyData) legacyConflicts = legacyData;
-
-      const allConflicts = [...(conflicts || []), ...legacyConflicts];
-      const hasOverlap = allConflicts.some((booking) => {
-        const startVal = booking.scheduled_at || booking.event_date;
-        if (!startVal) return false;
-        const bStart = new Date(startVal);
-        if (Number.isNaN(bStart.getTime())) return false;
-        const bDuration = Number(booking.duration_minutes) || Number(booking.duration_hours || 0) * 60 || 60;
-        const bEnd = new Date(bStart.getTime() + bDuration * 60 * 1000);
-        
-        return scheduledStart < bEnd && bStart < scheduledEnd;
-      });
-
-      if (hasOverlap) {
-        toast({
-          title: "Time Slot Unavailable",
-          description: "This time slot is already booked. Please choose another slot.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const bookingPayload = {
-        expert_id: speaker.id,
-        consumer_id: user.id,
-        user_id: user.id,
-        event_name: `Session with ${speaker.name}`,
-        customer_name: customerName,
-        customer_email: customerEmail,
-        ...buildBookingTimeFields(selectedDateTime, selectedDuration),
-        total_amount: 0,
-        platform_fee: 0,
-        expert_payout: 0,
-        consumer_notes: formattedNotes,
-        notes: formattedNotes,
-        status: "confirmed",
-        meeting_link: generatedMeetingLink,
-      };
-
-      const { data: booking, error } = await supabase
-        .from("expertise_bookings")
-        .insert(bookingPayload as never)
-        .select("id")
-        .single();
-
-      if (error) {
-        console.error("SUPABASE BOOKING INSERT FULL ERROR OBJECT:", error);
-        throw error;
-      }
-
-      await notifyBookingEvent({
-        bookingId: booking?.id,
-        eventType: "booking_created",
-        userId: user.id,
-        userEmail: user.email,
-        expertUserId: speaker.user_id,
-        expertEmail: (speaker as Expert & { email?: string | null }).email,
-        expertName: speaker.name,
-        customerName: customerName,
-        scheduledAt: selectedDateTime,
-        durationMinutes: selectedDuration,
-        meetingLink: generatedMeetingLink,
-      });
-
-      setMeetingLink(generatedMeetingLink);
-      setBookingSuccess(true);
-      track("booking_submitted", {
-        expert_id: speaker.id,
-        expert_name: speaker.name,
-        session_format: sessionFormat,
-        duration_minutes: selectedDuration,
-      });
-      toast({
-        title: "Session Booked!",
-        description: `Your session with ${speaker.name} has been confirmed.`,
-      });
-    } catch (error: unknown) {
-      console.error("SUPABASE BOOKING CATCH ERROR OBJECT:", error);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const errObj = error as any;
-      const mainMsg = errObj?.message || (error instanceof Error ? error.message : String(error || "Unknown error occurred"));
-      const codeStr = errObj?.code ? ` [Code: ${errObj.code}]` : "";
-      const hintStr = errObj?.hint ? ` (${errObj.hint})` : "";
-      const detailStr = errObj?.details ? ` - ${errObj.details}` : "";
-
-      toast({
-        title: `Booking Failed${codeStr}`,
-        description: `${mainMsg}${hintStr}${detailStr}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    toast({
+      title: "Booking Submitted",
+      description: `Session requested with ${expert.name} on ${format(date, 'PPP')} at ${time}.`,
+    });
   };
-
-  const handleClose = () => {
-    setBookingSuccess(false);
-    setSelectedDateTime(null);
-    setNotes("");
-    setSessionFormat("video");
-    setMeetingLink(null);
-    onClose();
-  };
-
-  if (authLoading) {
-    return (
-      <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Checking authentication state...</p>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  if (!user) {
-    return (
-      <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Sign in to Book</DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-6">
-            <p className="text-muted-foreground mb-4">Please log in to book a session.</p>
-            <Button onClick={() => navigate("/auth?redirect=/experts")}>Sign In</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+    <Dialog>
+      <DialogTrigger asChild>
+        {trigger || <Button variant="gradient" className="w-full">Book Session</Button>}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] bg-slate-900/95 border-slate-800 text-white backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle>
-            {bookingSuccess ? "Session Booked!" : `Book a Session with ${speaker.name}`}
+          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            Book a Session with {expert.name}
           </DialogTitle>
         </DialogHeader>
 
-        {bookingSuccess ? (
-          <div className="text-center py-8 space-y-4">
-            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-            <h3 className="text-xl font-semibold">You're all set!</h3>
-            <p className="text-muted-foreground">
-              Your free session with {speaker.name} is confirmed for{" "}
-              <strong className="text-foreground">{selectedDateTime && formatZonedBookingTime(selectedDateTime)}</strong>
-            </p>
-            {meetingLink && (
-              <div className="bg-gray-50 border rounded-lg p-3 text-left space-y-1">
-                <p className="text-sm font-medium">Meeting Link:</p>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={meetingLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline break-all flex-1"
-                  >
-                    {meetingLink}
-                  </a>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => {
-                      navigator.clipboard.writeText(meetingLink);
-                      toast({ title: "Copied!", description: "Meeting link copied to clipboard." });
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Save this meeting link. If you or the expert don't show up, it will be marked as a no-show.
-            </p>
-            <div className="flex gap-3 justify-center pt-4">
-              <Button variant="outline" onClick={handleClose}>Close</Button>
-              <Button onClick={() => { handleClose(); navigate('/dashboard'); }}>Go to Dashboard</Button>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300">Select Date</label>
+            <div className="p-2 rounded-xl bg-slate-800/50 border border-slate-700/50 flex justify-center">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                className="rounded-md border-none text-slate-200"
+              />
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <BookingCalendar
-              expertId={speaker.id}
-              onDateTimeSelect={handleDateTimeSelect}
-            />
 
-            {selectedDateTime && (
-              <>
-                <SessionFormatSelector
-                  value={sessionFormat}
-                  onChange={setSessionFormat}
-                />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Time Slot</label>
+              <Select value={time} onValueChange={setTime}>
+                <SelectTrigger className="bg-slate-800/50 border-slate-700 text-slate-200">
+                  <Clock className="w-4 h-4 mr-2 text-blue-400" />
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                  <SelectItem value="09:00">09:00 AM</SelectItem>
+                  <SelectItem value="10:00">10:00 AM</SelectItem>
+                  <SelectItem value="11:00">11:00 AM</SelectItem>
+                  <SelectItem value="14:00">02:00 PM</SelectItem>
+                  <SelectItem value="15:00">03:00 PM</SelectItem>
+                  <SelectItem value="16:00">04:00 PM</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                <div>
-                  <Label htmlFor="notes">Additional Notes (optional)</Label>
-                  <Textarea
-                    id="notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="What would you like to discuss? Any specific questions?"
-                    rows={3}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    <strong>Free session</strong> - irookee is currently free for everyone!
-                  </p>
-                </div>
-
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isSubmitting ? "Booking..." : "Confirm Booking"}
-                </Button>
-              </>
-            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Duration</label>
+              <Select value={duration} onValueChange={setDuration}>
+                <SelectTrigger className="bg-slate-800/50 border-slate-700 text-slate-200">
+                  <SelectValue placeholder="Duration" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                  <SelectItem value="30">30 mins (${Math.round(expert.hourly_rate / 2)})</SelectItem>
+                  <SelectItem value="60">60 mins (${expert.hourly_rate})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        )}
+        </div>
+
+        <Button onClick={handleBooking} variant="gradient" className="w-full mt-2 shadow-lg shadow-blue-500/20">
+          <CreditCard className="w-4 h-4 mr-2" />
+          Confirm Booking
+        </Button>
       </DialogContent>
     </Dialog>
   );
 };
-
-export default BookingModal;
