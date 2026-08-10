@@ -11,6 +11,7 @@ interface SearchBarProps {
   /** Accessible name for the field. A placeholder alone is not a label. */
   label?: string
   submitLabel?: string
+  scope?: string
 }
 
 let searchBarSeq = 0
