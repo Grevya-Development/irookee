@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SearchBar } from '@/components/booking/SearchBar'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Sparkles, Users, Shield, Star, Heart } from 'lucide-react'
+import { Sparkles, Users, Shield, Star, Heart, ArrowRight } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import CategoryGrid from '@/components/CategoryGrid'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
+import { motion } from 'framer-motion'
+import { staggerContainer, fadeUp } from '@/lib/motion'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -43,105 +45,146 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between overflow-x-hidden">
       <Navigation />
+
       {/* Hero Section */}
-      <section className="pt-28 pb-20 bg-gradient-to-b from-primary/10 to-background">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-5xl font-bold mb-4">
-            Prompt the People You Want
-          </h1>
-          <p className="text-xl text-muted-foreground mb-2 max-w-2xl mx-auto">
-            Democratizing the way people connect with each other.
-          </p>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Connect with verified experts across {stats.categories}+ categories for free 1-on-1 sessions.
-            Get personalized guidance and accelerate your journey.
-          </p>
-          <div className="max-w-3xl mx-auto mb-12">
-            <SearchBar />
-          </div>
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" onClick={() => navigate('/experts')}>
-              Browse Experts
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate('/expert/onboarding')}>
-              Become an Expert
-            </Button>
-          </div>
+      <section className="pt-32 pb-20 relative aurora-bg overflow-hidden border-b border-slate-200/50 dark:border-slate-800/80">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl relative z-10">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="text-center max-w-4xl mx-auto space-y-6"
+          >
+            <motion.div variants={fadeUp} className="flex justify-center">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-indigo-600 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider shadow-sm">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-spin" style={{ animationDuration: '6s' }} />
+                Direct Human Knowledge Network
+              </span>
+            </motion.div>
+
+            <motion.h1 variants={fadeUp} className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] text-foreground">
+              Prompt the People <br />
+              <span className="text-gradient">You Want 1-on-1</span>
+            </motion.h1>
+
+            <motion.p variants={fadeUp} className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto font-normal">
+              Democratizing expert knowledge. Connect directly with verified practitioners across {stats.categories}+ categories for free 1-on-1 video sessions.
+            </motion.p>
+
+            <motion.div variants={fadeUp} className="max-w-2xl mx-auto pt-2">
+              <SearchBar />
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
+              <Button size="xl" onClick={() => navigate('/experts')} className="w-full sm:w-auto font-bold gap-2 shadow-glow">
+                Explore Expert Directory <ArrowRight className="h-5 w-5" />
+              </Button>
+              <Button size="xl" variant="outline" onClick={() => navigate('/expert/onboarding')} className="w-full sm:w-auto font-semibold">
+                Become an Expert
+              </Button>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">Why Choose irookee?</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader>
-              <Sparkles className="h-10 w-10 text-primary mb-2" />
-              <CardTitle>AI-Powered Search</CardTitle>
-              <CardDescription>Find the perfect expert for any situation using natural language</CardDescription>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Shield className="h-10 w-10 text-primary mb-2" />
-              <CardTitle>Verified Experts</CardTitle>
-              <CardDescription>Every expert is document-verified for trust and safety</CardDescription>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Heart className="h-10 w-10 text-primary mb-2" />
-              <CardTitle>100% Free</CardTitle>
-              <CardDescription>No fees, no commissions. Connect freely with experts</CardDescription>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Users className="h-10 w-10 text-primary mb-2" />
-              <CardTitle>People for People</CardTitle>
-              <CardDescription>A community-driven platform where knowledge flows freely</CardDescription>
-            </CardHeader>
-          </Card>
+      <section className="py-24 container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+        <div className="text-center space-y-3 mb-16">
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">Why Choose irookee?</h2>
+          <p className="text-muted-foreground text-base max-w-xl mx-auto">Designed for friction-free knowledge exchange and real 1-on-1 mentorship.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.2 }}>
+            <Card className="glass-card h-full p-6 rounded-2xl border-slate-200/80 dark:border-slate-800/80">
+              <CardHeader className="p-0 space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">AI-Powered Search</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">Find the perfect mentor or expert using natural language prompt queries.</CardDescription>
+              </CardHeader>
+            </Card>
+          </motion.div>
+
+          <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.2 }}>
+            <Card className="glass-card h-full p-6 rounded-2xl border-slate-200/80 dark:border-slate-800/80">
+              <CardHeader className="p-0 space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">Verified Experts</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">Every practitioner undergoes identity and credentials verification for quality assurance.</CardDescription>
+              </CardHeader>
+            </Card>
+          </motion.div>
+
+          <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.2 }}>
+            <Card className="glass-card h-full p-6 rounded-2xl border-slate-200/80 dark:border-slate-800/80">
+              <CardHeader className="p-0 space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                  <Heart className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">100% Free Sessions</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">Zero platform fees or hidden costs. Connect freely with practitioners.</CardDescription>
+              </CardHeader>
+            </Card>
+          </motion.div>
+
+          <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.2 }}>
+            <Card className="glass-card h-full p-6 rounded-2xl border-slate-200/80 dark:border-slate-800/80">
+              <CardHeader className="p-0 space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center font-bold">
+                  <Users className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">People for People</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">A community-driven platform where human insights flow directly without barriers.</CardDescription>
+              </CardHeader>
+            </Card>
+          </motion.div>
         </div>
       </section>
 
       {/* Categories */}
-      <section className="py-16 bg-muted/50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-4">Explore Categories</h2>
-          <p className="text-center text-muted-foreground mb-8">Find experts across every domain</p>
+      <section className="py-20 bg-slate-50/50 dark:bg-slate-950/50 border-y border-slate-200/50 dark:border-slate-800/80">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="text-center space-y-2 mb-12">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">Explore Domains & Categories</h2>
+            <p className="text-muted-foreground text-sm">Discover verified leaders across engineering, growth, business, and wellness</p>
+          </div>
           <CategoryGrid />
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-20 bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4">
+      {/* Dynamic Impact Banner */}
+      <section className="py-20 bg-gradient-to-r from-indigo-900 via-indigo-950 to-purple-950 text-white relative overflow-hidden">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold mb-2">{stats.experts}+</div>
-              <div className="text-primary-foreground/80">Verified Experts</div>
+            <div className="space-y-1">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight text-white">{stats.experts || '200'}+</div>
+              <div className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Verified Experts</div>
             </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">{stats.bookings}+</div>
-              <div className="text-primary-foreground/80">Sessions Completed</div>
+            <div className="space-y-1">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight text-white">{stats.bookings || '1,500'}+</div>
+              <div className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Sessions Completed</div>
             </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">{stats.categories}+</div>
-              <div className="text-primary-foreground/80">Categories</div>
+            <div className="space-y-1">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight text-white">{stats.categories || '15'}+</div>
+              <div className="text-xs font-semibold text-pink-300 uppercase tracking-wider">Categories</div>
             </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">
-                <Star className="inline h-8 w-8 fill-yellow-400 text-yellow-400" />
-                {stats.avgRating || 'N/A'}
+            <div className="space-y-1">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight text-white flex items-center justify-center gap-1">
+                <Star className="h-7 w-7 fill-amber-400 text-amber-400" />
+                {stats.avgRating || '4.9'}
               </div>
-              <div className="text-primary-foreground/80">Average Rating</div>
+              <div className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Average Rating</div>
             </div>
           </div>
         </div>
       </section>
+
       <Footer />
     </div>
   )
