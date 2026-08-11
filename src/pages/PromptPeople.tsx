@@ -416,16 +416,23 @@ const PromptPeople = memo(() => {
             Whether you need expert guidance or simply someone beside you, irookee connects you directly with verified practitioners.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center pt-2">
-            <Button size="xl" className="font-bold shadow-glow" onClick={() => navigate("/experts")}>
+            <Button
+              size="xl"
+              className="font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white border-0 shadow-lg shadow-indigo-500/30 transition-all cursor-pointer rounded-xl h-12 px-7"
+              onClick={() => navigate("/experts")}
+            >
               Find an Expert
             </Button>
-            <Button asChild size="xl" variant="outline" className="font-semibold text-white border-white/30 hover:bg-white/10">
+            <Button
+              asChild
+              size="xl"
+              className="font-semibold text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 shadow-md transition-all cursor-pointer rounded-xl h-12 px-7"
+            >
               <Link to="/companionship">Book a Companion</Link>
             </Button>
             <Button
               size="xl"
-              variant="outline"
-              className="font-semibold text-white border-white/30 hover:bg-white/10"
+              className="font-semibold text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 shadow-md transition-all cursor-pointer rounded-xl h-12 px-7"
               onClick={() => navigate("/expert/onboarding")}
             >
               Become an Expert
