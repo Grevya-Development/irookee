@@ -40,12 +40,12 @@ const Footer = () => {
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl relative z-10 space-y-12">
         {/* Newsletter Subscription Banner */}
-        <div className="glass-level-2 p-6 sm:p-8 rounded-3xl border-white/10 flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="bg-gradient-to-r from-indigo-950/90 via-slate-900/90 to-purple-950/90 border border-indigo-500/30 shadow-2xl backdrop-blur-2xl p-6 sm:p-8 rounded-3xl flex flex-col lg:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center lg:text-left">
             <h3 className="text-xl font-bold text-white flex items-center justify-center lg:justify-start gap-2">
               Stay ahead with curated expert insights
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-300">
               Get weekly updates on emerging tech, mentorship tips, and top platform practitioners.
             </p>
           </div>
@@ -57,13 +57,13 @@ const Footer = () => {
                 placeholder="Enter your email..."
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
-                className="w-full h-11 pl-10 pr-4 rounded-xl bg-slate-900/80 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full h-11 pl-10 pr-4 rounded-xl bg-slate-900/90 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
               />
             </div>
             <button
               type="submit"
               disabled={subscribing}
-              className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white transition-all shadow-md shrink-0 flex items-center gap-1.5"
+              className="h-11 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-bold text-xs text-white transition-all shadow-lg shadow-indigo-500/25 shrink-0 flex items-center gap-1.5 cursor-pointer"
             >
               {subscribing ? "Joining..." : "Subscribe"}
               <Send className="h-3.5 w-3.5" />
