@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/asyncTimeout";
@@ -35,7 +35,6 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
   const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
 
-  // Set initial query when component mounts
   useEffect(() => {
     if (initialQuery) {
       setSearchQuery(initialQuery);
@@ -47,11 +46,8 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
       setIsSearching(true);
       onLoading(true);
       onError('');
-      
-      console.log('Searching for:', searchQuery);
-      
+
       if (!searchQuery.trim()) {
-        // If empty query, load all speakers
         const { data: speakers, error } = await supabase
           .from('speakers')
           .select('*')
@@ -80,16 +76,10 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
         return;
       }
 
-      console.log('Using enhanced database search...');
-
-      // Enhanced search with better text matching
       const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
-      
       let query = supabase.from('speakers').select('*');
-      
-      // Build comprehensive search conditions
-      const searchConditions = [];
-      
+      const searchConditions: string[] = [];
+
       searchTerms.forEach(term => {
         searchConditions.push(
           `name.ilike.%${term}%`,
@@ -99,8 +89,7 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
         );
       });
 
-      // Also search for common professional terms
-      const professionalTerms = {
+      const professionalTerms: Record<string, string[]> = {
         'founder': ['entrepreneur', 'startup', 'ceo', 'founder'],
         'entrepreneur': ['startup', 'business', 'founder', 'ceo'],
         'chef': ['culinary', 'cooking', 'food', 'restaurant'],
@@ -153,14 +142,12 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
         type: 'speaker'
       }));
 
-      console.log('Database search results:', transformedPeople);
       onResults(transformedPeople);
-      
       toast({
         title: "Search Complete",
-        description: `Found ${transformedPeople.length} people matching your search`,
+        description: `Found ${transformedPeople.length} verified experts matching your prompt`,
       });
-      
+
     } catch (error) {
       console.error('Search error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to search people. Please try again.";
@@ -183,30 +170,40 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 w-full">
-      <div className="flex-1 relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-        <Input
-          placeholder="Try: 'I need a startup founder', 'AI expert for my company', 'chef for cooking class'"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyPress={handleKeyPress}
-          className="pl-10"
-          disabled={isSearching}
-        />
+    <div className="w-full space-y-2">
+      <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <div className="flex-1 relative group">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-500">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <Input
+            placeholder="Describe what expertise you need... (e.g., 'AI Consultant', 'Startup Mentor')"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyPress}
+            className="pl-10 pr-10 h-12 text-sm rounded-2xl glass-panel border-slate-200/80 dark:border-slate-800/80 focus-visible:ring-indigo-500/50 shadow-sm"
+            disabled={isSearching}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Button
+          onClick={handleSearch}
+          loading={isSearching}
+          size="lg"
+          className="rounded-2xl font-bold px-6 shadow-md shrink-0"
+        >
+          {!isSearching && <Search className="h-4 w-4" />}
+          {isSearching ? 'Searching...' : 'Search Experts'}
+        </Button>
       </div>
-      <Button
-        onClick={handleSearch}
-        disabled={isSearching}
-        className="flex items-center gap-2"
-      >
-        {isSearching ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Search className="h-4 w-4" />
-        )}
-        {isSearching ? 'Searching...' : 'Search'}
-      </Button>
     </div>
   );
 };

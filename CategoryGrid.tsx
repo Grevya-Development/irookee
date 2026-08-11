@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
 
+// Map icon names from DB to emoji for display
 const ICON_EMOJI_MAP: Record<string, string> = {
   Stethoscope: "🩺", HeartPulse: "❤️‍🩹", Sparkles: "✨", Brain: "🧠",
   Heart: "❤️", Apple: "🍎", Activity: "🏃", Leaf: "🌿", FlaskConical: "🧪",
@@ -69,6 +69,9 @@ const CategoryGrid = memo(() => {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Pass the category id, not its name: the Category filter dropdown on /experts
+  // is keyed by id, so a name leaves the control blank and the active filter
+  // becomes invisible (and un-clearable) to the user.
   const handleCategoryClick = useCallback(
     (categoryId: string) => {
       navigate(`/experts?category=${encodeURIComponent(categoryId)}`);
@@ -85,38 +88,31 @@ const CategoryGrid = memo(() => {
 
   const cards = useMemo(
     () =>
-      displayed.map((cat, index) => (
-        <motion.button
+      displayed.map((cat) => (
+        <button
           key={cat.id}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, delay: index * 0.02 }}
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           onClick={() => handleCategoryClick(cat.id)}
-          className="group flex flex-col items-center text-center p-4 rounded-2xl glass-card hover:border-indigo-500/50 hover:shadow-lg transition-all duration-200 cursor-pointer"
+          className="group flex flex-col items-center text-center p-4 rounded-xl border bg-card hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300 ease-out"
         >
-          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-2xl mb-2.5 group-hover:scale-110 group-hover:bg-indigo-500/10 transition-transform">
+          <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">
             {getEmoji(cat.icon)}
-          </div>
-          <h3 className="font-bold text-sm leading-tight text-foreground mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-            {cat.name}
-          </h3>
+          </span>
+          <h3 className="font-medium text-sm leading-tight mb-1">{cat.name}</h3>
           {cat.description && (
             <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
               {cat.description}
             </p>
           )}
-        </motion.button>
+        </button>
       )),
     [displayed, handleCategoryClick]
   );
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton key={i} className="h-32 rounded-2xl" />
+          <Skeleton key={i} className="h-28 rounded-xl" />
         ))}
       </div>
     );
@@ -124,40 +120,29 @@ const CategoryGrid = memo(() => {
 
   if (error) {
     return (
-      <div className="text-center py-12 glass-card rounded-2xl p-6 max-w-md mx-auto">
+      <div className="text-center py-12">
         <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
-        <p className="text-lg font-bold mb-1">Couldn't load categories</p>
-        <p className="text-xs text-muted-foreground mb-4">Please check your connection and try again.</p>
-        <Button variant="outline" onClick={fetchCategories}>
-          Retry Loading
+        <p className="text-lg font-medium mb-1">Couldn't load categories</p>
+        <Button variant="outline" onClick={fetchCategories} className="mt-2">
+          Retry
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {cards}
       </div>
       {categories.length > 16 && (
-        <div className="text-center">
-          <Button
-            variant="outline"
-            size="sm"
+        <div className="text-center mt-6">
+          <button
             onClick={() => setShowAll(!showAll)}
-            className="rounded-full px-6 font-semibold gap-1.5 shadow-sm"
+            className="text-sm font-medium text-primary hover:underline"
           >
-            {showAll ? (
-              <>
-                Show Less <ChevronUp className="h-4 w-4" />
-              </>
-            ) : (
-              <>
-                Show All {categories.length} Categories <ChevronDown className="h-4 w-4" />
-              </>
-            )}
-          </Button>
+            {showAll ? "Show Less" : `Show All ${categories.length} Categories`}
+          </button>
         </div>
       )}
     </div>

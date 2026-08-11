@@ -11,12 +11,10 @@ import { track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { BookingCalendar } from "@/components/booking/BookingCalendar";
 import { SessionFormatSelector } from "@/components/booking/SessionFormatSelector";
-import { CheckCircle2, Copy, Sparkles, Calendar, Clock, Video, Loader2 } from "lucide-react";
+import { CheckCircle2, Copy } from "lucide-react";
 import { buildBookingTimeFields, formatZonedBookingTime } from "@/lib/bookingUtils";
 import { notifyBookingEvent } from "@/lib/notifications";
 import { ensureUserProfileExists } from "@/lib/userUtils";
-import { motion, AnimatePresence } from "framer-motion";
-import { scaleIn } from "@/lib/motion";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -65,17 +63,23 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
     setIsSubmitting(true);
     try {
+      // 1. Ensure user profile exists in 'profiles' table to satisfy DB foreign keys
       const { customerName, customerEmail } = await ensureUserProfileExists(user, profile);
+
+      // Generate a real Jitsi Meet link
       const roomId = `irookee-${crypto.randomUUID().slice(0, 8)}`;
       const generatedMeetingLink = `https://meet.jit.si/${roomId}`;
 
+      // Prepend session format to notes
       const formattedNotes = notes
         ? `[Format: ${sessionFormat}] ${notes}`
         : `[Format: ${sessionFormat}]`;
 
+      // Check for overlapping bookings in public.expertise_bookings
       const scheduledStart = new Date(selectedDateTime);
       const scheduledEnd = new Date(scheduledStart.getTime() + selectedDuration * 60 * 1000);
 
+      // Query database for overlapping active bookings
       const { data: conflicts, error: conflictErr } = await supabase
         .from("expertise_bookings")
         .select("scheduled_at, event_date, duration_minutes, duration_hours, status")
@@ -84,6 +88,8 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
       if (conflictErr) throw conflictErr;
 
+      // We also check the legacy bookings table, which keys the expert by
+      // `speaker_id` (not `expert_id`).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let legacyConflicts: any[] = [];
       const { data: legacyData, error: legacyErr } = await supabase
@@ -92,6 +98,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         .eq("speaker_id", speaker.id)
         .in("status", ["pending", "confirmed", "in_progress"]);
       if (legacyErr) {
+        // Never book through an unverifiable overlap check.
         console.error("Failed to check legacy conflicts:", legacyErr);
         throw legacyErr;
       }
@@ -105,6 +112,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         if (Number.isNaN(bStart.getTime())) return false;
         const bDuration = Number(booking.duration_minutes) || Number(booking.duration_hours || 0) * 60 || 60;
         const bEnd = new Date(bStart.getTime() + bDuration * 60 * 1000);
+        
         return scheduledStart < bEnd && bStart < scheduledEnd;
       });
 
@@ -142,7 +150,7 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         .single();
 
       if (error) {
-        console.error("SUPABASE BOOKING INSERT ERROR:", error);
+        console.error("SUPABASE BOOKING INSERT FULL ERROR OBJECT:", error);
         throw error;
       }
 
@@ -173,14 +181,17 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
         description: `Your session with ${speaker.name} has been confirmed.`,
       });
     } catch (error: unknown) {
-      console.error("SUPABASE BOOKING CATCH ERROR:", error);
+      console.error("SUPABASE BOOKING CATCH ERROR OBJECT:", error);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errObj = error as any;
       const mainMsg = errObj?.message || (error instanceof Error ? error.message : String(error || "Unknown error occurred"));
+      const codeStr = errObj?.code ? ` [Code: ${errObj.code}]` : "";
+      const hintStr = errObj?.hint ? ` (${errObj.hint})` : "";
+      const detailStr = errObj?.details ? ` - ${errObj.details}` : "";
 
       toast({
-        title: "Booking Failed",
-        description: mainMsg,
+        title: `Booking Failed${codeStr}`,
+        description: `${mainMsg}${hintStr}${detailStr}`,
         variant: "destructive",
       });
     } finally {
@@ -200,10 +211,10 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
   if (authLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md glass-panel rounded-2xl p-6">
+        <DialogContent className="max-w-md">
           <div className="text-center py-8">
-            <Loader2 className="animate-spin h-8 w-8 text-indigo-500 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground font-medium">Checking session...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Checking authentication state...</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -213,15 +224,13 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
   if (!user) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md glass-panel rounded-2xl p-6">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Sign in to Book</DialogTitle>
+            <DialogTitle>Sign in to Book</DialogTitle>
           </DialogHeader>
-          <div className="text-center py-6 space-y-4">
-            <p className="text-sm text-muted-foreground">Please sign in to confirm your session schedule with {speaker.name}.</p>
-            <Button size="lg" className="w-full font-bold" onClick={() => navigate("/auth?redirect=/experts")}>
-              Sign In to Continue
-            </Button>
+          <div className="text-center py-6">
+            <p className="text-muted-foreground mb-4">Please log in to book a session.</p>
+            <Button onClick={() => navigate("/auth?redirect=/experts")}>Sign In</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -230,131 +239,96 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto glass-panel rounded-2xl p-6 sm:p-8">
-        <DialogHeader className="mb-4">
-          <DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2">
-            {bookingSuccess ? (
-              <>
-                <Sparkles className="h-6 w-6 text-indigo-500" />
-                Session Confirmed!
-              </>
-            ) : (
-              `Book 1-on-1 Session`
-            )}
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {bookingSuccess ? "Session Booked!" : `Book a Session with ${speaker.name}`}
           </DialogTitle>
-          {!bookingSuccess && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Selecting date & slot for <strong className="text-foreground">{speaker.name}</strong>
-            </p>
-          )}
         </DialogHeader>
 
         {bookingSuccess ? (
-          <motion.div
-            variants={scaleIn}
-            initial="hidden"
-            animate="show"
-            className="text-center py-6 space-y-6"
-          >
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto ring-8 ring-emerald-500/20">
-              <CheckCircle2 className="h-10 w-10" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-foreground">You're All Set!</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Your 1-on-1 session with <strong className="text-foreground">{speaker.name}</strong> is scheduled for:
-              </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-foreground font-bold text-sm">
-                <Calendar className="h-4 w-4 text-indigo-500" />
-                {selectedDateTime && formatZonedBookingTime(selectedDateTime)}
-              </div>
-            </div>
-
+          <div className="text-center py-8 space-y-4">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+            <h3 className="text-xl font-semibold">You're all set!</h3>
+            <p className="text-muted-foreground">
+              Your free session with {speaker.name} is confirmed for{" "}
+              <strong className="text-foreground">{selectedDateTime && formatZonedBookingTime(selectedDateTime)}</strong>
+            </p>
             {meetingLink && (
-              <div className="glass-card rounded-2xl p-4 text-left space-y-2 border-indigo-500/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                    <Video className="h-3.5 w-3.5" /> HD Video Meeting Link
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-950/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="bg-gray-50 border rounded-lg p-3 text-left space-y-1">
+                <p className="text-sm font-medium">Meeting Link:</p>
+                <div className="flex items-center gap-2">
                   <a
                     href={meetingLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 underline truncate flex-1"
+                    className="text-sm text-primary underline break-all flex-1"
                   >
                     {meetingLink}
                   </a>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="shrink-0 h-8 px-2"
+                    className="shrink-0"
                     onClick={() => {
                       navigator.clipboard.writeText(meetingLink);
                       toast({ title: "Copied!", description: "Meeting link copied to clipboard." });
                     }}
                   >
-                    <Copy className="h-3.5 w-3.5" />
+                    <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             )}
-
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <Button variant="outline" className="flex-1 font-semibold" onClick={handleClose}>
-                Close Window
-              </Button>
-              <Button className="flex-1 font-bold shadow-md" onClick={() => { handleClose(); navigate('/dashboard'); }}>
-                Go to Dashboard
-              </Button>
+            <p className="text-sm text-muted-foreground">
+              Save this meeting link. If you or the expert don't show up, it will be marked as a no-show.
+            </p>
+            <div className="flex gap-3 justify-center pt-4">
+              <Button variant="outline" onClick={handleClose}>Close</Button>
+              <Button onClick={() => { handleClose(); navigate('/dashboard'); }}>Go to Dashboard</Button>
             </div>
-          </motion.div>
+          </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <BookingCalendar
               expertId={speaker.id}
               onDateTimeSelect={handleDateTimeSelect}
             />
 
             {selectedDateTime && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-5 pt-2 border-t border-slate-200/60 dark:border-slate-800/80"
-              >
+              <>
                 <SessionFormatSelector
                   value={sessionFormat}
                   onChange={setSessionFormat}
                 />
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="notes" className="text-sm font-semibold">Discussion Topic / Questions (optional)</Label>
+                <div>
+                  <Label htmlFor="notes">Additional Notes (optional)</Label>
                   <Textarea
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Briefly describe what you'd like to ask or get guidance on..."
+                    placeholder="What would you like to discuss? Any specific questions?"
                     rows={3}
-                    className="rounded-xl"
+                    className="mt-1"
                   />
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-900 dark:text-indigo-300 text-xs flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-indigo-500 shrink-0" />
-                  <span><strong>100% Free Platform Session</strong> — Instant video link will be generated upon confirmation.</span>
+                <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Free session</strong> - irookee is currently free for everyone!
+                  </p>
                 </div>
 
                 <Button
                   onClick={handleSubmit}
-                  loading={isSubmitting}
-                  size="xl"
-                  className="w-full font-bold shadow-lg"
+                  disabled={isSubmitting}
+                  className="w-full"
+                  size="lg"
                 >
-                  Confirm & Reserve Time Slot
+                  {isSubmitting ? "Booking..." : "Confirm Booking"}
                 </Button>
-              </motion.div>
+              </>
             )}
           </div>
         )}

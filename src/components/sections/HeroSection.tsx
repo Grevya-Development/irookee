@@ -1,9 +1,11 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Users, Star, Globe, Search, X } from "lucide-react";
+import { ArrowRight, Sparkles, Star, Search, X, CheckCircle, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { staggerContainer, fadeUp } from "@/lib/motion";
+import CountUp from "@/components/ui/CountUp";
 
 const HeroSection = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,104 +21,141 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-20 pb-16 overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-200 rounded-full opacity-20 blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-200 rounded-full opacity-20 blur-3xl"></div>
+    <section className="relative min-h-[90vh] flex items-center justify-center pt-28 pb-20 overflow-hidden aurora-bg">
+      {/* Glow Orbs & Mesh Effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/10 rounded-full blur-[120px] animate-pulse-glow" />
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-cyan-500/15 rounded-full blur-[100px]" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-500/15 rounded-full blur-[100px]" />
       </div>
-      
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-8">
-            <Star className="w-4 h-4 mr-2" />
-            Trusted by 500+ Organizations
-          </div>
-          
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10">
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="text-center space-y-8"
+        >
+          {/* Top Pill Badge */}
+          <motion.div variants={fadeUp} className="flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-level-2 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-xs sm:text-sm font-semibold tracking-wide shadow-glow-sm">
+              <Sparkles className="w-4 h-4 text-indigo-500 animate-spin" style={{ animationDuration: '8s' }} />
+              <span>Prompt the People You Want 1-on-1</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+              <span className="text-slate-500 dark:text-slate-400 font-normal">Over 500+ Verified Leaders</span>
+            </div>
+          </motion.div>
+
           {/* Main Heading */}
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-            Connect with
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600"> World-Class </span>
-            Experts
-          </h1>
-          
-          {/* Subheading */}
-          <p className="text-xl md:text-2xl text-gray-600 mb-10 max-w-4xl mx-auto leading-relaxed">
-            Discover expert professionals who can transform your projects with cutting-edge insights, 
-            inspiring guidance, and actionable strategies that drive real results.
-          </p>
-          
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-12">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                type="text"
-                placeholder="Search for experts... (e.g., 'AI consultant', 'business mentor', 'tech advisor')"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-36 py-6 text-lg rounded-full border-2 focus:border-blue-600 shadow-lg"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-28 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          <motion.div variants={fadeUp} className="max-w-4xl mx-auto space-y-4">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1]">
+              Direct Guidance from{" "}
+              <span className="text-gradient">World-Class</span> Experts & Founders
+            </h1>
+            <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
+              Book instant 1-on-1 video consultations, advisory sessions, and direct mentorship with top industry leaders.
+            </p>
+          </motion.div>
+
+          {/* AI Floating Search Bar */}
+          <motion.div variants={fadeUp} className="max-w-2xl mx-auto">
+            <form onSubmit={handleSearch} className="relative group">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-25 group-hover:opacity-60 blur-md transition duration-300" />
+              <div className="relative flex items-center glass-level-2 rounded-2xl p-1.5 border-slate-200/80 dark:border-white/10 shadow-2xl">
+                <Search className="ml-3.5 text-slate-400 h-5 w-5 shrink-0" />
+                <Input
+                  type="text"
+                  placeholder="Search for experts... (e.g. 'AI engineer', 'Startup Mentor', 'Growth Hacker')"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border-0 bg-transparent text-base focus-visible:ring-0 focus-visible:ring-offset-0 px-3 py-3 text-foreground placeholder:text-muted-foreground/60 shadow-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="p-1 text-slate-400 hover:text-slate-600 mr-2"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="lg"
+                  className="rounded-xl px-6 font-bold shadow-md shrink-0"
                 >
-                  <X className="h-5 w-5" />
-                </button>
-              )}
-              <Button 
-                type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full px-8 bg-blue-600 hover:bg-blue-700"
-              >
-                Search
-              </Button>
+                  Search
+                </Button>
+              </div>
+            </form>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-3 text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Popular:</span>
+              <button onClick={() => { setSearchQuery("AI Consultant"); navigate("/search?q=AI%20Consultant"); }} className="hover:text-indigo-500 underline decoration-indigo-400/40">AI Consultant</button>
+              <span>•</span>
+              <button onClick={() => { setSearchQuery("Tech Founder"); navigate("/search?q=Tech%20Founder"); }} className="hover:text-indigo-500 underline decoration-indigo-400/40">Tech Founder</button>
+              <span>•</span>
+              <button onClick={() => { setSearchQuery("Career Coach"); navigate("/search?q=Career%20Coach"); }} className="hover:text-indigo-500 underline decoration-indigo-400/40">Career Coach</button>
             </div>
-          </form>
-          
+          </motion.div>
+
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <a 
-              href="/experts"
-              className="group bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+          <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2">
+            <Button
+              size="xl"
+              onClick={() => navigate("/experts")}
+              className="w-full sm:w-auto gap-2 shadow-glow"
             >
-              Browse Experts
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </a>
-            <a 
-              href="/guest-profile" 
-              className="group border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:border-blue-600 hover:text-blue-600 transition-all duration-300 flex items-center"
+              Explore Expert Directory
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="xl"
+              onClick={() => navigate("/expert/onboarding")}
+              className="w-full sm:w-auto gap-2"
             >
-              Become an Expert
-              <Users className="ml-2 w-5 h-5" />
-            </a>
-          </div>
-          
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">20+</div>
-              <div className="text-gray-600 font-medium">Expert Speakers</div>
+              Apply as an Expert
+              <Sparkles className="w-4 h-4 text-indigo-500" />
+            </Button>
+          </motion.div>
+
+          {/* Key Value Props Bar with CountUp */}
+          <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto pt-8">
+            <div className="glass-card p-4 rounded-2xl flex items-center gap-3 text-left">
+              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 font-bold">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-foreground">Verified Mentors</h4>
+                <p className="text-xs text-muted-foreground">Rigorous background vetting</p>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-purple-600 mb-2">1,800+</div>
-              <div className="text-gray-600 font-medium">Successful Events</div>
+
+            <div className="glass-card p-4 rounded-2xl flex items-center gap-3 text-left">
+              <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 font-bold">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-foreground">Instant HD Calls</h4>
+                <p className="text-xs text-muted-foreground">Seamless video conference</p>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-green-600 mb-2">15+</div>
-              <div className="text-gray-600 font-medium">Industries Covered</div>
+
+            <div className="glass-card p-4 rounded-2xl flex items-center gap-3 text-left">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 font-bold">
+                <Star className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-foreground">4.9/5 Rating</h4>
+                <p className="text-xs text-muted-foreground">
+                  Over <CountUp to={1800} suffix="+" /> booked sessions
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Bottom Wave */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg viewBox="0 0 1200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1200 120L0 120L0 0C400 80 800 80 1200 0V120Z" fill="white"/>
-        </svg>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
