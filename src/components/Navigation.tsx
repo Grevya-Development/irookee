@@ -75,7 +75,7 @@ const Navigation = () => {
       >
         <div className="px-4 sm:px-6 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2.5 group">
+          <Link to="/" className="whitespace-nowrap flex items-center space-x-2.5 group">
             <div className="relative flex items-center justify-center">
               <img
                 src="/irookee-mark.svg"
@@ -95,11 +95,10 @@ const Navigation = () => {
             {navItems.map((item) => {
               const isActive = location.pathname === item.href;
               return (
-
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`relative px-3.5 py-1.5 text-sm font-semibold transition-colors duration-200 rounded-lg ${
+                  className={`relative px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors duration-200 rounded-lg ${
                     isActive
                       ? "text-indigo-600 dark:text-white"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -120,16 +119,16 @@ const Navigation = () => {
 
           {/* Right Action Icons & Auth */}
           <div className="hidden lg:flex items-center space-x-3">
-            <Link to="/expert/onboarding">
-              <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-600">
+            <Link to="/expert/onboarding" className="whitespace-nowrap">
+              <Button variant="ghost" size="sm" className="whitespace-nowrap gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-600">
                 <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
                 Become an Expert
               </Button>
             </Link>
 
             {isAdmin && (
-              <Link to="/admin">
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold shadow-sm">
+              <Link to="/admin" className="whitespace-nowrap">
+                <span className="whitespace-nowrap inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold shadow-sm">
                   <Shield className="h-3.5 w-3.5" /> Admin
                 </span>
               </Link>
@@ -140,13 +139,31 @@ const Navigation = () => {
                 <NotificationCenter />
 
                 {profile?.user_type === "expert" && (
-                  <Link to="/expert/dashboard">
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs font-medium">
+                  <Link to="/expert/dashboard" aria-label="Expert Desk" className="whitespace-nowrap">
+                    <Button variant="outline" size="sm" className="whitespace-nowrap gap-1.5 text-xs font-medium">
                       <Briefcase className="h-3.5 w-3.5 text-indigo-500" />
                       <span className="hidden xl:inline">Expert Desk</span>
                     </Button>
                   </Link>
                 )}
+
+                <Link
+                  to="/dashboard"
+                  aria-label="Dashboard"
+                  className="whitespace-nowrap flex items-center gap-1 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-1 text-xs font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+                >
+                  <User className="h-4 w-4 text-indigo-500" aria-hidden="true" />
+                  <span className="hidden xl:inline">Dashboard</span>
+                </Link>
+
+                <Link
+                  to="/settings"
+                  aria-label="Settings"
+                  className="whitespace-nowrap flex items-center gap-1 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-1 text-xs font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+                >
+                  <Settings className="h-4 w-4 text-purple-500" aria-hidden="true" />
+                  <span className="hidden xl:inline">Settings</span>
+                </Link>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -170,13 +187,13 @@ const Navigation = () => {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/dashboard" className="flex items-center gap-2">
+                      <Link to="/dashboard" className="whitespace-nowrap flex items-center gap-2">
                         <User className="h-4 w-4 text-indigo-500" />
                         My Dashboard
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/settings" className="flex items-center gap-2">
+                      <Link to="/settings" className="whitespace-nowrap flex items-center gap-2">
                         <Settings className="h-4 w-4 text-purple-500" />
                         Settings
                       </Link>
@@ -193,8 +210,8 @@ const Navigation = () => {
                 </DropdownMenu>
               </div>
             ) : (
-              <Link to="/auth">
-                <Button variant="default" size="sm" className="gap-1.5">
+              <Link to="/auth" className="whitespace-nowrap">
+                <Button variant="default" size="sm" className="whitespace-nowrap gap-1.5">
                   <LogIn className="h-3.5 w-3.5" />
                   Sign In
                 </Button>
@@ -205,8 +222,8 @@ const Navigation = () => {
           {/* Mobile Menu Toggle Button */}
           <div className="lg:hidden flex items-center space-x-2">
             {isAdmin && (
-              <Link to="/admin">
-                <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold">
+              <Link to="/admin" className="whitespace-nowrap">
+                <span className="whitespace-nowrap px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold">
                   Admin
                 </span>
               </Link>
@@ -238,7 +255,7 @@ const Navigation = () => {
                     key={item.name}
                     to={item.href}
                     onClick={() => setIsOpen(false)}
-                    className="px-3.5 py-2.5 rounded-xl text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    className="whitespace-nowrap px-3.5 py-2.5 rounded-xl text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                   >
                     {item.name}
                   </Link>
@@ -246,7 +263,7 @@ const Navigation = () => {
                 <Link
                   to="/expert/onboarding"
                   onClick={() => setIsOpen(false)}
-                  className="px-3.5 py-2.5 rounded-xl text-base font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 flex items-center gap-2"
+                  className="whitespace-nowrap px-3.5 py-2.5 rounded-xl text-base font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 flex items-center gap-2"
                 >
                   <Sparkles className="h-4 w-4" /> Become an Expert
                 </Link>
@@ -262,14 +279,14 @@ const Navigation = () => {
                     <Link
                       to="/dashboard"
                       onClick={() => setIsOpen(false)}
-                      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="whitespace-nowrap px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       <User className="h-4 w-4 text-indigo-500" /> Dashboard
                     </Link>
                     <Link
                       to="/settings"
                       onClick={() => setIsOpen(false)}
-                      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="whitespace-nowrap px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       <Settings className="h-4 w-4 text-purple-500" /> Settings
                     </Link>
@@ -282,7 +299,7 @@ const Navigation = () => {
                     </Button>
                   </>
                 ) : (
-                  <Link to="/auth" onClick={() => setIsOpen(false)}>
+                  <Link to="/auth" onClick={() => setIsOpen(false)} className="whitespace-nowrap">
                     <Button variant="default" className="w-full justify-center gap-2">
                       <LogIn className="h-4 w-4" /> Sign In / Register
                     </Button>

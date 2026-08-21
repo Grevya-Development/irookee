@@ -54,8 +54,8 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
     past_events: expert.total_sessions,
     created_at: expert.created_at,
     updated_at: expert.updated_at,
-    is_verified: expert.verification_level === "verified",
-    badges: [],
+    is_verified: Boolean(expert.is_verified || expert.verification_level === "verified"),
+    badges: Array.isArray(expert.badges) ? expert.badges : [],
     social_links: {},
     video_url: expert.intro_video_url,
     topics: [],
@@ -87,8 +87,10 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
                   <h3 className="font-bold text-base text-foreground leading-tight truncate">
                     {expert.full_name || "Verified Expert"}
                   </h3>
-                  {expert.verification_level === "verified" && (
-                    <BadgeCheck className="h-4 w-4 text-indigo-500 shrink-0" />
+                  {(expert.is_verified || expert.verification_level === "verified") && (
+                    <span title="Verified Expert" className="inline-flex">
+                      <BadgeCheck className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    </span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate font-medium mt-0.5">
@@ -97,7 +99,7 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
               </div>
             </div>
 
-            {/* Badges */}
+            {/* Badges & Trust Tags */}
             <div className="flex flex-wrap gap-1.5">
               <Badge variant={tierConfig.variant}>
                 {tierConfig.name}
@@ -105,9 +107,14 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
               <Badge variant="success">
                 Free Session
               </Badge>
-              {expert.rating >= 4.9 && (
-                <Badge variant="warning">
-                  <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Top Rated
+              {Array.isArray(expert.badges) && expert.badges.filter(Boolean).slice(0, 2).map((badge, idx) => (
+                <Badge key={idx} variant="outline" className="text-[10px] py-0 px-1.5 font-medium border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30">
+                  {badge}
+                </Badge>
+              ))}
+              {Array.isArray(expert.badges) && expert.badges.filter(Boolean).length > 2 && (
+                <Badge variant="outline" className="text-[10px] py-0 px-1 text-muted-foreground">
+                  +{expert.badges.filter(Boolean).length - 2}
                 </Badge>
               )}
             </div>

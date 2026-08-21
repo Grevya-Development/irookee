@@ -23,6 +23,7 @@ interface SpeakerSearchRow {
   rating: number | string | null
   past_events: number | null
   is_verified: boolean | null
+  badges: string[] | null
   video_url: string | null
   experience_years: number | null
   created_at: string
@@ -58,15 +59,12 @@ const STOPWORDS = new Set([
 const normalize = (value: unknown) => String(value || '').trim().toLowerCase()
 
 const normalizeTerms = (rawQuery?: string) => {
-  const query = normalize(rawQuery)
-  if (!query) return { query: '', terms: [] as string[] }
-
-  const terms = query
-    .split(/[\s,]+/)
-    .map(term => term.trim().replace(/[^a-z0-9'+#.]/g, ''))
-    .filter(term => term.length >= 2 && !STOPWORDS.has(term))
-
-  return { query, terms }
+  if (!rawQuery) return []
+  return rawQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .map(t => t.trim())
+    .filter(t => t.length > 1 && !STOPWORDS.has(t))
 }
 
 const textIncludes = (value: unknown, needle: string) => normalize(value).includes(needle)
@@ -74,17 +72,19 @@ const textIncludes = (value: unknown, needle: string) => normalize(value).includ
 const arrayIncludes = (values: unknown[] | null | undefined, needle: string) =>
   (values || []).some(value => textIncludes(value, needle))
 
-const getCategoryRows = (expert: SpeakerSearchRow) => expert.speaker_categories || []
-
-const getCategoryNames = (expert: SpeakerSearchRow) =>
-  getCategoryRows(expert)
-    .map(row => row.categories?.name)
+const getCategoryNames = (expert: SpeakerSearchRow): string[] => {
+  if (!expert.speaker_categories) return []
+  return expert.speaker_categories
+    .map(sc => sc.categories?.name)
     .filter((name): name is string => Boolean(name))
+}
 
-const getCategoryIds = (expert: SpeakerSearchRow) =>
-  getCategoryRows(expert)
-    .map(row => row.category_id || row.categories?.id)
+const getCategoryIds = (expert: SpeakerSearchRow): string[] => {
+  if (!expert.speaker_categories) return []
+  return expert.speaker_categories
+    .map(sc => sc.categories?.id)
     .filter((id): id is string => Boolean(id))
+}
 
 const getExpertise = (expert: SpeakerSearchRow) =>
   expert.expertise?.length ? expert.expertise : expert.expertise_areas || []
@@ -102,6 +102,8 @@ const toExpertProfile = (expert: SpeakerSearchRow): ExpertProfile => ({
   hourly_rate: expert.hourly_rate,
   status: 'approved' as const,
   verification_level: expert.is_verified ? ('verified' as const) : ('basic' as const),
+  is_verified: Boolean(expert.is_verified),
+  badges: Array.isArray(expert.badges) ? expert.badges : [],
   rating: Number(expert.rating) || 0,
   total_sessions: expert.past_events || 0,
   intro_video_url: expert.video_url,

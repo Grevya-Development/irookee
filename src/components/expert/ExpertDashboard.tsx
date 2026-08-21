@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AvailabilityManager } from './AvailabilityManager'
-import { Calendar, Star, Users, TrendingUp, Clock, UserX, CheckCircle, Video, ExternalLink, XCircle, ThumbsUp, MessageSquare, ArrowLeft } from 'lucide-react'
+import { Calendar, Star, Users, TrendingUp, Clock, UserX, CheckCircle, Video, ExternalLink, XCircle, ThumbsUp, MessageSquare, ArrowLeft, AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
@@ -162,9 +162,209 @@ export function ExpertDashboard() {
     )
   }
 
-  // A suspended expert previously fell through to the "Complete Expert
-  // Onboarding" screen (or a blank profile tab) with no explanation, which
-  // invited them to submit a duplicate application.
+  // Pending Admin Review State
+  if (expertProfile.verification_status === 'pending') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <div className="container mx-auto px-4 sm:px-6 pt-24 pb-12 max-w-2xl flex-1 space-y-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to User Dashboard
+          </Button>
+
+          <Card className="border-indigo-100 dark:border-indigo-950/80 shadow-md">
+            <CardHeader className="text-center pb-2">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-100 dark:border-indigo-900">
+                <Clock className="h-7 w-7 animate-pulse" />
+              </div>
+              <Badge variant="secondary" className="mx-auto mb-2 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold">
+                Application Pending Review
+              </Badge>
+              <CardTitle className="text-2xl font-bold">Your Expert Application is Under Review</CardTitle>
+              <CardDescription className="text-sm max-w-md mx-auto">
+                Thank you for applying to become an expert on Irookee! Our team is reviewing your profile and credentials.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-4">
+              {/* Application Summary Box */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-4 border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Submitted Profile Summary</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Full Name</span>
+                    <span className="font-semibold">{String(expertProfile.name || 'Not provided')}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Professional Title</span>
+                    <span className="font-semibold">{String(expertProfile.title || 'Not provided')}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Experience</span>
+                    <span className="font-semibold">{expertProfile.experience_years ? `${expertProfile.experience_years} years` : 'Not specified'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Location</span>
+                    <span className="font-semibold">{String(expertProfile.location || 'Not provided')}</span>
+                  </div>
+                </div>
+                {expertProfile.bio && (
+                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                    <span className="text-muted-foreground text-xs block mb-1">Bio</span>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed">
+                      {String(expertProfile.bio)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Status Stepper */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Verification Roadmap</h4>
+                <div className="space-y-2.5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Application Submitted</p>
+                      <p className="text-xs text-muted-foreground">Your onboarding details and documents have been recorded.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
+                      <Clock className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Admin Screening (In Progress)</p>
+                      <p className="text-xs text-muted-foreground">Our administrators are auditing your profile credentials.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 opacity-60">
+                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 flex items-center justify-center shrink-0 mt-0.5">
+                      <Star className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Expert Portal Activation</p>
+                      <p className="text-xs text-muted-foreground">Once approved, your availability slots open and public bookings begin.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button onClick={() => navigate('/expert/onboarding')} className="flex-1 font-semibold">
+                  Edit / Update Application
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
+                  Go to User Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  // Changes Requested by Admin State
+  if (expertProfile.verification_status === 'changes_requested') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <div className="container mx-auto px-4 sm:px-6 pt-24 pb-12 max-w-2xl flex-1 space-y-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to User Dashboard
+          </Button>
+
+          <Card className="border-amber-200 dark:border-amber-900/80 shadow-md">
+            <CardHeader className="text-center pb-2">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3 border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-7 w-7" />
+              </div>
+              <Badge variant="destructive" className="mx-auto mb-2 bg-amber-600 text-white font-bold">
+                Changes Requested
+              </Badge>
+              <CardTitle className="text-2xl font-bold">Application Updates Required</CardTitle>
+              <CardDescription className="text-sm max-w-md mx-auto">
+                An administrator reviewed your application and requested revisions before approval.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-4">
+              {typeof expertProfile.suspension_reason === 'string' && expertProfile.suspension_reason && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/30 p-4">
+                  <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">Admin Feedback</p>
+                  <p className="mt-1.5 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                    {String(expertProfile.suspension_reason)}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                Please update your onboarding details and resubmit. Your previous entries are saved and ready to edit.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button onClick={() => navigate('/expert/onboarding')} className="flex-1 font-semibold">
+                  Update & Resubmit Application
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
+                  Go to User Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  // Application Not Approved State
+  if (expertProfile.verification_status === 'rejected') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <div className="container mx-auto px-4 sm:px-6 pt-24 pb-12 max-w-2xl flex-1 space-y-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to User Dashboard
+          </Button>
+
+          <Card className="border-red-200 dark:border-red-950/80 shadow-md">
+            <CardHeader className="text-center pb-2">
+              <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-3 border border-red-200 dark:border-red-900">
+                <XCircle className="h-7 w-7" />
+              </div>
+              <Badge variant="destructive" className="mx-auto mb-2 font-bold">
+                Application Not Approved
+              </Badge>
+              <CardTitle className="text-2xl font-bold">Expert Application Not Approved</CardTitle>
+              <CardDescription className="text-sm max-w-md mx-auto">
+                Your application to join the expert network could not be approved at this time.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-4">
+              <p className="text-sm text-muted-foreground">
+                You can review your information and submit a new application when ready, or continue using Irookee as a consumer.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button onClick={() => navigate('/expert/onboarding')} className="flex-1 font-semibold">
+                  Re-apply as Expert
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
+                  Go to User Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  // Suspended State
   if (expertProfile.verification_status === 'suspended') {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -208,6 +408,7 @@ export function ExpertDashboard() {
       </div>
     )
   }
+
 
   const hasUploadedDocs = Boolean(
     expertProfile?.verification_documents &&

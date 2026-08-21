@@ -28,6 +28,7 @@ const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ExpertOnboarding = lazy(() => import("./components/expert/ExpertOnboarding").then(m => ({ default: m.ExpertOnboarding })));
 const ExpertDashboard = lazy(() => import("./components/expert/ExpertDashboard").then(m => ({ default: m.ExpertDashboard })));
+const ExpertProtectedRoute = lazy(() => import("./components/ExpertProtectedRoute"));
 const GuestProfile = lazy(() => import("./pages/GuestProfile"));
 const Companionship = lazy(() => import("./pages/Companionship"));
 const CompanionService = lazy(() => import("./pages/CompanionService"));
@@ -88,7 +89,14 @@ const AnimatedRoutes = () => {
           <Route path="/booking" element={<Booking />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/expert/onboarding" element={<ExpertOnboarding />} />
-          <Route path="/expert/dashboard" element={<ExpertDashboard />} />
+          <Route
+            path="/expert/dashboard"
+            element={
+              <ExpertProtectedRoute>
+                <ExpertDashboard />
+              </ExpertProtectedRoute>
+            }
+          />
           <Route path="/speakers" element={<Search />} />
           <Route path="/about" element={<About />} />
           <Route path="/blog" element={<Blog />} />

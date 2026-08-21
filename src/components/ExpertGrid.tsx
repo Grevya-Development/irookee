@@ -41,6 +41,7 @@ interface RawSpeaker {
   rating: number | string | null;
   past_events: number | null;
   is_verified: boolean | null;
+  badges: string[] | null;
   video_url: string | null;
   created_at: string;
   updated_at: string;
@@ -62,6 +63,8 @@ const transform = (speaker: RawSpeaker): ExpertProfile => ({
   // The "Verified" tick reflects the admin-granted is_verified badge, not the
   // listing/approval status.
   verification_level: speaker.is_verified ? ("verified" as const) : ("basic" as const),
+  is_verified: Boolean(speaker.is_verified),
+  badges: Array.isArray(speaker.badges) ? speaker.badges : [],
   rating: Number(speaker.rating) || 0,
   total_sessions: speaker.past_events || 0,
   intro_video_url: speaker.video_url,

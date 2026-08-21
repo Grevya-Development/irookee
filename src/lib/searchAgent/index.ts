@@ -303,10 +303,28 @@ export async function runSearchAgent(
   const intent = parseIntent(query);
   const limit = filters.limit ?? 40;
 
+  let normA = 0;
+  for (const weight of intent.concepts.values()) {
+    normA += weight * weight;
+  }
+
+  const defaultIdf = Math.log(1 + loaded.docs.length);
+  const termMeta = intent.terms.map((term) => ({
+    term,
+    idf: loaded.idf.get(term) ?? defaultIdf,
+  }));
+
+  const rankOptions = {
+    idf: loaded.idf,
+    totalDocs: loaded.docs.length,
+    normA,
+    termMeta,
+  };
+
   const scored: ScoredDoc<SpeakerRow>[] = [];
   for (const doc of loaded.docs) {
     if (!passesFilters(doc, filters, intent)) continue;
-    const result = scoreDoc(doc, intent, { idf: loaded.idf, totalDocs: loaded.docs.length });
+    const result = scoreDoc(doc, intent, rankOptions);
     if (result) scored.push(result);
   }
 

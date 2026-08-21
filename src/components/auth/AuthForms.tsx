@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/components/AuthProvider';
 import { validateEmailInput } from '@/lib/emailValidation';
+import { getAuthenticatedUserDestination } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -191,8 +192,14 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
       return;
     }
     toast.success('Welcome back!');
-    navigate(redirectTo, { replace: true });
+    if (redirectTo && redirectTo !== '/dashboard') {
+      navigate(redirectTo, { replace: true });
+    } else {
+      const dest = await getAuthenticatedUserDestination();
+      navigate(dest.defaultPath, { replace: true });
+    }
   };
+
 
   if (sentTo) {
     return (
