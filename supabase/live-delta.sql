@@ -339,3 +339,29 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.delete_account(uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.delete_account(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.delete_account(uuid) TO authenticated;
+
+-- ============================================================================
+-- Migration: 20260819000000_add_custom_profession_to_speakers.sql
+-- Support custom profession entry during expert onboarding for admin moderation.
+-- ============================================================================
+ALTER TABLE public.speakers
+  ADD COLUMN IF NOT EXISTS custom_profession TEXT;
+
+-- ============================================================================
+-- Migration: 20260819000001_restrict_public_speaker_reads.sql
+-- Restrict public read access on speakers to approved experts (verification_status = 'verified')
+-- while permitting owners and admins to inspect non-public profiles.
+-- ============================================================================
+DROP POLICY IF EXISTS "Allow public read access to speakers" ON public.speakers;
+DROP POLICY IF EXISTS "Public can view verified speakers or own or admin" ON public.speakers;
+
+CREATE POLICY "Public can view verified speakers or own or admin"
+  ON public.speakers
+  FOR SELECT
+  USING (
+    verification_status = 'verified'
+    OR auth.uid() = user_id
+    OR (SELECT public.is_admin())
+  );
+
+

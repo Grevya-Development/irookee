@@ -18,6 +18,8 @@ import { createInAppNotification, sendNotificationEmail, notifyAdmins } from '@/
 import { validateExpertiseAreas } from '@/lib/expertiseValidation'
 import { formatAndValidatePhone } from '@/lib/phoneUtils'
 import { profileNotificationService } from '@/lib/profileNotifications'
+import { ProfessionSelector } from './ProfessionSelector'
+import { validateCustomProfession, OTHER_PROFESSION_VALUE } from '@/lib/professions'
 
 const LANGUAGE_OPTIONS = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali',
@@ -29,6 +31,7 @@ const LANGUAGE_OPTIONS = [
 interface ExpertOnboardingForm {
   full_name: string
   title: string
+  custom_profession?: string
   email: string
   phone: string
   company: string
@@ -72,6 +75,9 @@ export function ExpertOnboarding() {
   const [locationValue, setLocationValue] = useState('')
   const [isSuspended, setIsSuspended] = useState(false)
   const [suspensionReason, setSuspensionReason] = useState('')
+  const [customProfession, setCustomProfession] = useState('')
+  const [isCustomProfession, setIsCustomProfession] = useState(false)
+  const [professionError, setProfessionError] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const watchedFullName = watch('full_name')
@@ -107,27 +113,78 @@ export function ExpertOnboarding() {
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user
     if (user) {
-      // Check speaker verification status
+      // Check speaker verification status and existing application
       const { data: speaker } = await supabase
         .from('speakers')
-        .select('verification_status, suspension_reason')
+        .select('*')
         .eq('user_id', user.id)
         .maybeSingle()
 
-      if (speaker && speaker.verification_status === 'suspended') {
-        setIsSuspended(true)
-        setSuspensionReason(speaker.suspension_reason || 'Suspended by admin')
-        return
+      if (speaker) {
+        if (speaker.verification_status === 'suspended') {
+          setIsSuspended(true)
+          setSuspensionReason(speaker.suspension_reason || 'Suspended by admin')
+          return
+        }
+
+        if (speaker.name) setValue('full_name', speaker.name)
+        if (speaker.title) setValue('title', speaker.title)
+        if (speaker.email) setValue('email', speaker.email)
+        if (speaker.phone) setValue('phone', speaker.phone)
+        if (speaker.company) setValue('company', speaker.company)
+        if (speaker.location) {
+          setLocationValue(speaker.location)
+          setValue('location', speaker.location)
+        }
+        if (speaker.languages && Array.isArray(speaker.languages)) {
+          setSelectedLanguages(speaker.languages)
+          setValue('languages', speaker.languages.join(', '))
+        }
+        if (speaker.bio) setValue('bio', speaker.bio)
+        if (speaker.expertise && Array.isArray(speaker.expertise)) {
+          setValue('expertise_areas', speaker.expertise.join(', '))
+        }
+        if (speaker.experience_years !== null && speaker.experience_years !== undefined) {
+          setValue('experience_years', Number(speaker.experience_years))
+        }
+        if (speaker.topics && Array.isArray(speaker.topics)) {
+          setValue('topics', speaker.topics.join(', '))
+        }
+        const speakerAudience = (speaker as Record<string, unknown>).preferred_audience
+        if (speakerAudience && Array.isArray(speakerAudience)) {
+          setValue('preferred_audience', speakerAudience.join(', '))
+        }
+        if (speaker.linkedin_url) setValue('linkedin_url', speaker.linkedin_url)
+        if (speaker.website_url) setValue('website_url', speaker.website_url)
+
+
+        // Load existing categories
+        const { data: speakerCats } = await supabase
+          .from('speaker_categories')
+          .select('category_id')
+          .eq('speaker_id', speaker.id)
+        if (speakerCats && speakerCats.length > 0) {
+          setSelectedCategories(speakerCats.map(sc => sc.category_id))
+        }
+
+        // Load existing documents
+        if (speaker.verification_documents && typeof speaker.verification_documents === 'object') {
+          const docs = (speaker.verification_documents as { documents?: UploadedDoc[] }).documents
+          if (Array.isArray(docs)) {
+            setUploadedDocs(docs)
+          }
+        }
       }
 
       setValue('email', user.email || '')
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
       if (profile) {
-        if (profile.full_name) setValue('full_name', profile.full_name)
-        if (profile.phone) setValue('phone', profile.phone)
+        if (!speaker?.name && profile.full_name) setValue('full_name', profile.full_name)
+        if (!speaker?.phone && profile.phone) setValue('phone', profile.phone)
       }
     }
   }
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -228,7 +285,24 @@ export function ExpertOnboarding() {
   }
 
   const goToStep3 = async () => {
-    const fieldsValid = await trigger(['title', 'expertise_areas', 'experience_years'])
+    const currentTitle = watch('title')
+    if (!currentTitle || currentTitle === OTHER_PROFESSION_VALUE || currentTitle.trim().length === 0) {
+      setProfessionError('Please select or enter your profession')
+      toast.error('Please select or enter your profession')
+      return
+    }
+
+    if (isCustomProfession) {
+      const validation = validateCustomProfession(currentTitle)
+      if (!validation.isValid) {
+        setProfessionError(validation.error || 'Invalid custom profession')
+        toast.error(validation.error || 'Invalid custom profession')
+        return
+      }
+    }
+
+    setProfessionError(null)
+    const fieldsValid = await trigger(['expertise_areas', 'experience_years'])
     if (!fieldsValid) {
       toast.error('Please complete all required fields before continuing')
       return
@@ -307,12 +381,25 @@ export function ExpertOnboarding() {
     }
 
     const titleTrimmed = data.title.trim()
-    if (!titleTrimmed) { toast.error('Professional title is required'); return }
+    if (!titleTrimmed || titleTrimmed === OTHER_PROFESSION_VALUE) {
+      toast.error('Professional title is required')
+      return
+    }
     if (numericOnlyRegex.test(titleTrimmed)) {
-      toast.error('Professional title cannot be numeric-only'); return
+      toast.error('Professional title cannot be numeric-only')
+      return
     }
     if (invalidSymbolsRegex.test(titleTrimmed)) {
-      toast.error('Professional title contains invalid symbols'); return
+      toast.error('Professional title contains invalid symbols')
+      return
+    }
+
+    if (isCustomProfession) {
+      const customVal = validateCustomProfession(titleTrimmed)
+      if (!customVal.isValid) {
+        toast.error(customVal.error || 'Please enter a valid custom profession')
+        return
+      }
     }
 
     const expertiseRes = validateExpertiseAreas(data.expertise_areas)
@@ -345,23 +432,32 @@ export function ExpertOnboarding() {
         submitted_at: new Date().toISOString()
       } : null
 
-      // "Topics You Help With" was collected but never persisted.
-      // NOTE: the sibling `preferred_audience` input is still dropped because
-      // speakers has no such column yet; it needs a migration before it can be saved.
-      const topics = (data.topics || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+      const isCustom = isCustomProfession || Boolean(customProfession)
+      const customProfessionClean = isCustom ? (customProfession.trim() || titleTrimmed) : null
+      const topics = data.topics ? data.topics.split(',').map(t => t.trim()).filter(Boolean) : []
+      const preferredAudience = data.preferred_audience ? data.preferred_audience.split(',').map(a => a.trim()).filter(Boolean) : []
 
-      const speakerPayload = {
-        user_id: user.id, name: data.full_name.trim(), title: data.title,
-        bio: data.bio || '', expertise: expertiseAreas, topics: topics.length > 0 ? topics : null,
+      const speakerPayload: Record<string, unknown> = {
+        name: data.full_name.trim(),
+        title: titleTrimmed,
+        custom_profession: customProfessionClean,
+        bio: data.bio || '',
         experience_years: data.experience_years,
-        hourly_rate: 0, currency: 'INR', location: locationValue || null,
+        expertise: expertiseAreas,
+        topics: topics.length > 0 ? topics : null,
+        preferred_audience: preferredAudience.length > 0 ? preferredAudience : null,
+        user_id: user.id,
+        hourly_rate: 0,
+        currency: 'INR',
+        location: locationValue || null,
         languages: languages.length > 0 ? languages : null,
-        verification_status: 'pending', is_verified: false, company: data.company || null,
-        phone: phoneClean, email: data.email || user.email,
-        linkedin_url: data.linkedin_url || null, website_url: data.website_url || null,
+        verification_status: 'pending',
+        is_verified: false,
+        company: data.company || null,
+        phone: phoneClean,
+        email: data.email || user.email,
+        linkedin_url: data.linkedin_url || null,
+        website_url: data.website_url || null,
         verification_documents: verificationDocuments,
       }
 
@@ -376,15 +472,18 @@ export function ExpertOnboarding() {
       const expertWrite = existingExpert
         ? await supabase
             .from('speakers')
-            .update(speakerPayload)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .update(speakerPayload as any)
             .eq('id', existingExpert.id)
             .select()
             .single()
         : await supabase
             .from('speakers')
-            .insert(speakerPayload)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .insert(speakerPayload as any)
             .select()
             .single()
+
 
       const { data: expertData, error: expertError } = expertWrite
 
@@ -418,10 +517,22 @@ export function ExpertOnboarding() {
           await supabase.from('verification_requests').insert(verificationPayload)
         }
       }
+      // Keep existing user_type (e.g. consumer) until Admin approves the application
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('id', user.id)
+        .maybeSingle()
+
       await supabase.from('profiles').upsert({
-        id: user.id, full_name: data.full_name.trim(), email: user.email,
-        user_type: 'expert', bio: data.bio || '', phone: data.phone || null,
+        id: user.id,
+        full_name: data.full_name.trim(),
+        email: user.email,
+        user_type: currentProfile?.user_type || 'consumer',
+        bio: data.bio || '',
+        phone: data.phone || null,
       })
+
 
       // Send notifications for expert application submission (email, user confirmation, admin alert)
       if (user.email) {
@@ -502,7 +613,7 @@ export function ExpertOnboarding() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background flex flex-col">
       <Navigation />
-      <div className="mx-auto px-4 sm:px-6 lg:px-10 pt-24 pb-12 flex-1">
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pt-24 pb-12 flex-1">
 
         {/* Welcome header */}
         <div className="text-center mb-8">
@@ -542,7 +653,7 @@ export function ExpertOnboarding() {
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Step 1: Personal Info */}
           {step === 1 && (
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-sm border rounded-2xl">
               <CardContent className="p-6 md:p-8 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -623,9 +734,10 @@ export function ExpertOnboarding() {
                     rows={4} className="mt-1" />
                   {errors.bio && <p className="text-sm text-destructive mt-1">{errors.bio.message}</p>}
                 </div>
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between pt-6 border-t mt-6">
+                  <div />
                   <Button type="button" onClick={goToStep2} size="lg" disabled={!isStep1Valid}>
-                    Next <ArrowRight className="h-4 w-4 ml-1" />
+                    Next <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </div>
               </CardContent>
@@ -634,23 +746,23 @@ export function ExpertOnboarding() {
 
           {/* Step 2: Professional Details */}
           {step === 2 && (
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-sm border rounded-2xl">
               <CardContent className="p-6 md:p-8 space-y-5">
-                <div>
-                  <Label>Professional Title *</Label>
-                  <Input 
-                    {...register('title', { 
-                      required: 'Professional title is required',
-                      validate: {
-                        notNumeric: value => !/^[0-9\s\-_, .()]+$/.test(value) || 'Professional title cannot be numeric-only',
-                        noSymbols: value => !/[<>={}[\]/\\^%$@#*]/.test(value) || 'Professional title contains invalid symbols'
-                      }
-                    })} 
-                    placeholder="Startup Mentor, Travel Guide, Financial Advisor..." 
-                    className="mt-1" 
-                  />
-                  {errors.title && <p className="text-sm text-destructive mt-1">{errors.title.message}</p>}
-                </div>
+                <ProfessionSelector
+                  value={watch('title') || ''}
+                  onChange={(selectedProf, isCustom) => {
+                    setValue('title', selectedProf, { shouldValidate: true })
+                    setIsCustomProfession(isCustom)
+                    if (isCustom && selectedProf !== OTHER_PROFESSION_VALUE) {
+                      setCustomProfession(selectedProf)
+                    }
+                    setProfessionError(null)
+                  }}
+                  customValue={customProfession}
+                  onCustomChange={(val) => setCustomProfession(val)}
+                  error={professionError || errors.title?.message}
+                />
+
                 <div>
                   <Label>Expertise Areas (comma-separated) *</Label>
                   <Input 
@@ -693,12 +805,12 @@ export function ExpertOnboarding() {
                     <Input {...register('website_url')} placeholder="https://..." className="mt-1" />
                   </div>
                 </div>
-                <div className="flex justify-between">
-                  <Button type="button" variant="ghost" onClick={() => setStep(1)}>
-                    <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                <div className="flex items-center justify-between pt-6 border-t mt-6">
+                  <Button type="button" variant="outline" onClick={() => setStep(1)} size="lg">
+                    <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
                   </Button>
                   <Button type="button" onClick={goToStep3} size="lg">
-                    Next <ArrowRight className="h-4 w-4 ml-1" />
+                    Next <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </div>
               </CardContent>
@@ -707,7 +819,7 @@ export function ExpertOnboarding() {
 
           {/* Step 3: Categories */}
           {step === 3 && (
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-sm border rounded-2xl">
               <CardContent className="p-6 md:p-8 space-y-5">
                 <p className="text-muted-foreground">Pick all that apply  -  this helps people find you.</p>
                 <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
@@ -729,15 +841,15 @@ export function ExpertOnboarding() {
                 {selectedCategories.length > 0 && (
                   <p className="text-sm text-muted-foreground">{selectedCategories.length} selected</p>
                 )}
-                <div className="flex justify-between">
-                  <Button type="button" variant="ghost" onClick={() => setStep(2)}>
-                    <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                <div className="flex items-center justify-between pt-6 border-t mt-6">
+                  <Button type="button" variant="outline" onClick={() => setStep(2)} size="lg">
+                    <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
                   </Button>
                   <Button type="button" onClick={() => {
-                    if (selectedCategories.length === 0) { toast.error('Select at least one'); return }
+                    if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
                     setStep(4)
                   }} size="lg">
-                    Next <ArrowRight className="h-4 w-4 ml-1" />
+                    Next <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </div>
               </CardContent>
@@ -746,7 +858,7 @@ export function ExpertOnboarding() {
 
           {/* Step 4: Document Verification */}
           {step === 4 && (
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-sm border rounded-2xl">
               <CardContent className="p-6 md:p-8 space-y-5">
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
@@ -797,22 +909,23 @@ export function ExpertOnboarding() {
                   <strong>100% Free.</strong> irookee is free for all experts. Once verified, people can discover and book sessions with you at no cost.
                 </div>
 
-                <div className="flex justify-between">
-                  <Button type="button" variant="ghost" onClick={() => setStep(3)}>
-                    <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                <div className="flex items-center justify-between pt-6 border-t mt-6">
+                  <Button type="button" variant="outline" onClick={() => setStep(3)} size="lg">
+                    <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
                   </Button>
                   <Button type="submit" disabled={loading} size="lg">
                     {loading
                       ? 'Submitting...'
                       : uploadedDocs.length > 0
                         ? 'Submit for Verification'
-                        : 'Submit & Skip for Now'}
+                        : 'Submit Application'}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
         </form>
+
 
         {/* Trust signals */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">

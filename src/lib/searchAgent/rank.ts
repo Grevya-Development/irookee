@@ -146,6 +146,8 @@ export interface RankOptions {
   /** Inverse document frequency per stem, from the corpus. */
   idf: Map<string, number>;
   totalDocs: number;
+  normA?: number;
+  termMeta?: { term: string; idf: number }[];
 }
 
 /**
@@ -171,8 +173,12 @@ export function scoreDoc<T>(
   let matchedTerms = 0;
   let maxPossible = 0;
 
-  for (const term of terms) {
-    const idf = options.idf.get(term) ?? Math.log(1 + options.totalDocs);
+  const metaList = options.termMeta ?? terms.map((term) => ({
+    term,
+    idf: options.idf.get(term) ?? Math.log(1 + options.totalDocs),
+  }));
+
+  for (const { term, idf } of metaList) {
     maxPossible += idf * FIELD_WEIGHTS.expertise;
 
     const exact = doc.termWeights.get(term);
@@ -185,19 +191,22 @@ export function scoreDoc<T>(
 
     // Prefix match: "develop" should hit "developer" as the user types.
     let partial = 0;
+    const termLen = term.length;
     for (const candidate of doc.termList) {
-      if (candidate.length > term.length && candidate.startsWith(term) && term.length >= 4) {
+      if (candidate.length > termLen && termLen >= 4 && candidate.startsWith(term)) {
         partial = Math.max(partial, 0.75);
         break;
       }
     }
     // Typo tolerance, only for words long enough to be unambiguous.
-    if (!partial && term.length >= 5) {
+    if (!partial && termLen >= 5) {
       for (const candidate of doc.termList) {
-        const ratio = fuzzyRatio(term, candidate);
-        if (ratio >= 0.8) {
-          partial = Math.max(partial, ratio * 0.6);
-          break;
+        if (Math.abs(candidate.length - termLen) <= 2 && candidate[0] === term[0]) {
+          const ratio = fuzzyRatio(term, candidate);
+          if (ratio >= 0.8) {
+            partial = Math.max(partial, ratio * 0.6);
+            break;
+          }
         }
       }
     }
@@ -212,7 +221,7 @@ export function scoreDoc<T>(
   const coverage = terms.length > 0 ? matchedTerms / terms.length : 1;
 
   // ---- 2. semantic ------------------------------------------------------
-  const semantic = conceptSimilarity(concepts, doc.concepts);
+  const semantic = conceptSimilarity(concepts, doc.concepts, options.normA);
 
   // ---- 3. exact phrase --------------------------------------------------
   const phrase =

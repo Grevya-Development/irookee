@@ -480,29 +480,29 @@ function vocabularyBucket(letter: string): string[] {
   return VOCAB_BUCKETS.get(letter) ?? [];
 }
 
-/**
- * Cosine similarity between two concept vectors.
- * 1 = same meaning, 0 = unrelated.
- */
 export function conceptSimilarity(
   a: Map<string, number>,
-  b: Map<string, number>
+  b: Map<string, number>,
+  precomputedNormA?: number
 ): number {
   if (a.size === 0 || b.size === 0) return 0;
 
+  // Iterate the smaller map first
   let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (const weight of a.values()) normA += weight * weight;
-  for (const weight of b.values()) normB += weight * weight;
-
-  // Iterate the smaller map.
   const [small, large] = a.size <= b.size ? [a, b] : [b, a];
   for (const [id, weight] of small) {
     const other = large.get(id);
     if (other) dot += weight * other;
   }
 
-  if (!dot) return 0;
+  if (dot === 0) return 0;
+
+  let normA = precomputedNormA ?? 0;
+  if (!normA) {
+    for (const weight of a.values()) normA += weight * weight;
+  }
+  let normB = 0;
+  for (const weight of b.values()) normB += weight * weight;
+
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }

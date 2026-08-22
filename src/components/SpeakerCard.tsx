@@ -82,11 +82,11 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
               </div>
             )}
 
-            {expert.badges.length > 0 && (
+            {Array.isArray(expert.badges) && expert.badges.filter(Boolean).length > 0 && (
               <div>
                 <p className="text-xs font-medium text-gray-700 mb-2">Badges Earned</p>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {expert.badges.map((badge) => (
+                  {expert.badges.filter(Boolean).map((badge) => (
                     <Badge key={badge} variant="outline" className="text-xs gap-1">
                       <Award className="h-3 w-3" />
                       {badge}

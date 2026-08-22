@@ -3,6 +3,7 @@ import AuthForms from "@/components/auth/AuthForms";
 import { useAuth } from "@/components/AuthProvider";
 import { useEffect } from "react";
 import { safeRedirect } from "@/lib/redirects";
+import { getAuthenticatedUserDestination } from "@/lib/auth";
 import { Video, Users, Award, Sparkles } from "lucide-react";
 import Seo from "@/components/Seo";
 import { ROUTE_SEO } from "@/lib/seoMeta";
@@ -12,15 +13,27 @@ import { fadeUp } from "@/lib/motion";
 const Auth = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get("mode");
-  const redirectTo = safeRedirect(searchParams.get("redirect"));
+  const rawRedirect = searchParams.get("redirect");
+  const redirectTo = safeRedirect(rawRedirect);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let active = true;
     if (!loading && user) {
-      navigate(redirectTo || "/dashboard", { replace: true });
+      if (rawRedirect && redirectTo && redirectTo !== "/dashboard") {
+        navigate(redirectTo, { replace: true });
+        return;
+      }
+      getAuthenticatedUserDestination(user.id).then((dest) => {
+        if (!active) return;
+        navigate(dest.defaultPath, { replace: true });
+      });
     }
-  }, [loading, user, redirectTo, navigate]);
+    return () => {
+      active = false;
+    };
+  }, [loading, user, rawRedirect, redirectTo, navigate]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col items-center justify-center overflow-x-hidden relative select-none font-sans p-4 sm:p-6 lg:p-8">

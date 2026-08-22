@@ -120,8 +120,9 @@ export function trigrams(word: string): string[] {
 export function fuzzyRatio(a: string, b: string): number {
   if (a === b) return 1;
   if (!a || !b) return 0;
-  // Length guard: "cat" vs "caterpillar" should not score highly.
-  if (Math.abs(a.length - b.length) > Math.max(4, Math.min(a.length, b.length))) return 0;
+  const lenDiff = Math.abs(a.length - b.length);
+  // Length guard: words differing by more than 3 chars cannot have high Dice coefficient.
+  if (lenDiff > 3 || lenDiff > Math.max(4, Math.min(a.length, b.length))) return 0;
 
   const ga = trigrams(a);
   const gb = new Set(trigrams(b));

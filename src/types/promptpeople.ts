@@ -32,6 +32,8 @@ export interface ExpertProfile {
   kyc_documents: Record<string, unknown> | null;
   availability_timezone: string | null;
   is_instant_available: boolean;
+  is_verified?: boolean | null;
+  badges?: string[] | null;
   created_at: string;
   updated_at: string;
 }
