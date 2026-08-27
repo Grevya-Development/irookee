@@ -4,6 +4,7 @@ import { Expert } from "@/types/speaker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Award, MapPin, Star, DollarSign, Calendar } from "lucide-react";
+import { UserAvatar } from "@/components/UserAvatar";
 import BookingModal from "./BookingModal";
 
 interface ExpertCardProps {
@@ -17,10 +18,10 @@ const ExpertCard = ({ expert }: ExpertCardProps) => {
     <>
       <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-6">
         <div className="flex flex-col items-center text-center">
-          <img
-            src={expert.image_url ? `${expert.image_url}?t=${new Date(expert.updated_at || '').getTime()}` : "/placeholder.svg"}
-            alt={expert.name}
-            className="w-20 h-20 rounded-full object-cover mb-4"
+          <UserAvatar
+            src={expert.image_url}
+            name={expert.name}
+            className="w-20 h-20 mb-4 shadow-sm text-xl"
           />
           
           <h3 className="text-lg font-semibold text-gray-900 mb-1">

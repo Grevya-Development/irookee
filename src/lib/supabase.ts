@@ -3,6 +3,36 @@ import { supabase as supabaseClient } from '@/integrations/supabase/client'
 
 export const supabase = supabaseClient
 
+export const PUBLIC_SPEAKER_SELECT_FIELDS = [
+  'id',
+  'name',
+  'full_name',
+  'title',
+  'bio',
+  'expertise',
+  'expertise_areas',
+  'topics',
+  'location',
+  'languages',
+  'hourly_rate',
+  'currency',
+  'rating',
+  'total_reviews',
+  'past_events',
+  'is_verified',
+  'verification_status',
+  'badges',
+  'image_url',
+  'profile_photo_url',
+  'video_url',
+  'company',
+  'experience_years',
+  'linkedin_url',
+  'website_url',
+  'created_at',
+  'updated_at',
+].join(',');
+
 export type Profile = {
   id: string
   email: string

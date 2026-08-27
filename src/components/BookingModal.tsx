@@ -44,6 +44,16 @@ const BookingModal = ({ isOpen, onClose, speaker }: BookingModalProps) => {
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
+    const isApproved = speaker.verification_status === 'verified' || speaker.verification_status === 'approved' || Boolean(speaker.is_verified);
+    if (!isApproved) {
+      toast({
+        title: "Booking Unavailable",
+        description: "This expert profile is not currently active for bookings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!user) {
       toast({
         title: "Authentication Required",

@@ -91,8 +91,9 @@ export function formatAndValidatePhone(
   }
 
   // 2. Generic International E.164 Validation (+[1-9]\d{7,14})
+  // If the number starts with +91, it is an Indian number and must not fall back to generic E.164 validation.
   const generalE164Regex = /^\+[1-9]\d{7,14}$/;
-  if (generalE164Regex.test(stripped)) {
+  if (!stripped.startsWith('+91') && generalE164Regex.test(stripped)) {
     return {
       isValid: true,
       normalized: stripped,

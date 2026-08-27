@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, PUBLIC_SPEAKER_SELECT_FIELDS } from "@/lib/supabase";
 import { withTimeout } from "@/lib/asyncTimeout";
 
 interface Person {
@@ -50,25 +50,25 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
       if (!searchQuery.trim()) {
         const { data: speakers, error } = await supabase
           .from('speakers')
-          .select('*')
+          .select(PUBLIC_SPEAKER_SELECT_FIELDS as '*')
           .limit(20);
 
         if (error) throw error;
 
-        const transformedPeople: Person[] = (speakers || []).map(speaker => ({
-          id: speaker.id,
-          name: speaker.name,
-          title: speaker.title,
-          bio: speaker.bio || '',
-          expertise: speaker.expertise || [],
-          imageUrl: speaker.image_url || '/placeholder.svg',
+        const transformedPeople: Person[] = (speakers as Record<string, unknown>[] || []).map(speaker => ({
+          id: String(speaker.id || ''),
+          name: String(speaker.name || ''),
+          title: String(speaker.title || ''),
+          bio: String(speaker.bio || ''),
+          expertise: Array.isArray(speaker.expertise) ? (speaker.expertise as string[]) : [],
+          imageUrl: String(speaker.image_url || '/placeholder.svg'),
           rating: Number(speaker.rating) || 0,
           price: {
             hourly: Number(speaker.hourly_rate) || 0,
-            currency: speaker.currency || 'USD'
+            currency: String(speaker.currency || 'USD')
           },
-          location: speaker.location || '',
-          pastEvents: speaker.past_events || 0,
+          location: String(speaker.location || ''),
+          pastEvents: Number(speaker.past_events) || 0,
           type: 'speaker'
         }));
 
@@ -77,7 +77,7 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
       }
 
       const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
-      let query = supabase.from('speakers').select('*');
+      let query = supabase.from('speakers').select(PUBLIC_SPEAKER_SELECT_FIELDS as '*');
       const searchConditions: string[] = [];
 
       searchTerms.forEach(term => {

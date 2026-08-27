@@ -93,12 +93,38 @@ describe('BUG 3: Indian Phone Number Validation', () => {
     expect(usRawRes.normalized).toBe('+12068831022');
   });
 
-  it('should reject invalid phone numbers', () => {
-    const invalidInputs = ['123', 'abcdef', '0000000000', '+911234'];
+  it('should reject invalid phone numbers matching EM-2 test cases', () => {
+    const invalidInputs = [
+      '',             // empty
+      '123456',         // 6 digits
+      '12345678',       // 8 digits
+      '123456789',      // 9 digits
+      '996682711011',   // 12 digits (11+ invalid digits for Indian number)
+      '+91594984',      // malformed +91 (6 digits after country code)
+      '+9159498412',    // malformed +91 (8 digits after country code)
+      '+91abc1234567',  // letters
+      'abcdef',         // letters only
+    ];
     for (const inp of invalidInputs) {
       const res = formatAndValidatePhone(inp);
       expect(res.isValid).toBe(false);
       expect(res.error).toBeDefined();
+    }
+  });
+
+  it('should accept valid 10-digit Indian phone numbers and normalize whitespace/formatting', () => {
+    const validInputs = [
+      '9966827110',
+      ' 9966827110 ',
+      '+91 99668 27110',
+      '+91-99668-27110',
+      '09966827110',
+      '919966827110',
+    ];
+    for (const inp of validInputs) {
+      const res = formatAndValidatePhone(inp);
+      expect(res.isValid).toBe(true);
+      expect(res.normalized).toBe('+919966827110');
     }
   });
 });

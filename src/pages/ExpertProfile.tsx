@@ -4,7 +4,7 @@ import { useExperts } from '@/hooks/useExperts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { UserAvatar } from '@/components/UserAvatar'
 import { Star, MapPin, Languages, Calendar, Briefcase, ExternalLink, MessageSquare, BadgeCheck, Flag } from 'lucide-react'
 import BookingModal from '@/components/BookingModal'
 import { Expert } from '@/types/speaker'
@@ -134,10 +134,29 @@ export default function ExpertProfile() {
     )
   }
 
+  if (expert.verification_status === 'suspended') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 pt-24 pb-12 max-w-xl text-center">
+          <Card className="border-destructive/40 p-8 space-y-4 shadow-lg">
+            <h1 className="text-2xl font-bold text-destructive">Account Suspended</h1>
+            <p className="text-muted-foreground">
+              This expert profile is currently suspended and unavailable for bookings.
+            </p>
+            <Button onClick={() => navigate('/experts')}>Browse Experts</Button>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   const expertTier = (expert.past_events || 0) >= 200 ? 4 :
     (expert.past_events || 0) >= 100 ? 3 :
     (expert.past_events || 0) >= 25 ? 2 :
     (expert.past_events || 0) >= 5 ? 1 : 0
+
+  const isApprovedForBooking = expert.verification_status === 'verified' || expert.verification_status === 'approved' || Boolean(expert.is_verified)
 
   const expertForBooking: Expert = {
     id: expert.id,
@@ -169,6 +188,10 @@ export default function ExpertProfile() {
   }
 
   const openBooking = (source: string) => {
+    if (!isApprovedForBooking) {
+      toast.error("This expert profile is not currently accepting public bookings.")
+      return
+    }
     track('booking_started', {
       expert_id: expert.id,
       expert_name: expert.name,
@@ -205,12 +228,11 @@ export default function ExpertProfile() {
             <Card>
               <CardHeader>
                 <div className="flex items-start gap-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={expert.image_url ? `${expert.image_url}?t=${expert.updated_at && !isNaN(new Date(expert.updated_at).getTime()) ? new Date(expert.updated_at).getTime() : Date.now()}` : undefined} />
-                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                      {expert.name?.charAt(0) || 'E'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar
+                    src={expert.image_url}
+                    name={expert.name}
+                    className="h-20 w-20 text-2xl shadow-md ring-4 ring-white dark:ring-slate-900"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-3xl">{expert.name}</CardTitle>

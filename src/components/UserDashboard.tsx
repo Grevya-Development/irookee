@@ -228,7 +228,7 @@ const UserDashboard = () => {
                         {formatDate(booking.event_date)}
                       </p>
                     </div>
-                    <Badge variant={getStatusBadgeVariant(booking.status) as any}>
+                    <Badge variant={getStatusBadgeVariant(booking.status) as "default" | "secondary" | "destructive" | "outline"}>
                       {booking.status}
                     </Badge>
                   </div>

@@ -357,7 +357,7 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
               )}
 
               <Button type="submit" className="w-full font-bold h-12 rounded-xl shadow-md bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer shadow-indigo-500/20">
-                Next: Set Password
+                Create account — Next: Set Password
               </Button>
             </motion.div>
           )}
@@ -457,7 +457,7 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
               onClick={() => { reset(); setSignupStep(1); onModeChange('signup'); }}
               className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
             >
-              Create an Account
+              Create an account
             </button>
           </p>
         )}

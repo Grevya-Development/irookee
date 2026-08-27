@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/integrations/supabase/client'
+import { supabase, PUBLIC_SPEAKER_SELECT_FIELDS } from '@/lib/supabase'
 
 export interface SpeakerProfile {
   id: string
@@ -54,20 +54,14 @@ export function useExperts(expertId?: string) {
     try {
       const { data, error: fetchError } = await supabase
         .from('speakers')
-        .select(`
-          *,
-          speaker_categories (
-            category_id,
-            categories ( id, name )
-          )
-        `)
+        .select(`${PUBLIC_SPEAKER_SELECT_FIELDS}, speaker_categories ( category_id, categories ( id, name ) )` as '*')
         .eq('id', id)
         .single()
 
       if (fetchError) throw fetchError
 
-      const categoriesList = data.speaker_categories
-        ? (data.speaker_categories as unknown as { categories: { name: string } | null }[])
+      const categoriesList = (data as unknown as { speaker_categories?: { categories: { name: string } | null }[] })?.speaker_categories
+        ? (data as unknown as { speaker_categories: { categories: { name: string } | null }[] }).speaker_categories
             .map((sc) => sc.categories?.name)
             .filter(Boolean)
         : []
@@ -91,7 +85,7 @@ export function useExperts(expertId?: string) {
     try {
       const { data, error: fetchError } = await supabase
         .from('speakers')
-        .select('*')
+        .select(PUBLIC_SPEAKER_SELECT_FIELDS as '*')
         .eq('verification_status', 'verified')
         .order('rating', { ascending: false })
         .limit(limit)

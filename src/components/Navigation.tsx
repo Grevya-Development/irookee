@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu, X, User, LogIn, LogOut, Settings, Shield, Briefcase, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,11 +60,6 @@ const Navigation = () => {
     setIsOpen(false);
   };
 
-  const accountInitial = (profile?.full_name || user?.email || "U")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pt-3 transition-all duration-300">
       <div
@@ -75,7 +71,7 @@ const Navigation = () => {
       >
         <div className="px-4 sm:px-6 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2.5 group">
+          <Link to="/" className="flex items-center space-x-2.5 group shrink-0 whitespace-nowrap">
             <div className="relative flex items-center justify-center">
               <img
                 src="/irookee-mark.svg"
@@ -95,11 +91,10 @@ const Navigation = () => {
             {navItems.map((item) => {
               const isActive = location.pathname === item.href;
               return (
-
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`relative px-3.5 py-1.5 text-sm font-semibold transition-colors duration-200 rounded-lg ${
+                  className={`relative px-3.5 py-1.5 text-sm font-semibold transition-colors duration-200 rounded-lg whitespace-nowrap ${
                     isActive
                       ? "text-indigo-600 dark:text-white"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -120,16 +115,16 @@ const Navigation = () => {
 
           {/* Right Action Icons & Auth */}
           <div className="hidden lg:flex items-center space-x-3">
-            <Link to="/expert/onboarding">
-              <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-600">
+            <Link to="/expert/onboarding" className="whitespace-nowrap">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-600 whitespace-nowrap">
                 <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
                 Become an Expert
               </Button>
             </Link>
 
             {isAdmin && (
-              <Link to="/admin">
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold shadow-sm">
+              <Link to="/admin" className="whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold shadow-sm whitespace-nowrap">
                   <Shield className="h-3.5 w-3.5" /> Admin
                 </span>
               </Link>
@@ -140,28 +135,49 @@ const Navigation = () => {
                 <NotificationCenter />
 
                 {profile?.user_type === "expert" && (
-                  <Link to="/expert/dashboard">
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs font-medium">
+                  <Link to="/expert/dashboard" className="whitespace-nowrap">
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs font-medium whitespace-nowrap">
                       <Briefcase className="h-3.5 w-3.5 text-indigo-500" />
                       <span className="hidden xl:inline">Expert Desk</span>
                     </Button>
                   </Link>
                 )}
 
+                <Link
+                  to="/dashboard"
+                  className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white whitespace-nowrap rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <User className="h-3.5 w-3.5 text-indigo-500" />
+                  Dashboard
+                </Link>
+
+                <Link
+                  to="/settings"
+                  className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-white whitespace-nowrap rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Settings className="h-3.5 w-3.5 text-purple-500" />
+                  Settings
+                </Link>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
                       aria-label="Account menu"
-                      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-bold text-white shadow-md hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="relative inline-flex items-center justify-center rounded-full hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                     >
-                      {accountInitial}
+                      <UserAvatar
+                        src={profile?.avatar_url}
+                        name={profile?.full_name}
+                        email={user?.email}
+                        className="h-9 w-9 ring-2 ring-white dark:ring-slate-900 shadow-md"
+                      />
                       <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 glass-panel p-1.5 rounded-xl">
                     <DropdownMenuLabel className="font-normal px-2 py-1.5">
-                      <span className="block text-sm font-bold text-foreground">
+                      <span className="block text-sm font-bold text-foreground truncate">
                         {profile?.full_name || "Your account"}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
@@ -170,15 +186,15 @@ const Navigation = () => {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/dashboard" className="flex items-center gap-2">
+                      <Link to="/dashboard" className="flex items-center gap-2 whitespace-nowrap">
                         <User className="h-4 w-4 text-indigo-500" />
                         My Dashboard
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/settings" className="flex items-center gap-2">
+                      <Link to="/profile" className="flex items-center gap-2 whitespace-nowrap">
                         <Settings className="h-4 w-4 text-purple-500" />
-                        Settings
+                        Profile & Settings
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -193,8 +209,8 @@ const Navigation = () => {
                 </DropdownMenu>
               </div>
             ) : (
-              <Link to="/auth">
-                <Button variant="default" size="sm" className="gap-1.5">
+              <Link to="/auth" className="whitespace-nowrap">
+                <Button variant="default" size="sm" className="gap-1.5 whitespace-nowrap">
                   <LogIn className="h-3.5 w-3.5" />
                   Sign In
                 </Button>
@@ -205,8 +221,8 @@ const Navigation = () => {
           {/* Mobile Menu Toggle Button */}
           <div className="lg:hidden flex items-center space-x-2">
             {isAdmin && (
-              <Link to="/admin">
-                <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold">
+              <Link to="/admin" className="whitespace-nowrap">
+                <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold whitespace-nowrap">
                   Admin
                 </span>
               </Link>
@@ -238,7 +254,7 @@ const Navigation = () => {
                     key={item.name}
                     to={item.href}
                     onClick={() => setIsOpen(false)}
-                    className="px-3.5 py-2.5 rounded-xl text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    className="px-3.5 py-2.5 rounded-xl text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors whitespace-nowrap"
                   >
                     {item.name}
                   </Link>
@@ -246,7 +262,7 @@ const Navigation = () => {
                 <Link
                   to="/expert/onboarding"
                   onClick={() => setIsOpen(false)}
-                  className="px-3.5 py-2.5 rounded-xl text-base font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 flex items-center gap-2"
+                  className="px-3.5 py-2.5 rounded-xl text-base font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 flex items-center gap-2 whitespace-nowrap"
                 >
                   <Sparkles className="h-4 w-4" /> Become an Expert
                 </Link>
@@ -256,34 +272,54 @@ const Navigation = () => {
                 {user ? (
                   <>
                     <div className="flex items-center justify-between px-3.5 py-2">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Notifications</span>
+                      <div className="flex items-center gap-2.5">
+                        <UserAvatar
+                          src={profile?.avatar_url}
+                          name={profile?.full_name}
+                          email={user?.email}
+                          className="h-8 w-8 ring-1 ring-slate-200 dark:ring-slate-800"
+                        />
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-foreground truncate">{profile?.full_name || 'Account'}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
+                        </div>
+                      </div>
                       <NotificationCenter />
                     </div>
+                    {profile?.user_type === "expert" && (
+                      <Link
+                        to="/expert/dashboard"
+                        onClick={() => setIsOpen(false)}
+                        className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap"
+                      >
+                        <Briefcase className="h-4 w-4 text-indigo-500" /> Expert Dashboard
+                      </Link>
+                    )}
                     <Link
                       to="/dashboard"
                       onClick={() => setIsOpen(false)}
-                      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap"
                     >
                       <User className="h-4 w-4 text-indigo-500" /> Dashboard
                     </Link>
                     <Link
-                      to="/settings"
+                      to="/profile"
                       onClick={() => setIsOpen(false)}
-                      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap"
                     >
-                      <Settings className="h-4 w-4 text-purple-500" /> Settings
+                      <Settings className="h-4 w-4 text-purple-500" /> Profile & Settings
                     </Link>
                     <Button
                       variant="destructive"
                       onClick={handleSignOut}
-                      className="w-full justify-start gap-2 text-sm mt-2"
+                      className="w-full justify-start gap-2 text-sm mt-2 whitespace-nowrap"
                     >
                       <LogOut className="h-4 w-4" /> Sign Out
                     </Button>
                   </>
                 ) : (
-                  <Link to="/auth" onClick={() => setIsOpen(false)}>
-                    <Button variant="default" className="w-full justify-center gap-2">
+                  <Link to="/auth" onClick={() => setIsOpen(false)} className="whitespace-nowrap">
+                    <Button variant="default" className="w-full justify-center gap-2 whitespace-nowrap">
                       <LogIn className="h-4 w-4" /> Sign In / Register
                     </Button>
                   </Link>

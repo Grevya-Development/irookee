@@ -62,6 +62,20 @@ export default function Booking() {
     )
   }
 
+  const isApproved = expert.verification_status === 'verified' || expert.verification_status === 'approved' || Boolean(expert.is_verified)
+  if (!isApproved) {
+    return (
+      <div className="min-h-screen bg-background">
+        {seo}
+        <Navigation />
+        <div className="container mx-auto px-4 pt-24 text-center">
+          <p className="text-destructive font-semibold">This expert profile is not currently active for bookings.</p>
+          <Button className="mt-4" onClick={() => navigate('/experts')}>Browse Experts</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {seo}

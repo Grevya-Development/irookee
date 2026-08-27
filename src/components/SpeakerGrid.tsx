@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import ExpertCard from "./SpeakerCard";
 import IntelligentSearch from "./IntelligentSearch";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, PUBLIC_SPEAKER_SELECT_FIELDS } from "@/lib/supabase";
 import { withTimeout } from "@/lib/asyncTimeout";
 
 interface Person {
@@ -43,7 +43,7 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
         
         let query = supabase
           .from('speakers')
-          .select('*')
+          .select(PUBLIC_SPEAKER_SELECT_FIELDS as '*')
           .limit(20);
 
         // If there's an initial query, filter by it

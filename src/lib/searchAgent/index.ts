@@ -22,6 +22,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { PUBLIC_SPEAKER_SELECT_FIELDS } from '@/lib/supabase';
 import { CONCEPT_BY_ID } from './concepts';
 import { parseIntent, type ParsedIntent } from './intent';
 import {
@@ -204,7 +205,7 @@ function indexRows(rows: SpeakerRow[]): Corpus {
 async function fetchCorpus(): Promise<Corpus> {
   const { data, error } = await supabase
     .from('speakers')
-    .select(`*, speaker_categories ( category_id, categories ( id, name ) )`)
+    .select(`${PUBLIC_SPEAKER_SELECT_FIELDS}, speaker_categories ( category_id, categories ( id, name ) )`)
     .or('verification_status.eq.verified,is_verified.eq.true,verification_status.is.null');
 
   if (error) throw error;

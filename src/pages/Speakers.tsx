@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, PUBLIC_SPEAKER_SELECT_FIELDS } from "@/lib/supabase";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/sections/Footer";
 import SearchFilters from "@/components/SearchFilters";
@@ -57,7 +57,7 @@ const Speakers = () => {
 
         let query = supabase
           .from("speakers")
-          .select("*")
+          .select(PUBLIC_SPEAKER_SELECT_FIELDS as '*')
           .eq("verification_status", "verified")
           .in("id", ids);
 
@@ -71,7 +71,7 @@ const Speakers = () => {
       } else {
         let query = supabase
           .from("speakers")
-          .select("*")
+          .select(PUBLIC_SPEAKER_SELECT_FIELDS as '*')
           .eq("verification_status", "verified");
 
         query = applyFiltersToQuery(query);

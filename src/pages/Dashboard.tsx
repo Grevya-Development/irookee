@@ -22,6 +22,7 @@ import ReviewForm from '@/components/ReviewForm'
 import { formatBookingDuration, formatZonedBookingTime, getBookingDurationMinutes, getBookingStart, isPastBooking, isUpcomingBooking } from '@/lib/bookingUtils'
 import { notifyBookingEvent } from '@/lib/notifications'
 import { isCurrentUserAdmin } from '@/lib/auth'
+import { UserAvatar } from '@/components/UserAvatar'
 import Seo from "@/components/Seo";
 
 const getExpertName = (booking: {
@@ -198,9 +199,17 @@ export default function Dashboard() {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Home
         </Button>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back, {profile?.full_name || user.email}</p>
+          <div className="flex items-center gap-4">
+            <UserAvatar
+              src={profile?.avatar_url}
+              name={profile?.full_name}
+              email={user.email}
+              className="h-14 w-14 ring-2 ring-primary/20 shadow-md text-xl"
+            />
+            <div>
+              <h1 className="text-3xl font-bold">Dashboard</h1>
+              <p className="text-muted-foreground">Welcome back, {profile?.full_name || user.email}</p>
+            </div>
           </div>
           {profile?.user_type === 'expert' ? (
             <Button onClick={() => navigate('/expert/dashboard')}>

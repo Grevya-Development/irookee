@@ -13,14 +13,19 @@ const Auth = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get("mode");
   const redirectTo = safeRedirect(searchParams.get("redirect"));
-  const { user, loading } = useAuth();
+  const { user, loading, isRecoverySession } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && user) {
+    if (isRecoverySession || (typeof window !== 'undefined' && window.location.hash.includes('type=recovery'))) {
+      navigate('/auth/reset-password' + (typeof window !== 'undefined' ? window.location.hash : ''), { replace: true });
+      return;
+    }
+
+    if (!loading && user && !isRecoverySession) {
       navigate(redirectTo || "/dashboard", { replace: true });
     }
-  }, [loading, user, redirectTo, navigate]);
+  }, [loading, user, isRecoverySession, redirectTo, navigate]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col items-center justify-center overflow-x-hidden relative select-none font-sans p-4 sm:p-6 lg:p-8">

@@ -19,6 +19,7 @@ export interface Expert {
   created_at: string;
   updated_at: string;
   is_verified: boolean;
+  verification_status?: string | null;
   badges: string[];
   social_links: {
     linkedin?: string;

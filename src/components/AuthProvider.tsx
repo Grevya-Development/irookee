@@ -39,6 +39,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  isRecoverySession: boolean;
   signUp: (email: string, password: string, fullName?: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signInWithOAuth: (provider: 'google' | 'apple') => Promise<AuthResult>;
@@ -60,6 +61,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecoverySession, setIsRecoverySession] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const hash = window.location.hash;
+    const search = window.location.search;
+    return hash.includes('type=recovery') || search.includes('type=recovery');
+  });
   /** Avoids re-fetching the profile for a user we already loaded. */
   const loadedProfileFor = useRef<string | null>(null);
 
@@ -146,8 +153,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (active) setLoading(false);
       });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoverySession(true);
+      } else if (event === 'SIGNED_OUT' || !nextSession) {
+        setIsRecoverySession(false);
+      }
       applySession(nextSession);
       setLoading(false);
     });
@@ -200,6 +212,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         password,
       });
       if (error) throw error;
+      setIsRecoverySession(false);
       return { error: null };
     } catch (err) {
       return { error: toError(err, 'Could not sign you in.') };
@@ -214,6 +227,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           options: { redirectTo: `${getSiteUrl()}/auth` },
         });
         if (error) throw error;
+        setIsRecoverySession(false);
         return { error: null };
       } catch (err) {
         return { error: toError(err, `Could not sign in with ${provider}.`) };
@@ -230,6 +244,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setSession(null);
     setUser(null);
     setProfile(null);
+    setIsRecoverySession(false);
     loadedProfileFor.current = null;
     resetAnalytics();
     setGaUser(null);
@@ -258,7 +273,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user) await loadProfile(user);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        await loadProfile(currentUser);
+      } else if (user) {
+        await loadProfile(user);
+      }
+    } catch (err) {
+      console.error('Error refreshing profile:', err);
+    }
   }, [user, loadProfile]);
 
   return (
@@ -268,6 +292,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         session,
         profile,
         loading,
+        isRecoverySession,
         signUp,
         signIn,
         signInWithOAuth,

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { UserAvatar } from '@/components/UserAvatar'
 import { Star, MapPin, Languages, Clock, Sparkles } from 'lucide-react'
 import type { ExpertProfile } from '@/lib/supabase'
 
@@ -15,9 +15,6 @@ interface ExpertCardProps {
 export function ExpertCard({ expert, onBook }: ExpertCardProps) {
   const navigate = useNavigate()
   const profile = expert.profiles
-  const avatarUrl = profile?.avatar_url
-    ? `${profile.avatar_url}${profile.avatar_url.includes('?') ? '&' : '?'}v=${encodeURIComponent(profile.updated_at || '')}`
-    : undefined
 
   const handleBook = () => {
     if (onBook) {
@@ -27,25 +24,16 @@ export function ExpertCard({ expert, onBook }: ExpertCardProps) {
     }
   }
 
-  const getInitials = (name: string | null) => {
-    if (!name) return 'E'
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={avatarUrl} />
-              <AvatarFallback>{getInitials(profile?.full_name || null)}</AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              src={profile?.avatar_url}
+              name={profile?.full_name}
+              className="h-12 w-12 text-sm shadow-sm"
+            />
             <div>
               <h3 className="font-semibold text-lg">{profile?.full_name || 'Expert'}</h3>
               <p className="text-sm text-muted-foreground">{expert.title}</p>
