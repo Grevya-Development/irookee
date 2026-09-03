@@ -5,6 +5,7 @@ import { Search, Loader2, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/asyncTimeout";
+import { PUBLIC_SPEAKER_COLUMNS } from "@/hooks/useExperts";
 
 interface Person {
   id: string;
@@ -24,7 +25,7 @@ interface Person {
 }
 
 interface IntelligentSearchProps {
-  onResults: (people: Person[]) => void;
+  onResults: (results: Person[]) => void;
   onLoading: (loading: boolean) => void;
   onError: (error: string) => void;
   initialQuery?: string;
@@ -50,7 +51,8 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
       if (!searchQuery.trim()) {
         const { data: speakers, error } = await supabase
           .from('speakers')
-          .select('*')
+          .select(PUBLIC_SPEAKER_COLUMNS)
+          .eq('verification_status', 'verified')
           .limit(20);
 
         if (error) throw error;
@@ -77,7 +79,7 @@ const IntelligentSearch = ({ onResults, onLoading, onError, initialQuery = '' }:
       }
 
       const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
-      let query = supabase.from('speakers').select('*');
+      let query = supabase.from('speakers').select(PUBLIC_SPEAKER_COLUMNS).eq('verification_status', 'verified');
       const searchConditions: string[] = [];
 
       searchTerms.forEach(term => {

@@ -61,11 +61,15 @@ describe('BUG 2: Expertise Areas Validation', () => {
   });
 });
 
-describe('BUG 3: Indian Phone Number Validation', () => {
+describe('BUG 3: Indian Phone Number Validation (EM-2)', () => {
   it('should format and normalize raw 10-digit Indian numbers to E.164 (+91)', () => {
     const res = formatAndValidatePhone('9966827110');
     expect(res.isValid).toBe(true);
     expect(res.normalized).toBe('+919966827110');
+
+    const res2 = formatAndValidatePhone('9876543210');
+    expect(res2.isValid).toBe(true);
+    expect(res2.normalized).toBe('+919876543210');
   });
 
   it('should support Indian numbers with leading 0 or +91 prefix and spaces/hyphens', () => {
@@ -74,12 +78,16 @@ describe('BUG 3: Indian Phone Number Validation', () => {
       '+919966827110',
       '+91 99668 27110',
       '+91-99668-27110',
+      '+91 9876543210',
+      '+91-98765-43210',
+      '  +91 9876543210  ',
+      '  9876543210  ',
     ];
 
     for (const inp of inputs) {
       const res = formatAndValidatePhone(inp);
       expect(res.isValid).toBe(true);
-      expect(res.normalized).toBe('+919966827110');
+      expect(res.normalized).toMatch(/^\+91[6-9]\d{9}$/);
     }
   });
 
@@ -93,8 +101,24 @@ describe('BUG 3: Indian Phone Number Validation', () => {
     expect(usRawRes.normalized).toBe('+12068831022');
   });
 
-  it('should reject invalid phone numbers', () => {
-    const invalidInputs = ['123', 'abcdef', '0000000000', '+911234'];
+  it('should reject invalid phone numbers (EM-2: 6-digit, 9-digit, 11-digit, non-numeric, invalid +91)', () => {
+    const invalidInputs = [
+      '123',
+      '123456',           // 6-digit number
+      '123456789',        // 9-digit number
+      '12345678901',      // 11-digit number without valid trunk prefix
+      '+91 12345',        // +91 with 5 digits
+      '+91 123456',       // +91 with 6 digits
+      '+91 123456789',    // +91 with 9 digits
+      '+91 12345678901',  // +91 with 11 digits
+      '+91 1234567890',   // +91 with 10 digits starting with 1 (invalid prefix)
+      'abc1234567',       // non-numeric input
+      'abcdef',           // alphabetic input
+      '0000000000',       // all zeros
+      '+911234',          // short +91
+      '+91 abcdefghij',   // invalid characters in +91
+      '@@##$$%%',         // symbols
+    ];
     for (const inp of invalidInputs) {
       const res = formatAndValidatePhone(inp);
       expect(res.isValid).toBe(false);
