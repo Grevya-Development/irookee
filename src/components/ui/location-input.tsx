@@ -18,13 +18,14 @@ const INDIAN_CITIES = [
 ]
 
 interface LocationInputProps {
+  id?: string
   value: string
   onChange: (value: string) => void
   placeholder?: string
   className?: string
 }
 
-export function LocationInput({ value, onChange, placeholder = 'Start typing a city...', className }: LocationInputProps) {
+export function LocationInput({ id, value, onChange, placeholder = 'Start typing a city...', className }: LocationInputProps) {
   const [open, setOpen] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const ref = useRef<HTMLDivElement>(null)
@@ -51,6 +52,7 @@ export function LocationInput({ value, onChange, placeholder = 'Start typing a c
   return (
     <div ref={ref} className="relative">
       <Input
+        id={id}
         value={value}
         onChange={e => handleChange(e.target.value)}
         onFocus={() => { if (value.length >= 2) { handleChange(value) } }}

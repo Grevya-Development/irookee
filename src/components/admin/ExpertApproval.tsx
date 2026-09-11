@@ -210,13 +210,12 @@ export const ExpertApproval = () => {
 
       const { error } = await supabase
         .from('speakers')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({
           verification_status: restoredStatus,
           suspension_reason: null,
           suspended_at: null,
           suspension_history: updatedHistory,
-        } as any)
+        })
         .eq('id', expertId);
 
       if (error) throw error;
@@ -291,11 +290,10 @@ export const ExpertApproval = () => {
       if (feedbackAction === 'request_changes') {
         const { error } = await supabase
           .from('speakers')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .update({
             verification_status: 'changes_requested',
             suspension_reason: reason,
-          } as any)
+          })
           .eq('id', expertId);
 
         if (error) throw error;
@@ -322,12 +320,11 @@ export const ExpertApproval = () => {
       } else if (feedbackAction === 'reject') {
         const { error } = await supabase
           .from('speakers')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .update({
             verification_status: 'rejected',
             is_verified: false,
             suspension_reason: reason,
-          } as any)
+          })
           .eq('id', expertId);
 
         if (error) throw error;
@@ -375,14 +372,13 @@ export const ExpertApproval = () => {
 
         const { error } = await supabase
           .from('speakers')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .update({
             verification_status: 'suspended',
             is_verified: false,
             suspension_reason: reason,
             suspended_at: new Date().toISOString(),
             suspension_history: updatedHistory,
-          } as any)
+          })
           .eq('id', expertId);
 
         if (error) throw error;
@@ -530,11 +526,10 @@ export const ExpertApproval = () => {
     try {
       const { error } = await supabase
         .from('speakers')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({
           title: cleanTitle,
           custom_profession: null, // cleared once reviewed & mapped
-        } as any)
+        })
         .eq('id', expertId);
 
       if (error) throw error;

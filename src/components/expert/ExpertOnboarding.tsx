@@ -94,6 +94,7 @@ export function ExpertOnboarding() {
     !errors.email &&
     !errors.phone &&
     !errors.bio &&
+    formatAndValidatePhone(watchedPhone).isValid &&
     locationValue &&
     locationValue.trim().length > 0 &&
     selectedLanguages.length > 0
@@ -275,10 +276,15 @@ export function ExpertOnboarding() {
   const goToStep2 = async () => {
     setShowStep1Errors(true)
     const fieldsValid = await trigger(['full_name', 'email', 'phone', 'bio'])
+    const phoneCheck = formatAndValidatePhone(watch('phone'))
     const locationValid = locationValue.trim().length > 0
     const languagesValid = selectedLanguages.length > 0
-    if (!fieldsValid || !locationValid || !languagesValid) {
-      toast.error('Please complete all required fields before continuing')
+    if (!fieldsValid || !phoneCheck.isValid || !locationValid || !languagesValid) {
+      if (!phoneCheck.isValid) {
+        toast.error(phoneCheck.error || 'Please enter a valid phone number')
+      } else {
+        toast.error('Please complete all required fields before continuing')
+      }
       return
     }
     setStep(2)
@@ -530,7 +536,7 @@ export function ExpertOnboarding() {
         email: user.email,
         user_type: currentProfile?.user_type || 'consumer',
         bio: data.bio || '',
-        phone: data.phone || null,
+        phone: phoneClean || data.phone || null,
       })
 
 
@@ -657,8 +663,9 @@ export function ExpertOnboarding() {
               <CardContent className="p-6 md:p-8 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Full Name *</Label>
+                    <Label htmlFor="full_name">Full Name *</Label>
                     <Input 
+                      id="full_name"
                       {...register('full_name', { 
                         required: 'Full name is required',
                         pattern: {
@@ -672,8 +679,9 @@ export function ExpertOnboarding() {
                     {errors.full_name && <p className="text-sm text-destructive mt-1">{errors.full_name.message}</p>}
                   </div>
                   <div>
-                    <Label>Email *</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <Input
+                      id="email"
                       type="email"
                       {...register('email', {
                         required: 'Required',
@@ -687,8 +695,9 @@ export function ExpertOnboarding() {
                     {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
                   </div>
                   <div>
-                    <Label>Phone *</Label>
+                    <Label htmlFor="phone">Phone *</Label>
                     <Input
+                      id="phone"
                       {...register('phone', {
                         required: 'Phone number is required',
                         validate: {
@@ -704,13 +713,13 @@ export function ExpertOnboarding() {
                     {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
                   </div>
                   <div>
-                    <Label>Location *</Label>
-                    <LocationInput value={locationValue} onChange={(v) => { setLocationValue(v); setValue('location', v); }} className="mt-1" />
+                    <Label htmlFor="location">Location *</Label>
+                    <LocationInput id="location" value={locationValue} onChange={(v) => { setLocationValue(v); setValue('location', v); }} className="mt-1" />
                     {showStep1Errors && !locationValue.trim() && <p className="text-sm text-destructive mt-1">Please enter your location</p>}
                   </div>
                   <div>
-                    <Label>Company / Organization</Label>
-                    <Input {...register('company')} placeholder="Your company" className="mt-1" />
+                    <Label htmlFor="company">Company / Organization</Label>
+                    <Input id="company" {...register('company')} placeholder="Your company" className="mt-1" />
                   </div>
                   <div>
                     <Label>Languages *</Label>
@@ -728,8 +737,8 @@ export function ExpertOnboarding() {
                   </div>
                 </div>
                 <div>
-                  <Label>Tell us about yourself *</Label>
-                  <Textarea {...register('bio', { required: 'Required', minLength: { value: 50, message: 'At least 50 characters' } })}
+                  <Label htmlFor="bio">Tell us about yourself *</Label>
+                  <Textarea id="bio" {...register('bio', { required: 'Required', minLength: { value: 50, message: 'At least 50 characters' } })}
                     placeholder="Share your journey, what drives you, and how you help people..."
                     rows={4} className="mt-1" />
                   {errors.bio && <p className="text-sm text-destructive mt-1">{errors.bio.message}</p>}
@@ -764,8 +773,9 @@ export function ExpertOnboarding() {
                 />
 
                 <div>
-                  <Label>Expertise Areas (comma-separated) *</Label>
+                  <Label htmlFor="expertise_areas">Expertise Areas (comma-separated) *</Label>
                   <Input 
+                    id="expertise_areas"
                     {...register('expertise_areas', { 
                       required: 'Expertise areas are required',
                       validate: {
@@ -782,27 +792,27 @@ export function ExpertOnboarding() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Years of Experience *</Label>
-                    <Input type="number" min="0" {...register('experience_years', { required: 'Required', valueAsNumber: true, min: { value: 0, message: 'Min 0' } })} className="mt-1" />
+                    <Label htmlFor="experience_years">Years of Experience *</Label>
+                    <Input id="experience_years" type="number" min="0" {...register('experience_years', { required: 'Required', valueAsNumber: true, min: { value: 0, message: 'Min 0' } })} className="mt-1" />
                     {errors.experience_years && <p className="text-sm text-destructive mt-1">{errors.experience_years.message}</p>}
                   </div>
                   <div>
-                    <Label>Topics You Help With</Label>
-                    <Input {...register('topics')} placeholder="Pitch Decks, Market Research, SEO" className="mt-1" />
+                    <Label htmlFor="topics">Topics You Help With</Label>
+                    <Input id="topics" {...register('topics')} placeholder="Pitch Decks, Market Research, SEO" className="mt-1" />
                   </div>
                 </div>
                 <div>
-                  <Label>Who do you want to help?</Label>
-                  <Input {...register('preferred_audience')} placeholder="Students, Founders, Working Professionals" className="mt-1" />
+                  <Label htmlFor="preferred_audience">Who do you want to help?</Label>
+                  <Input id="preferred_audience" {...register('preferred_audience')} placeholder="Students, Founders, Working Professionals" className="mt-1" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>LinkedIn URL</Label>
-                    <Input {...register('linkedin_url')} placeholder="https://linkedin.com/in/..." className="mt-1" />
+                    <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                    <Input id="linkedin_url" {...register('linkedin_url')} placeholder="https://linkedin.com/in/..." className="mt-1" />
                   </div>
                   <div>
-                    <Label>Website / Portfolio</Label>
-                    <Input {...register('website_url')} placeholder="https://..." className="mt-1" />
+                    <Label htmlFor="website_url">Website / Portfolio</Label>
+                    <Input id="website_url" {...register('website_url')} placeholder="https://..." className="mt-1" />
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-6 border-t mt-6">

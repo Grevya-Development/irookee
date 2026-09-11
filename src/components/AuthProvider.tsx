@@ -34,16 +34,19 @@ export interface AuthResult {
   needsEmailConfirmation?: boolean;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  isPasswordRecovery?: boolean;
+  recoveryError?: string | null;
+  clearPasswordRecovery?: () => void;
   signUp: (email: string, password: string, fullName?: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signInWithOAuth: (provider: 'google' | 'apple') => Promise<AuthResult>;
   signOut: () => Promise<void>;
-  /** Emails a reset link that lands on /auth/reset-password. */
+  /** Emails a reset link that lands on /reset-password. */
   requestPasswordReset: (email: string) => Promise<AuthResult>;
   /** Sets a new password for the session created by the reset link. */
   updatePassword: (newPassword: string) => Promise<AuthResult>;
@@ -55,11 +58,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const toError = (value: unknown, fallback: string): Error =>
   value instanceof Error ? value : new Error(fallback);
 
+const checkUrlForRecovery = () => {
+  if (typeof window === 'undefined') return { isRecovery: false, error: null };
+  const hash = window.location.hash ? window.location.hash.substring(1) : '';
+  const search = window.location.search ? window.location.search.substring(1) : '';
+
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(search);
+
+  const error = hashParams.get('error') || searchParams.get('error');
+  const errorDescription = hashParams.get('error_description') || searchParams.get('error_description');
+
+  if (error || errorDescription) {
+    const raw = errorDescription || error || 'This reset link is invalid or has expired.';
+    return { isRecovery: false, error: decodeURIComponent(raw.replace(/\+/g, ' ')) };
+  }
+
+  const type = hashParams.get('type') || searchParams.get('type');
+  if (type === 'recovery') {
+    return { isRecovery: true, error: null };
+  }
+
+  return { isRecovery: false, error: null };
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialRecovery = checkUrlForRecovery();
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState<boolean>(initialRecovery.isRecovery);
+  const [recoveryError, setRecoveryError] = useState<string | null>(initialRecovery.error);
   /** Avoids re-fetching the profile for a user we already loaded. */
   const loadedProfileFor = useRef<string | null>(null);
 
@@ -146,8 +176,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (active) setLoading(false);
       });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+        setRecoveryError(null);
+      } else if (event === 'SIGNED_OUT') {
+        setIsPasswordRecovery(false);
+        setRecoveryError(null);
+      }
       applySession(nextSession);
       setLoading(false);
     });
@@ -238,7 +275,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${getSiteUrl()}/auth/reset-password`,
+        redirectTo: `${getSiteUrl()}/reset-password`,
       });
       if (error) throw error;
       return { error: null };
@@ -247,10 +284,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  const clearPasswordRecovery = useCallback(() => {
+    setIsPasswordRecovery(false);
+    setRecoveryError(null);
+  }, []);
+
   const updatePassword = useCallback(async (newPassword: string): Promise<AuthResult> => {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      setIsPasswordRecovery(false);
+      setRecoveryError(null);
       return { error: null };
     } catch (err) {
       return { error: toError(err, 'Could not update your password.') };
@@ -268,6 +312,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         session,
         profile,
         loading,
+        isPasswordRecovery,
+        recoveryError,
+        clearPasswordRecovery,
         signUp,
         signIn,
         signInWithOAuth,
@@ -282,7 +329,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

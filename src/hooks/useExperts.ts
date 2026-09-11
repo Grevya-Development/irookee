@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isCurrentUserAdmin } from '@/lib/auth';
 
+export const PUBLIC_SPEAKER_COLUMNS = 'id, name, full_name, title, bio, expertise, expertise_areas, image_url, profile_photo_url, rating, hourly_rate, currency, location, languages, past_events, is_verified, verification_status, badges, topics, experience_years, company, linkedin_url, website_url, video_url, created_at, updated_at' as const;
+
+export const PUBLIC_SPEAKER_SELECT_WITH_CATEGORIES = 'id, name, full_name, title, bio, expertise, expertise_areas, image_url, profile_photo_url, rating, hourly_rate, currency, location, languages, past_events, is_verified, verification_status, badges, topics, experience_years, company, linkedin_url, website_url, video_url, created_at, updated_at, speaker_categories ( category_id, categories ( id, name ) )' as const;
+
 export interface SpeakerProfile {
   id: string;
-  user_id: string | null;
+  user_id?: string | null;
   name: string;
   title: string;
   bio: string | null;
@@ -68,13 +72,7 @@ export function useExperts(expertId?: string) {
 
       const { data, error: fetchError } = await supabase
         .from('speakers')
-        .select(`
-          *,
-          speaker_categories (
-            category_id,
-            categories ( id, name )
-          )
-        `)
+        .select(PUBLIC_SPEAKER_SELECT_WITH_CATEGORIES)
         .eq('id', id)
         .single();
 
@@ -88,7 +86,17 @@ export function useExperts(expertId?: string) {
         data.verification_status &&
         data.verification_status !== 'verified'
       );
-      const isOwner = Boolean(currentUser?.id && data.user_id === currentUser.id);
+
+      let isOwner = false;
+      if (currentUser?.id) {
+        const { data: ownSpeaker } = await supabase
+          .from('speakers')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+        isOwner = Boolean(ownSpeaker && ownSpeaker.id === id);
+      }
+
       let isAdmin = false;
       if (currentUser && isUnapproved && !isOwner) {
         isAdmin = await isCurrentUserAdmin().catch(() => false);
@@ -107,16 +115,15 @@ export function useExperts(expertId?: string) {
             .filter(Boolean)
         : [];
 
-      // Sanitize fields for general public visitors
+      // Public profile data with strict field sanitization
       const sanitizedData = { ...(data as unknown as Record<string, unknown>) };
-      if (!isOwner && !isAdmin) {
-        delete sanitizedData.phone;
-        delete sanitizedData.email;
-        delete sanitizedData.verification_documents;
-        delete sanitizedData.suspension_reason;
-        delete sanitizedData.suspension_history;
-        delete sanitizedData.custom_profession;
-      }
+      delete sanitizedData.phone;
+      delete sanitizedData.email;
+      delete sanitizedData.user_id;
+      delete sanitizedData.verification_documents;
+      delete sanitizedData.suspension_reason;
+      delete sanitizedData.suspension_history;
+      delete sanitizedData.custom_profession;
 
       setExpert({
         ...sanitizedData,
@@ -141,7 +148,7 @@ export function useExperts(expertId?: string) {
     try {
       const { data, error: fetchError } = await supabase
         .from('speakers')
-        .select('*')
+        .select(PUBLIC_SPEAKER_COLUMNS)
         .eq('verification_status', 'verified')
         .order('rating', { ascending: false })
         .limit(limit);
@@ -153,6 +160,7 @@ export function useExperts(expertId?: string) {
         const copy = { ...exp } as Record<string, unknown>;
         delete copy.phone;
         delete copy.email;
+        delete copy.user_id;
         delete copy.verification_documents;
         delete copy.suspension_reason;
         delete copy.suspension_history;
