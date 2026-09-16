@@ -11,6 +11,7 @@ import Seo from '@/components/Seo';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { validateEmailInput } from '@/lib/emailValidation';
 
 import { getAuthenticatedUserDestination } from '@/lib/auth';
 
@@ -21,12 +22,16 @@ import { getAuthenticatedUserDestination } from '@/lib/auth';
  * Normal login sessions are not permitted to use this form without an authentic recovery event.
  */
 const ResetPassword = () => {
-  const { updatePassword, isPasswordRecovery, recoveryError, clearPasswordRecovery, user } = useAuth();
+  const { updatePassword, requestPasswordReset, isPasswordRecovery, recoveryError, clearPasswordRecovery, user } = useAuth();
   const navigate = useNavigate();
 
   const [checking, setChecking] = useState(true);
   const [canReset, setCanReset] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [visible, setVisible] = useState(false);
@@ -139,6 +144,37 @@ const ResetPassword = () => {
     }
   };
 
+  const handleResend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resending) return;
+    setResendError(null);
+    setResendSuccess(false);
+
+    const emailCheck = validateEmailInput(resendEmail);
+    if (emailCheck.error) {
+      setResendError(emailCheck.error);
+      return;
+    }
+
+    setResending(true);
+    try {
+      const { error: reqError } = await requestPasswordReset(emailCheck.email);
+      if (reqError) {
+        console.error('Resend reset link failed:', reqError);
+        setResendError(reqError.message || 'Could not send the reset email.');
+        return;
+      }
+      setResendSuccess(true);
+      toast.success('If an account exists for this email, a password reset link has been sent.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not send the reset email.';
+      console.error('Exception during resend:', err);
+      setResendError(msg);
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Seo title="Reset your password" description="Set a new password for your irookee account." noindex />
@@ -175,9 +211,49 @@ const ResetPassword = () => {
                     Reset links can only be used once and expire after one hour.
                   </p>
                 </div>
-                <Button asChild>
-                  <Link to="/auth?mode=forgot">Request a new link</Link>
-                </Button>
+
+                <form onSubmit={handleResend} className="space-y-3 pt-2 text-left max-w-sm mx-auto" noValidate>
+                  <div>
+                    <Label htmlFor="resend-email" className="text-xs font-semibold">Email address</Label>
+                    <Input
+                      id="resend-email"
+                      type="email"
+                      value={resendEmail}
+                      onChange={(e) => setResendEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      autoComplete="email"
+                      className="mt-1"
+                      required
+                    />
+                  </div>
+
+                  {resendError && (
+                    <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      {resendError}
+                    </p>
+                  )}
+
+                  {resendSuccess && (
+                    <p role="status" className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 px-3 py-2 text-xs font-medium">
+                      If an account exists for this email, a password reset link has been sent.
+                    </p>
+                  )}
+
+                  <Button type="submit" className="w-full" disabled={resending}>
+                    {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                    Resend Reset Link
+                  </Button>
+                </form>
+
+                <div className="pt-2 flex items-center justify-center gap-4 text-xs">
+                  <Button variant="link" asChild className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground">
+                    <Link to="/auth?mode=forgot">Request a new link</Link>
+                  </Button>
+                  <span className="text-muted-foreground">•</span>
+                  <Button variant="link" asChild className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground">
+                    <Link to="/auth">Back to sign in</Link>
+                  </Button>
+                </div>
               </div>
             )}
 

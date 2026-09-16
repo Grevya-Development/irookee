@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ResetPassword from '../ResetPassword';
 import Auth from '../Auth';
+import AuthForms from '@/components/auth/AuthForms';
+import { getSiteUrl } from '@/lib/siteUrl';
 import * as AuthProviderModule from '@/components/AuthProvider';
 import * as AuthLibModule from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,13 +63,22 @@ vi.mock('@/integrations/supabase/client', () => ({
 describe('Password Recovery and Reset Flow Integration', () => {
   const mockUpdatePassword = vi.fn();
   const mockClearPasswordRecovery = vi.fn();
+  const mockRequestPasswordReset = vi.fn();
+  let useAuthSpy: ReturnType<typeof vi.spyOn> | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    if (useAuthSpy) {
+      useAuthSpy.mockRestore();
+      useAuthSpy = undefined;
+    }
   });
 
   const setupAuthMock = (overrides: Partial<AuthProviderModule.AuthContextType> = {}) => {
-    vi.spyOn(AuthProviderModule, 'useAuth').mockReturnValue({
+    if (useAuthSpy) {
+      useAuthSpy.mockRestore();
+    }
+    useAuthSpy = vi.spyOn(AuthProviderModule, 'useAuth').mockReturnValue({
       user: { id: 'user-rec-123', email: 'user@example.com' } as unknown as User,
       session: { user: { id: 'user-rec-123' } } as unknown as Session,
       profile: { id: 'user-rec-123', user_type: 'consumer' } as unknown as AuthProviderModule.Profile,
@@ -79,7 +90,7 @@ describe('Password Recovery and Reset Flow Integration', () => {
       signIn: vi.fn(),
       signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
-      requestPasswordReset: vi.fn(),
+      requestPasswordReset: mockRequestPasswordReset,
       updatePassword: mockUpdatePassword,
       refreshProfile: vi.fn(),
       ...overrides,
@@ -256,6 +267,187 @@ describe('Password Recovery and Reset Flow Integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('reset-password-page')).toBeInTheDocument();
       expect(screen.queryByTestId('expert-dashboard')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Resend Reset Link Flow', () => {
+    it('calls requestPasswordReset with trimmed email and correct redirectTo from AuthForms', async () => {
+      mockRequestPasswordReset.mockResolvedValue({ error: null });
+      setupAuthMock({ requestPasswordReset: mockRequestPasswordReset });
+
+      render(
+        <MemoryRouter initialEntries={['/auth?mode=forgot']}>
+          <AuthForms mode="forgot" onModeChange={vi.fn()} redirectTo="/dashboard" />
+        </MemoryRouter>
+      );
+
+      const emailInput = screen.getByLabelText(/Email Address/i);
+      fireEvent.change(emailInput, { target: { value: '  user.test@example.com  ' } });
+
+      const resendBtn = screen.getByRole('button', { name: /Resend Reset Link/i });
+      fireEvent.click(resendBtn);
+
+      await waitFor(() => {
+        expect(mockRequestPasswordReset).toHaveBeenCalledTimes(1);
+        expect(mockRequestPasswordReset).toHaveBeenCalledWith('user.test@example.com');
+      });
+
+      expect(await screen.findByText(/If an account exists for this email, a password reset link has been sent/i)).toBeInTheDocument();
+    });
+
+    it('displays success state when resend reset link succeeds on confirmation view', async () => {
+      mockRequestPasswordReset.mockResolvedValue({ error: null });
+      setupAuthMock({ requestPasswordReset: mockRequestPasswordReset });
+
+      render(
+        <MemoryRouter initialEntries={['/auth?mode=forgot']}>
+          <AuthForms mode="forgot" onModeChange={vi.fn()} redirectTo="/dashboard" />
+        </MemoryRouter>
+      );
+
+      const emailInput = screen.getByLabelText(/Email Address/i);
+      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
+
+      // First submit to reach confirmation screen
+      fireEvent.click(screen.getByRole('button', { name: /^Send Reset Link$/i }));
+
+      expect(await screen.findByText(/Check your email/i)).toBeInTheDocument();
+
+      // Now click Resend Reset Link on confirmation screen
+      const resendBtn = screen.getByRole('button', { name: /Resend Reset Link/i });
+      fireEvent.click(resendBtn);
+
+      await waitFor(() => {
+        expect(mockRequestPasswordReset).toHaveBeenCalledWith('john@example.com');
+      });
+      expect(await screen.findByText(/If an account exists for this email, a password reset link has been sent/i)).toBeInTheDocument();
+    });
+
+    it('displays Supabase error and does not show success when resend fails', async () => {
+      mockRequestPasswordReset.mockResolvedValue({
+        error: new Error('Too many requests. Please wait a few moments before trying again.'),
+      });
+      setupAuthMock({ requestPasswordReset: mockRequestPasswordReset });
+
+      render(
+        <MemoryRouter initialEntries={['/auth?mode=forgot']}>
+          <AuthForms mode="forgot" onModeChange={vi.fn()} redirectTo="/dashboard" />
+        </MemoryRouter>
+      );
+
+      const emailInput = screen.getByLabelText(/Email Address/i);
+      fireEvent.change(emailInput, { target: { value: 'rate.limit@example.com' } });
+
+      const resendBtn = screen.getByRole('button', { name: /Resend Reset Link/i });
+      fireEvent.click(resendBtn);
+
+      expect(await screen.findByText(/Too many requests\. Please wait a few moments before trying again\./i)).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('rejects empty or invalid email without calling requestPasswordReset', async () => {
+      setupAuthMock({ requestPasswordReset: mockRequestPasswordReset });
+
+      render(
+        <MemoryRouter initialEntries={['/auth?mode=forgot']}>
+          <AuthForms mode="forgot" onModeChange={vi.fn()} redirectTo="/dashboard" />
+        </MemoryRouter>
+      );
+
+      const resendBtn = screen.getByRole('button', { name: /Resend Reset Link/i });
+      fireEvent.click(resendBtn);
+
+      expect(await screen.findByText(/Please enter your email address/i)).toBeInTheDocument();
+      expect(mockRequestPasswordReset).not.toHaveBeenCalled();
+
+      // Invalid format
+      const emailInput = screen.getByLabelText(/Email Address/i);
+      fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
+      fireEvent.click(resendBtn);
+
+      expect(await screen.findByText(/Please enter a valid email address/i)).toBeInTheDocument();
+      expect(mockRequestPasswordReset).not.toHaveBeenCalled();
+    });
+
+    it('prevents duplicate requests when double-clicking resend button while in progress', async () => {
+      let resolvePromise: (val: { error: null }) => void;
+      const slowPromise = new Promise<{ error: null }>((resolve) => {
+        resolvePromise = resolve;
+      });
+      mockRequestPasswordReset.mockReturnValue(slowPromise);
+      setupAuthMock({ requestPasswordReset: mockRequestPasswordReset });
+
+      render(
+        <MemoryRouter initialEntries={['/auth?mode=forgot']}>
+          <AuthForms mode="forgot" onModeChange={vi.fn()} redirectTo="/dashboard" />
+        </MemoryRouter>
+      );
+
+      const emailInput = screen.getByLabelText(/Email Address/i);
+      fireEvent.change(emailInput, { target: { value: 'spam.check@example.com' } });
+
+      const resendBtn = screen.getByRole('button', { name: /Resend Reset Link/i });
+      fireEvent.click(resendBtn);
+      fireEvent.click(resendBtn);
+      fireEvent.click(resendBtn);
+
+      expect(mockRequestPasswordReset).toHaveBeenCalledTimes(1);
+
+      resolvePromise!({ error: null });
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Resend Reset Link/i })).not.toBeDisabled();
+      });
+    });
+
+    it('allows resending reset link directly from the expired recovery screen', async () => {
+      mockRequestPasswordReset.mockResolvedValue({ error: null });
+      setupAuthMock({ isPasswordRecovery: false, recoveryError: 'Link expired', requestPasswordReset: mockRequestPasswordReset });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText(/Link expired/i)).toBeInTheDocument();
+
+      const emailInput = screen.getByLabelText(/^Email address$/i);
+      fireEvent.change(emailInput, { target: { value: 'expired.user@example.com' } });
+
+      const resendBtn = screen.getByRole('button', { name: /Resend Reset Link/i });
+      fireEvent.click(resendBtn);
+
+      await waitFor(() => {
+        expect(mockRequestPasswordReset).toHaveBeenCalledWith('expired.user@example.com');
+      });
+
+      expect(await screen.findByText(/If an account exists for this email, a password reset link has been sent/i)).toBeInTheDocument();
+    });
+
+    it('verifies AuthProvider requestPasswordReset passes correct redirectTo and trimmed email to supabase', async () => {
+      vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null } as never);
+
+      let authContextVal: AuthProviderModule.AuthContextType | undefined;
+      const TestConsumer = () => {
+        authContextVal = AuthProviderModule.useAuth();
+        return null;
+      };
+
+      render(
+        <AuthProviderModule.AuthProvider>
+          <TestConsumer />
+        </AuthProviderModule.AuthProvider>
+      );
+
+      await waitFor(() => expect(authContextVal).toBeDefined());
+
+      const res = await authContextVal!.requestPasswordReset('  test.real@example.com  ');
+      expect(res.error).toBeNull();
+      expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('test.real@example.com', {
+        redirectTo: `${getSiteUrl()}/reset-password`,
+      });
     });
   });
 });

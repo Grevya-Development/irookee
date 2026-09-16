@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { identifyUser, resetAnalytics } from '@/lib/analytics';
 import { setGaUser } from '@/lib/googleAnalytics';
 import { getSiteUrl } from '@/lib/siteUrl';
+import { validateEmailInput } from '@/lib/emailValidation';
 
 /**
  * Authentication on native Supabase Auth.
@@ -273,13 +274,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
+    const cleanEmail = (email || '').trim();
+    if (!cleanEmail) {
+      return { error: new Error('Please enter your email address.') };
+    }
+    const validation = validateEmailInput(cleanEmail);
+    if (validation.error) {
+      return { error: new Error(validation.error) };
+    }
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${getSiteUrl()}/reset-password`,
+      const siteUrl = getSiteUrl();
+      const redirectTo = `${siteUrl}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo,
       });
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase resetPasswordForEmail error:', error);
+        if (/rate limit|too many requests|once every|over_email_send_rate_limit/i.test(error.message)) {
+          return { error: new Error('Too many requests. Please wait a few moments before trying again.') };
+        }
+        return { error: new Error(error.message || 'Could not send the reset email.') };
+      }
       return { error: null };
     } catch (err) {
+      console.error('Exception during resetPasswordForEmail:', err);
       return { error: toError(err, 'Could not send the reset email.') };
     }
   }, []);

@@ -110,10 +110,16 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   const reset = () => {
     setError(null);
     setSentTo(null);
+    setResendSuccess(false);
+    setResendError(null);
+    setResending(false);
   };
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
@@ -123,6 +129,43 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
     if (oauthError) {
       setError(oauthError.message);
       setOauthBusy(null);
+    }
+  };
+
+  const handleResendResetLink = async (e?: React.MouseEvent | React.FormEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
+    if (resending || busy) return;
+    setError(null);
+    setResendError(null);
+    setResendSuccess(false);
+
+    const targetEmail = (sentTo || email || '').trim();
+    const emailCheck = validateEmailInput(targetEmail);
+    if (emailCheck.error) {
+      setError(emailCheck.error);
+      setResendError(emailCheck.error);
+      return;
+    }
+
+    setResending(true);
+    try {
+      const { error: resetErr } = await requestPasswordReset(emailCheck.email);
+      if (resetErr) {
+        console.error('Resend reset link failed:', resetErr);
+        setError(resetErr.message || 'Could not send the reset email.');
+        setResendError(resetErr.message || 'Could not send the reset email.');
+        return;
+      }
+      setSentTo(emailCheck.email);
+      setResendSuccess(true);
+      toast.success('If an account exists for this email, a password reset link has been sent.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not send the reset email.';
+      console.error('Exception in handleResendResetLink:', err);
+      setError(msg);
+      setResendError(msg);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -139,13 +182,17 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
 
     if (mode === 'forgot') {
       setBusy(true);
-      const { error: resetError } = await requestPasswordReset(email);
-      setBusy(false);
-      if (resetError) {
-        setError(resetError.message);
-        return;
+      try {
+        const { error: resetError } = await requestPasswordReset(emailCheck.email);
+        if (resetError) {
+          setError(resetError.message);
+          return;
+        }
+        setSentTo(emailCheck.email);
+        toast.success('If an account exists for this email, a password reset link has been sent.');
+      } finally {
+        setBusy(false);
       }
-      setSentTo(email.trim());
       return;
     }
 
@@ -217,6 +264,45 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
             ? ', we have sent a password reset link. It expires in one hour.'
             : '. Click it to activate your account, then sign in.'}
         </p>
+
+        {mode === 'forgot' && (
+          <div className="pt-2 space-y-3 max-w-sm mx-auto">
+            {resendSuccess && (
+              <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-3 py-2 text-xs font-medium">
+                If an account exists for this email, a password reset link has been sent.
+              </p>
+            )}
+
+            {resendError && (
+              <p role="alert" className="rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5 text-left">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{resendError}</span>
+              </p>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              aria-label="Resend Reset Link"
+              className="w-full h-11 rounded-xl font-semibold border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              onClick={handleResendResetLink}
+              disabled={resending || busy}
+            >
+              {resending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+                  Resending...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 text-indigo-500" aria-hidden="true" />
+                  Resend Reset Link
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
         <Button
           variant="outline"
           className="rounded-xl font-semibold mt-2 border-slate-200 dark:border-slate-800"
@@ -429,10 +515,16 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
                 </div>
               )}
 
-              {error && (
+              {(error || resendError) && (
                 <p role="alert" className="rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5">
                   <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
+                  {error || resendError}
+                </p>
+              )}
+
+              {resendSuccess && (
+                <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-3 py-2 text-xs font-medium">
+                  If an account exists for this email, a password reset link has been sent.
                 </p>
               )}
 
@@ -449,6 +541,19 @@ export const AuthForms = ({ mode, onModeChange, redirectTo }: AuthFormsProps) =>
                   </>
                 ) : 'Sign In'}
               </Button>
+
+              {mode === 'forgot' && (
+                <div className="flex items-center justify-center pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResendResetLink}
+                    disabled={resending || busy}
+                    className="text-xs text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium cursor-pointer"
+                  >
+                    {resending ? 'Resending...' : 'Resend Reset Link'}
+                  </button>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
