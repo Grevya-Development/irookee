@@ -19,6 +19,7 @@ import { validateExpertiseAreas } from '@/lib/expertiseValidation'
 import { formatAndValidatePhone } from '@/lib/phoneUtils'
 import { profileNotificationService } from '@/lib/profileNotifications'
 import { ProfessionSelector } from './ProfessionSelector'
+import { CategorySelector } from './CategorySelector'
 import { validateCustomProfession, OTHER_PROFESSION_VALUE } from '@/lib/professions'
 
 const LANGUAGE_OPTIONS = [
@@ -67,7 +68,7 @@ export function ExpertOnboarding() {
   const [step, setStep] = useState(1)
 
   const [showStep1Errors, setShowStep1Errors] = useState(false)
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
+  const [categories, setCategories] = useState<{ id: string; name: string; description?: string | null }[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
   const [uploading, setUploading] = useState(false)
@@ -106,7 +107,7 @@ export function ExpertOnboarding() {
   }, [])
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('id, name').order('name')
+    const { data } = await supabase.from('categories').select('id, name, description').order('name')
     if (data) setCategories(data)
   }
 
@@ -318,6 +319,10 @@ export function ExpertOnboarding() {
 
   const toggleCategory = (id: string) => {
     setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])
+  }
+
+  const clearCategories = () => {
+    setSelectedCategories([])
   }
 
   const onSubmit = async (data: ExpertOnboardingForm) => {
@@ -831,34 +836,38 @@ export function ExpertOnboarding() {
           {step === 3 && (
             <Card className="shadow-sm border rounded-2xl">
               <CardContent className="p-6 md:p-8 space-y-5">
-                <p className="text-muted-foreground">Pick all that apply  -  this helps people find you.</p>
-                <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
-                  {categories.map(cat => (
-                    <button
-                      key={cat.id} type="button"
-                      onClick={() => toggleCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                        selectedCategories.includes(cat.id)
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-background border-border hover:border-primary/50 text-foreground'
-                      }`}
-                    >
-                      {selectedCategories.includes(cat.id) && <CheckCircle2 className="h-3 w-3 inline mr-1" />}
-                      {cat.name}
-                    </button>
-                  ))}
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Select Your Categories *</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Choose one or more categories that best match your professional expertise and services.
+                  </p>
                 </div>
-                {selectedCategories.length > 0 && (
-                  <p className="text-sm text-muted-foreground">{selectedCategories.length} selected</p>
-                )}
+
+                <CategorySelector
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onToggleCategory={toggleCategory}
+                  onClearSelection={clearCategories}
+                  userProfession={watch('title')}
+                  userExpertise={watch('expertise_areas')}
+                />
+
                 <div className="flex items-center justify-between pt-6 border-t mt-6">
                   <Button type="button" variant="outline" onClick={() => setStep(2)} size="lg">
                     <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
                   </Button>
-                  <Button type="button" onClick={() => {
-                    if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
-                    setStep(4)
-                  }} size="lg">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (selectedCategories.length === 0) {
+                        toast.error('Select at least one category')
+                        return
+                      }
+                      setStep(4)
+                    }}
+                    size="lg"
+                    disabled={selectedCategories.length === 0}
+                  >
                     Next <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </div>

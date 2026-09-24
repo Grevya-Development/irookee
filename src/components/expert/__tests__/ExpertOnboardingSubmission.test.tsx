@@ -418,4 +418,120 @@ describe('ExpertOnboarding Submission & Role Preservation', () => {
       is_verified: false,
     });
   }, 15000);
+
+  it('filters categories using search bar in Stage 3 and toggles selection', async () => {
+    (supabase.auth.getSession as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        session: {
+          user: { id: 'applicant-cat-search', email: 'catsearch@example.com' },
+        },
+      },
+    });
+
+    (supabase.from as unknown as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'categories') {
+        return {
+          select: () => ({
+            order: async () => ({
+              data: [
+                { id: 'cat-tech', name: 'Technology', description: 'Software and AI' },
+                { id: 'cat-health', name: 'Health & Wellness', description: 'Medicine and nutrition' },
+                { id: 'cat-biz', name: 'Business Strategy', description: 'Startups and leadership' },
+              ],
+              error: null,
+            }),
+          }),
+        };
+      }
+      if (table === 'speakers') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: async () => ({ data: [], error: null }),
+        }),
+      };
+    });
+
+    render(
+      <MemoryRouter>
+        <ExpertOnboarding />
+      </MemoryRouter>
+    );
+
+    // Step 1
+    await userEvent.type(screen.getByLabelText(/Full Name \*/i), 'Anita Desai');
+    await userEvent.type(screen.getByLabelText(/Phone \*/i), '+91 99887 76655');
+    await userEvent.type(screen.getByPlaceholderText(/Start typing a city/i), 'Mumbai, India');
+
+    const langInput = screen.getByPlaceholderText('Select languages...');
+    await userEvent.click(langInput);
+    const engBtn = await screen.findByRole('button', { name: 'English' });
+    await userEvent.click(engBtn);
+
+    await userEvent.type(
+      screen.getByLabelText(/Tell us about yourself \*/i),
+      'Seasoned software architect and technology strategist helping global enterprises innovate and scale.'
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Next/i }));
+
+    // Step 2
+    await waitFor(() => {
+      expect(screen.getByText('Your Expertise')).toBeInTheDocument();
+    });
+
+    const profInput = screen.getByPlaceholderText('Search your profession...');
+    await userEvent.type(profInput, 'Software');
+    await userEvent.click(screen.getByRole('button', { name: 'Software Engineer' }));
+    await userEvent.type(screen.getByLabelText(/Expertise Areas/i), 'Cloud Computing, DevOps');
+    await userEvent.type(screen.getByLabelText(/Years of Experience \*/i), '10');
+
+    await userEvent.click(screen.getByRole('button', { name: /Next/i }));
+
+    // Step 3
+    await waitFor(() => {
+      expect(screen.getByText('Select Your Categories *')).toBeInTheDocument();
+    });
+
+    // Next button should be disabled when 0 categories selected
+    const nextBtn = screen.getByRole('button', { name: /Next/i });
+    expect(nextBtn).toBeDisabled();
+
+    // Verify search bar is present and filters categories
+    const searchInput = screen.getByRole('textbox', { name: /search categories/i });
+    await userEvent.type(searchInput, 'health');
+
+    expect(screen.getByRole('button', { name: 'Health & Wellness' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Technology' })).not.toBeInTheDocument();
+
+    // Clear search
+    await userEvent.click(screen.getByRole('button', { name: /clear search text/i }));
+    expect(screen.getByRole('button', { name: 'Technology' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Health & Wellness' })).toBeInTheDocument();
+
+    // Select category and check Next button becomes enabled
+    await userEvent.click(screen.getByRole('button', { name: 'Technology' }));
+    expect(nextBtn).not.toBeDisabled();
+
+    // Proceed to Step 4
+    await userEvent.click(nextBtn);
+    await waitFor(() => {
+      expect(screen.getByText('Verification')).toBeInTheDocument();
+    });
+  }, 15000);
 });
