@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Camera, Save, Trash2, Loader2, AlertTriangle, User, Shield, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { Camera, Save, Trash2, Loader2, AlertTriangle, User, Shield, ArrowLeft, CheckCircle2, Lock, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { formatAndValidatePhone } from '@/lib/phoneUtils'
 import { validateExpertiseAreas } from '@/lib/expertiseValidation'
@@ -65,6 +65,8 @@ const defaultNotificationPreferences: NotificationPreferences = {
 export default function Settings() {
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const currentTab = searchParams.get('tab') || 'profile'
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -80,6 +82,14 @@ export default function Settings() {
   const [isExpert, setIsExpert] = useState(false)
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [updatingPassword, setUpdatingPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
 
   const checkAdminStatus = async () => {
     try {
@@ -489,6 +499,50 @@ export default function Settings() {
     }
   }
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (updatingPassword) return
+    setPasswordError(null)
+    setPasswordSuccess(false)
+
+    if (!newPassword) {
+      setPasswordError('Please enter a new password.')
+      return
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters long.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+
+    setUpdatingPassword(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+
+      setPasswordSuccess(true)
+      setNewPassword('')
+      setConfirmPassword('')
+      toast({
+        title: 'Password Updated',
+        description: 'Your account password has been updated successfully.',
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not update password. Please try again.'
+      setPasswordError(msg)
+      toast({
+        title: 'Update Failed',
+        description: msg,
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingPassword(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen">
@@ -513,10 +567,19 @@ export default function Settings() {
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground mb-6">Manage your profile, expert details, and account</p>
 
-        <Tabs defaultValue="profile" className="space-y-6">
+        <Tabs
+          value={currentTab}
+          onValueChange={(val) => {
+            const params = new URLSearchParams(searchParams);
+            params.set('tab', val);
+            setSearchParams(params, { replace: true });
+          }}
+          className="space-y-6"
+        >
           <TabsList>
             <TabsTrigger value="profile"><User className="h-4 w-4 mr-1" /> Profile</TabsTrigger>
             {isExpert && <TabsTrigger value="expert"><Shield className="h-4 w-4 mr-1" /> Expert Profile</TabsTrigger>}
+            <TabsTrigger value="security"><Lock className="h-4 w-4 mr-1" /> Security</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="account"><Trash2 className="h-4 w-4 mr-1" /> Account</TabsTrigger>
           </TabsList>
@@ -776,6 +839,98 @@ export default function Settings() {
               </Card>
             </TabsContent>
           )}
+
+          {/* Security / Password Tab */}
+          <TabsContent value="security">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" /> Change Password
+                </CardTitle>
+                <CardDescription>
+                  Update your account password. Choose a strong password with at least 8 characters.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md" noValidate>
+                  {passwordSuccess && (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-lg p-3 text-sm flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>Password changed successfully.</span>
+                    </div>
+                  )}
+
+                  {passwordError && (
+                    <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 text-sm flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                      <span>{passwordError}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="settings-new-password">New Password</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="settings-new-password"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        className="pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((v) => !v)}
+                        aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">At least 8 characters.</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="settings-confirm-password">Confirm New Password</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="settings-confirm-password"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        className="pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button type="submit" disabled={updatingPassword} className="mt-2">
+                    {updatingPassword ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="h-4 w-4 mr-2" /> Update Password
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="notifications">
             <Card>

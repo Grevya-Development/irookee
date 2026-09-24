@@ -6,6 +6,7 @@ import SearchFilters from "@/components/SearchFilters";
 import ExpertCard from "@/components/ExpertCard";
 import type { ExpertProfile, SearchFilters as SearchFiltersType } from "@/types/promptpeople";
 import { Loader2, Users } from "lucide-react";
+import { PUBLIC_SPEAKER_COLUMNS } from "@/hooks/useExperts";
 
 const Speakers = () => {
   const [experts, setExperts] = useState<ExpertProfile[]>([]);
@@ -57,7 +58,7 @@ const Speakers = () => {
 
         let query = supabase
           .from("speakers")
-          .select("*")
+          .select(PUBLIC_SPEAKER_COLUMNS)
           .eq("verification_status", "verified")
           .in("id", ids);
 
@@ -71,7 +72,7 @@ const Speakers = () => {
       } else {
         let query = supabase
           .from("speakers")
-          .select("*")
+          .select(PUBLIC_SPEAKER_COLUMNS)
           .eq("verification_status", "verified");
 
         query = applyFiltersToQuery(query);

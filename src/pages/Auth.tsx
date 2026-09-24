@@ -15,11 +15,17 @@ const Auth = () => {
   const mode = searchParams.get("mode");
   const rawRedirect = searchParams.get("redirect");
   const redirectTo = safeRedirect(rawRedirect);
-  const { user, loading } = useAuth();
+  const { user, loading, isPasswordRecovery, recoveryError } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
+
+    if (isPasswordRecovery || recoveryError) {
+      navigate("/reset-password", { replace: true });
+      return;
+    }
+
     if (!loading && user) {
       if (rawRedirect && redirectTo && redirectTo !== "/dashboard") {
         navigate(redirectTo, { replace: true });
@@ -33,7 +39,7 @@ const Auth = () => {
     return () => {
       active = false;
     };
-  }, [loading, user, rawRedirect, redirectTo, navigate]);
+  }, [loading, user, isPasswordRecovery, recoveryError, rawRedirect, redirectTo, navigate]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col items-center justify-center overflow-x-hidden relative select-none font-sans p-4 sm:p-6 lg:p-8">

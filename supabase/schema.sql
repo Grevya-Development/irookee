@@ -16,6 +16,7 @@ CREATE TABLE public.speakers (
   user_id UUID REFERENCES auth.users,
   name TEXT NOT NULL,
   title TEXT NOT NULL,
+  custom_profession TEXT,
   bio TEXT,
   expertise TEXT[] DEFAULT '{}',
   image_url TEXT,
@@ -2221,3 +2222,73 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.delete_account(uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.delete_account(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.delete_account(uuid) TO authenticated;
+
+-- ============================================================================
+-- Migration: 20260819000000_add_custom_profession_to_speakers.sql
+-- Support custom profession entry during expert onboarding for admin moderation.
+-- ============================================================================
+ALTER TABLE public.speakers
+  ADD COLUMN IF NOT EXISTS custom_profession TEXT;
+
+-- ============================================================================
+-- Migration: 20260819000001_restrict_public_speaker_reads.sql
+-- Restrict public read access on speakers to approved experts (verification_status = 'verified')
+-- while permitting owners and admins to inspect non-public profiles.
+-- ============================================================================
+DROP POLICY IF EXISTS "Allow public read access to speakers" ON public.speakers;
+DROP POLICY IF EXISTS "Public can view verified speakers or own or admin" ON public.speakers;
+
+CREATE POLICY "Public can view verified speakers or own or admin"
+  ON public.speakers
+  FOR SELECT
+  USING (
+    verification_status = 'verified'
+    OR auth.uid() = user_id
+    OR (SELECT public.is_admin())
+  );
+
+-- ============================================================================
+-- Migration: 20260819000002_admin_speaker_policies.sql
+-- Allow admins to update and delete speaker profiles for moderation and approval workflows.
+-- ============================================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'speakers' AND policyname = 'Admins can update all speakers'
+  ) THEN
+    CREATE POLICY "Admins can update all speakers"
+      ON public.speakers FOR UPDATE
+      USING (public.is_admin());
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'speakers' AND policyname = 'Admins can delete all speakers'
+  ) THEN
+    CREATE POLICY "Admins can delete all speakers"
+      ON public.speakers FOR DELETE
+      USING (public.is_admin());
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'verification_requests' AND policyname = 'Admins can view all verification requests'
+  ) THEN
+    CREATE POLICY "Admins can view all verification requests"
+      ON public.verification_requests FOR SELECT
+      USING (public.is_admin() OR speaker_id IN (SELECT id FROM public.speakers WHERE user_id = auth.uid()));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'verification_requests' AND policyname = 'Admins can update verification requests'
+  ) THEN
+    CREATE POLICY "Admins can update verification requests"
+      ON public.verification_requests FOR UPDATE
+      USING (public.is_admin());
+  END IF;
+END $$;
+
+-- Reload PostgREST schema cache
+NOTIFY pgrst, 'reload schema';

@@ -33,9 +33,18 @@ describe('useExperts', () => {
     expect(result.current.error).toBe('Expert not found');
   });
 
-  it('queries normally for a well-formed UUID', async () => {
+  it('queries normally for a well-formed UUID and sanitizes private fields', async () => {
     single.mockResolvedValue({
-      data: { id: '8e1de0c5-c7a2-4a84-9304-35d0985f62f7', name: 'jen', speaker_categories: [] },
+      data: {
+        id: '8e1de0c5-c7a2-4a84-9304-35d0985f62f7',
+        name: 'jen',
+        phone: '+919966827110',
+        email: 'jen@private.com',
+        user_id: 'user-jen-private',
+        verification_documents: { docs: ['id.pdf'] },
+        suspension_reason: 'private internal note',
+        speaker_categories: [],
+      },
       error: null,
     });
 
@@ -46,6 +55,11 @@ describe('useExperts', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(from).toHaveBeenCalledWith('speakers');
     expect(result.current.expert?.name).toBe('jen');
+    expect(result.current.expert?.phone).toBeUndefined();
+    expect(result.current.expert?.email).toBeUndefined();
+    expect(result.current.expert?.user_id).toBeUndefined();
+    expect((result.current.expert as unknown as Record<string, unknown>)?.verification_documents).toBeUndefined();
+    expect((result.current.expert as unknown as Record<string, unknown>)?.suspension_reason).toBeUndefined();
     expect(result.current.error).toBeNull();
   });
 });

@@ -1146,6 +1146,7 @@ export type Database = {
           currency: string | null
           current_streak: number | null
           current_tier: number | null
+          custom_profession: string | null
           email: string | null
           experience_years: number | null
           expertise: string[] | null
@@ -1190,6 +1191,7 @@ export type Database = {
           currency?: string | null
           current_streak?: number | null
           current_tier?: number | null
+          custom_profession?: string | null
           email?: string | null
           experience_years?: number | null
           expertise?: string[] | null
@@ -1234,6 +1236,7 @@ export type Database = {
           currency?: string | null
           current_streak?: number | null
           current_tier?: number | null
+          custom_profession?: string | null
           email?: string | null
           experience_years?: number | null
           expertise?: string[] | null

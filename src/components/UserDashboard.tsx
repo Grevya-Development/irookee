@@ -80,7 +80,7 @@ const UserDashboard = () => {
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status: string): 'success' | 'warning' | 'destructive' | 'secondary' => {
     switch (status) {
       case 'confirmed':
         return 'success';
@@ -228,7 +228,7 @@ const UserDashboard = () => {
                         {formatDate(booking.event_date)}
                       </p>
                     </div>
-                    <Badge variant={getStatusBadgeVariant(booking.status) as any}>
+                    <Badge variant={getStatusBadgeVariant(booking.status)}>
                       {booking.status}
                     </Badge>
                   </div>

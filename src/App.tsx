@@ -3,9 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { AuthProvider } from "@/components/AuthProvider";
+import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { trackPageview } from "@/lib/analytics";
 import { trackGaPageview } from "@/lib/googleAnalytics";
@@ -62,6 +62,24 @@ const ScrollToTop = () => {
   return null;
 };
 
+const AuthRecoveryListener = () => {
+  const { isPasswordRecovery, recoveryError } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (
+      (isPasswordRecovery || recoveryError) &&
+      location.pathname !== '/reset-password' &&
+      location.pathname !== '/auth/reset-password'
+    ) {
+      navigate('/reset-password', { replace: true });
+    }
+  }, [isPasswordRecovery, recoveryError, location.pathname, navigate]);
+
+  return null;
+};
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -100,6 +118,7 @@ const AnimatedRoutes = () => {
           <Route path="/speakers" element={<Search />} />
           <Route path="/about" element={<About />} />
           <Route path="/blog" element={<Blog />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
           <Route path="/auth/*" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
@@ -139,6 +158,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
+          <AuthRecoveryListener />
           <Suspense fallback={<PageLoader />}>
             <AnimatedRoutes />
           </Suspense>

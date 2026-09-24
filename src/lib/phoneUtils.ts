@@ -32,16 +32,83 @@ export function formatAndValidatePhone(
   }
 
   const raw = input.trim();
+
+  // Reject invalid characters (only allow digits, spaces, hyphens, parentheses, dots, and a single leading '+')
+  if (/[^0-9\s\-().+]/.test(raw) || (raw.includes('+') && !raw.startsWith('+')) || (raw.match(/\+/g) || []).length > 1) {
+    return {
+      isValid: false,
+      normalized: '',
+      formattedDisplay: raw,
+      error: 'Phone number contains invalid characters',
+    };
+  }
+
   // Strip spaces, hyphens, brackets, dots
   const stripped = raw.replace(/[\s\-().]/g, '');
 
-  // 1. Indian Phone Numbers Handling
-  // Standard 10-digit Indian mobile numbers start with 6, 7, 8, or 9.
-  //
-  // Bare 10-digit input is genuinely ambiguous: India's 6-9 mobile prefixes
-  // overlap North American area codes (650, 702, 800, 917, ...). India stays the
-  // default because it is this product's primary market, but callers that know
-  // the region can pass `defaultRegion` so a US number is not rewritten as +91.
+  // 1. Explicit Indian Phone Numbers (+91 prefix)
+  if (stripped.startsWith('+91')) {
+    const digits = stripped.slice(3);
+    if (digits.length !== 10) {
+      return {
+        isValid: false,
+        normalized: '',
+        formattedDisplay: raw,
+        error: `Indian phone numbers must contain exactly 10 digits after +91 (got ${digits.length})`,
+      };
+    }
+    if (!/^[6-9]\d{9}$/.test(digits)) {
+      return {
+        isValid: false,
+        normalized: '',
+        formattedDisplay: raw,
+        error: 'Indian phone numbers must start with 6, 7, 8, or 9',
+      };
+    }
+    return {
+      isValid: true,
+      normalized: `+91${digits}`,
+      formattedDisplay: `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`,
+    };
+  }
+
+  // 2. 11-digit starting with '0' (Indian local trunk prefix)
+  if (stripped.startsWith('0') && stripped.length === 11) {
+    const mobileDigits = stripped.slice(1);
+    if (/^[6-9]\d{9}$/.test(mobileDigits)) {
+      return {
+        isValid: true,
+        normalized: `+91${mobileDigits}`,
+        formattedDisplay: `+91 ${mobileDigits.slice(0, 5)} ${mobileDigits.slice(5)}`,
+      };
+    }
+    return {
+      isValid: false,
+      normalized: '',
+      formattedDisplay: raw,
+      error: 'Indian phone numbers must contain 10 valid digits starting with 6, 7, 8, or 9',
+    };
+  }
+
+  // 3. 12-digit starting with '91' without '+'
+  if (stripped.startsWith('91') && stripped.length === 12) {
+    const mobileDigits = stripped.slice(2);
+    if (/^[6-9]\d{9}$/.test(mobileDigits)) {
+      return {
+        isValid: true,
+        normalized: `+91${mobileDigits}`,
+        formattedDisplay: `+91 ${mobileDigits.slice(0, 5)} ${mobileDigits.slice(5)}`,
+      };
+    }
+    return {
+      isValid: false,
+      normalized: '',
+      formattedDisplay: raw,
+      error: 'Indian phone numbers must contain 10 valid digits starting with 6, 7, 8, or 9',
+    };
+  }
+
+  // 4. Bare 10-digit Indian Mobile Number (defaultRegion === 'IN')
   const indian10DigitRegex = /^[6-9]\d{9}$/;
   if (defaultRegion === 'IN' && indian10DigitRegex.test(stripped)) {
     const normalized = `+91${stripped}`;
@@ -52,57 +119,9 @@ export function formatAndValidatePhone(
     };
   }
 
-  // 11-digit starting with '0' (Indian local trunk prefix)
-  const indian0PrefixedRegex = /^0([6-9]\d{9})$/;
-  const match0 = stripped.match(indian0PrefixedRegex);
-  if (match0) {
-    const mobileDigits = match0[1];
-    const normalized = `+91${mobileDigits}`;
-    return {
-      isValid: true,
-      normalized,
-      formattedDisplay: `+91 ${mobileDigits.slice(0, 5)} ${mobileDigits.slice(5)}`,
-    };
-  }
-
-  // 12-digit starting with '91' without '+'
-  const indian91PrefixedRegex = /^91([6-9]\d{9})$/;
-  const match91 = stripped.match(indian91PrefixedRegex);
-  if (match91) {
-    const mobileDigits = match91[1];
-    const normalized = `+91${mobileDigits}`;
-    return {
-      isValid: true,
-      normalized,
-      formattedDisplay: `+91 ${mobileDigits.slice(0, 5)} ${mobileDigits.slice(5)}`,
-    };
-  }
-
-  // E.164 formatted Indian number (+91XXXXXXXXXX)
-  const indianE164Regex = /^\+91([6-9]\d{9})$/;
-  const matchE164 = stripped.match(indianE164Regex);
-  if (matchE164) {
-    const mobileDigits = matchE164[1];
-    return {
-      isValid: true,
-      normalized: stripped,
-      formattedDisplay: `+91 ${mobileDigits.slice(0, 5)} ${mobileDigits.slice(5)}`,
-    };
-  }
-
-  // 2. Generic International E.164 Validation (+[1-9]\d{7,14})
-  const generalE164Regex = /^\+[1-9]\d{7,14}$/;
-  if (generalE164Regex.test(stripped)) {
-    return {
-      isValid: true,
-      normalized: stripped,
-      formattedDisplay: stripped,
-    };
-  }
-
-  // 10-digit US/Canada/North America without leading '+' (e.g., 2068831022)
+  // 5. Bare 10-digit US Number (defaultRegion === 'US')
   const us10DigitRegex = /^[2-9]\d{9}$/;
-  if (us10DigitRegex.test(stripped)) {
+  if (defaultRegion === 'US' && us10DigitRegex.test(stripped)) {
     const normalized = `+1${stripped}`;
     return {
       isValid: true,
@@ -111,25 +130,64 @@ export function formatAndValidatePhone(
     };
   }
 
-  // 11-digit US starting with '1' without '+'
-  const us11DigitRegex = /^1([2-9]\d{9})$/;
-  const matchUS1 = stripped.match(us11DigitRegex);
-  if (matchUS1) {
-    const normalized = `+${stripped}`;
+  // 6. Non-colliding US area codes (starts with 2-5) without explicit region hint
+  const usNonCollidingRegex = /^[2-5]\d{9}$/;
+  if (usNonCollidingRegex.test(stripped)) {
+    const normalized = `+1${stripped}`;
     return {
       isValid: true,
       normalized,
-      formattedDisplay: `+1 (${matchUS1[1].slice(0, 3)}) ${matchUS1[1].slice(3, 6)}-${matchUS1[1].slice(6)}`,
+      formattedDisplay: `+1 (${stripped.slice(0, 3)}) ${stripped.slice(3, 6)}-${stripped.slice(6)}`,
     };
   }
 
-  // Fallback check: If user typed + followed by invalid digits or wrong length
-  if (stripped.startsWith('+91')) {
+  // 7. 11-digit US starting with '1' without '+' (only when defaultRegion is 'US')
+  if (defaultRegion === 'US') {
+    const us11DigitRegex = /^1([2-9]\d{9})$/;
+    const matchUS1 = stripped.match(us11DigitRegex);
+    if (matchUS1) {
+      const normalized = `+${stripped}`;
+      return {
+        isValid: true,
+        normalized,
+        formattedDisplay: `+1 (${matchUS1[1].slice(0, 3)}) ${matchUS1[1].slice(3, 6)}-${matchUS1[1].slice(6)}`,
+      };
+    }
+  }
+
+  // 8. Generic International E.164 (+[1-9]\d{6,14}) for other countries
+  if (stripped.startsWith('+')) {
+    const intlDigits = stripped.slice(1);
+    if (/^[1-9]\d{6,14}$/.test(intlDigits)) {
+      return {
+        isValid: true,
+        normalized: stripped,
+        formattedDisplay: stripped,
+      };
+    }
     return {
       isValid: false,
       normalized: '',
       formattedDisplay: raw,
-      error: 'Indian phone numbers must contain 10 valid digits starting with 6, 7, 8, or 9',
+      error: 'Please enter a valid international phone number with country code',
+    };
+  }
+
+  // 9. Numeric input with incorrect length
+  if (/^\d+$/.test(stripped)) {
+    if (stripped.length !== 10) {
+      return {
+        isValid: false,
+        normalized: '',
+        formattedDisplay: raw,
+        error: `Indian phone numbers must contain 10 digits (got ${stripped.length})`,
+      };
+    }
+    return {
+      isValid: false,
+      normalized: '',
+      formattedDisplay: raw,
+      error: 'Indian phone numbers must start with 6, 7, 8, or 9',
     };
   }
 

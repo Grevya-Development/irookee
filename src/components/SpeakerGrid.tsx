@@ -4,6 +4,7 @@ import IntelligentSearch from "./IntelligentSearch";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/asyncTimeout";
+import { PUBLIC_SPEAKER_COLUMNS } from "@/hooks/useExperts";
 
 interface Person {
   id: string;
@@ -43,7 +44,8 @@ const SpeakerGrid = ({ initialQuery = '' }: SpeakerGridProps) => {
         
         let query = supabase
           .from('speakers')
-          .select('*')
+          .select(PUBLIC_SPEAKER_COLUMNS)
+          .eq('verification_status', 'verified')
           .limit(20);
 
         // If there's an initial query, filter by it

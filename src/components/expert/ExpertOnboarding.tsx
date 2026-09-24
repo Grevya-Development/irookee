@@ -19,6 +19,7 @@ import { validateExpertiseAreas } from '@/lib/expertiseValidation'
 import { formatAndValidatePhone } from '@/lib/phoneUtils'
 import { profileNotificationService } from '@/lib/profileNotifications'
 import { ProfessionSelector } from './ProfessionSelector'
+import { CategorySelector } from './CategorySelector'
 import { validateCustomProfession, OTHER_PROFESSION_VALUE } from '@/lib/professions'
 
 const LANGUAGE_OPTIONS = [
@@ -67,7 +68,7 @@ export function ExpertOnboarding() {
   const [step, setStep] = useState(1)
 
   const [showStep1Errors, setShowStep1Errors] = useState(false)
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
+  const [categories, setCategories] = useState<{ id: string; name: string; description?: string | null }[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
   const [uploading, setUploading] = useState(false)
@@ -94,6 +95,7 @@ export function ExpertOnboarding() {
     !errors.email &&
     !errors.phone &&
     !errors.bio &&
+    formatAndValidatePhone(watchedPhone).isValid &&
     locationValue &&
     locationValue.trim().length > 0 &&
     selectedLanguages.length > 0
@@ -105,7 +107,7 @@ export function ExpertOnboarding() {
   }, [])
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('id, name').order('name')
+    const { data } = await supabase.from('categories').select('id, name, description').order('name')
     if (data) setCategories(data)
   }
 
@@ -275,10 +277,15 @@ export function ExpertOnboarding() {
   const goToStep2 = async () => {
     setShowStep1Errors(true)
     const fieldsValid = await trigger(['full_name', 'email', 'phone', 'bio'])
+    const phoneCheck = formatAndValidatePhone(watch('phone'))
     const locationValid = locationValue.trim().length > 0
     const languagesValid = selectedLanguages.length > 0
-    if (!fieldsValid || !locationValid || !languagesValid) {
-      toast.error('Please complete all required fields before continuing')
+    if (!fieldsValid || !phoneCheck.isValid || !locationValid || !languagesValid) {
+      if (!phoneCheck.isValid) {
+        toast.error(phoneCheck.error || 'Please enter a valid phone number')
+      } else {
+        toast.error('Please complete all required fields before continuing')
+      }
       return
     }
     setStep(2)
@@ -312,6 +319,10 @@ export function ExpertOnboarding() {
 
   const toggleCategory = (id: string) => {
     setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])
+  }
+
+  const clearCategories = () => {
+    setSelectedCategories([])
   }
 
   const onSubmit = async (data: ExpertOnboardingForm) => {
@@ -530,7 +541,7 @@ export function ExpertOnboarding() {
         email: user.email,
         user_type: currentProfile?.user_type || 'consumer',
         bio: data.bio || '',
-        phone: data.phone || null,
+        phone: phoneClean || data.phone || null,
       })
 
 
@@ -657,8 +668,9 @@ export function ExpertOnboarding() {
               <CardContent className="p-6 md:p-8 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Full Name *</Label>
+                    <Label htmlFor="full_name">Full Name *</Label>
                     <Input 
+                      id="full_name"
                       {...register('full_name', { 
                         required: 'Full name is required',
                         pattern: {
@@ -672,8 +684,9 @@ export function ExpertOnboarding() {
                     {errors.full_name && <p className="text-sm text-destructive mt-1">{errors.full_name.message}</p>}
                   </div>
                   <div>
-                    <Label>Email *</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <Input
+                      id="email"
                       type="email"
                       {...register('email', {
                         required: 'Required',
@@ -687,8 +700,9 @@ export function ExpertOnboarding() {
                     {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
                   </div>
                   <div>
-                    <Label>Phone *</Label>
+                    <Label htmlFor="phone">Phone *</Label>
                     <Input
+                      id="phone"
                       {...register('phone', {
                         required: 'Phone number is required',
                         validate: {
@@ -704,13 +718,13 @@ export function ExpertOnboarding() {
                     {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
                   </div>
                   <div>
-                    <Label>Location *</Label>
-                    <LocationInput value={locationValue} onChange={(v) => { setLocationValue(v); setValue('location', v); }} className="mt-1" />
+                    <Label htmlFor="location">Location *</Label>
+                    <LocationInput id="location" value={locationValue} onChange={(v) => { setLocationValue(v); setValue('location', v); }} className="mt-1" />
                     {showStep1Errors && !locationValue.trim() && <p className="text-sm text-destructive mt-1">Please enter your location</p>}
                   </div>
                   <div>
-                    <Label>Company / Organization</Label>
-                    <Input {...register('company')} placeholder="Your company" className="mt-1" />
+                    <Label htmlFor="company">Company / Organization</Label>
+                    <Input id="company" {...register('company')} placeholder="Your company" className="mt-1" />
                   </div>
                   <div>
                     <Label>Languages *</Label>
@@ -728,8 +742,8 @@ export function ExpertOnboarding() {
                   </div>
                 </div>
                 <div>
-                  <Label>Tell us about yourself *</Label>
-                  <Textarea {...register('bio', { required: 'Required', minLength: { value: 50, message: 'At least 50 characters' } })}
+                  <Label htmlFor="bio">Tell us about yourself *</Label>
+                  <Textarea id="bio" {...register('bio', { required: 'Required', minLength: { value: 50, message: 'At least 50 characters' } })}
                     placeholder="Share your journey, what drives you, and how you help people..."
                     rows={4} className="mt-1" />
                   {errors.bio && <p className="text-sm text-destructive mt-1">{errors.bio.message}</p>}
@@ -764,8 +778,9 @@ export function ExpertOnboarding() {
                 />
 
                 <div>
-                  <Label>Expertise Areas (comma-separated) *</Label>
+                  <Label htmlFor="expertise_areas">Expertise Areas (comma-separated) *</Label>
                   <Input 
+                    id="expertise_areas"
                     {...register('expertise_areas', { 
                       required: 'Expertise areas are required',
                       validate: {
@@ -782,27 +797,27 @@ export function ExpertOnboarding() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Years of Experience *</Label>
-                    <Input type="number" min="0" {...register('experience_years', { required: 'Required', valueAsNumber: true, min: { value: 0, message: 'Min 0' } })} className="mt-1" />
+                    <Label htmlFor="experience_years">Years of Experience *</Label>
+                    <Input id="experience_years" type="number" min="0" {...register('experience_years', { required: 'Required', valueAsNumber: true, min: { value: 0, message: 'Min 0' } })} className="mt-1" />
                     {errors.experience_years && <p className="text-sm text-destructive mt-1">{errors.experience_years.message}</p>}
                   </div>
                   <div>
-                    <Label>Topics You Help With</Label>
-                    <Input {...register('topics')} placeholder="Pitch Decks, Market Research, SEO" className="mt-1" />
+                    <Label htmlFor="topics">Topics You Help With</Label>
+                    <Input id="topics" {...register('topics')} placeholder="Pitch Decks, Market Research, SEO" className="mt-1" />
                   </div>
                 </div>
                 <div>
-                  <Label>Who do you want to help?</Label>
-                  <Input {...register('preferred_audience')} placeholder="Students, Founders, Working Professionals" className="mt-1" />
+                  <Label htmlFor="preferred_audience">Who do you want to help?</Label>
+                  <Input id="preferred_audience" {...register('preferred_audience')} placeholder="Students, Founders, Working Professionals" className="mt-1" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>LinkedIn URL</Label>
-                    <Input {...register('linkedin_url')} placeholder="https://linkedin.com/in/..." className="mt-1" />
+                    <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                    <Input id="linkedin_url" {...register('linkedin_url')} placeholder="https://linkedin.com/in/..." className="mt-1" />
                   </div>
                   <div>
-                    <Label>Website / Portfolio</Label>
-                    <Input {...register('website_url')} placeholder="https://..." className="mt-1" />
+                    <Label htmlFor="website_url">Website / Portfolio</Label>
+                    <Input id="website_url" {...register('website_url')} placeholder="https://..." className="mt-1" />
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-6 border-t mt-6">
@@ -821,34 +836,38 @@ export function ExpertOnboarding() {
           {step === 3 && (
             <Card className="shadow-sm border rounded-2xl">
               <CardContent className="p-6 md:p-8 space-y-5">
-                <p className="text-muted-foreground">Pick all that apply  -  this helps people find you.</p>
-                <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
-                  {categories.map(cat => (
-                    <button
-                      key={cat.id} type="button"
-                      onClick={() => toggleCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                        selectedCategories.includes(cat.id)
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-background border-border hover:border-primary/50 text-foreground'
-                      }`}
-                    >
-                      {selectedCategories.includes(cat.id) && <CheckCircle2 className="h-3 w-3 inline mr-1" />}
-                      {cat.name}
-                    </button>
-                  ))}
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Select Your Categories *</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Choose one or more categories that best match your professional expertise and services.
+                  </p>
                 </div>
-                {selectedCategories.length > 0 && (
-                  <p className="text-sm text-muted-foreground">{selectedCategories.length} selected</p>
-                )}
+
+                <CategorySelector
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onToggleCategory={toggleCategory}
+                  onClearSelection={clearCategories}
+                  userProfession={watch('title')}
+                  userExpertise={watch('expertise_areas')}
+                />
+
                 <div className="flex items-center justify-between pt-6 border-t mt-6">
                   <Button type="button" variant="outline" onClick={() => setStep(2)} size="lg">
                     <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
                   </Button>
-                  <Button type="button" onClick={() => {
-                    if (selectedCategories.length === 0) { toast.error('Select at least one category'); return }
-                    setStep(4)
-                  }} size="lg">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (selectedCategories.length === 0) {
+                        toast.error('Select at least one category')
+                        return
+                      }
+                      setStep(4)
+                    }}
+                    size="lg"
+                    disabled={selectedCategories.length === 0}
+                  >
                     Next <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </div>
