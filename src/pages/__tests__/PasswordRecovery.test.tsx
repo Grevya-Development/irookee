@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ResetPassword from '../ResetPassword';
 import Auth from '../Auth';
 import AuthForms from '@/components/auth/AuthForms';
 import { getSiteUrl } from '@/lib/siteUrl';
+import { resetExchangedCodesForTesting } from '@/lib/safeStorage';
 import * as AuthProviderModule from '@/components/AuthProvider';
 import * as AuthLibModule from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthError } from '@supabase/supabase-js';
 
 vi.mock('@/components/Navigation', () => ({
   default: () => <nav data-testid="mock-nav">Nav</nav>,
@@ -43,6 +44,10 @@ vi.mock('@/integrations/supabase/client', () => ({
       getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       resetPasswordForEmail: vi.fn(),
       updateUser: vi.fn(),
+      setSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      exchangeCodeForSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      verifyOtp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
     },
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -68,6 +73,7 @@ describe('Password Recovery and Reset Flow Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetExchangedCodesForTesting();
     if (useAuthSpy) {
       useAuthSpy.mockRestore();
       useAuthSpy = undefined;
@@ -78,10 +84,20 @@ describe('Password Recovery and Reset Flow Integration', () => {
     if (useAuthSpy) {
       useAuthSpy.mockRestore();
     }
+    const isRecovery = overrides.isPasswordRecovery ?? false;
+    const effectiveSession = overrides.session !== undefined
+      ? overrides.session
+      : (isRecovery ? ({ user: { id: 'user-rec-123' } } as unknown as Session) : null);
+
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: effectiveSession },
+      error: null,
+    });
+
     useAuthSpy = vi.spyOn(AuthProviderModule, 'useAuth').mockReturnValue({
-      user: { id: 'user-rec-123', email: 'user@example.com' } as unknown as User,
-      session: { user: { id: 'user-rec-123' } } as unknown as Session,
-      profile: { id: 'user-rec-123', user_type: 'consumer' } as unknown as AuthProviderModule.Profile,
+      user: effectiveSession ? ({ id: 'user-rec-123', email: 'user@example.com' } as unknown as User) : null,
+      session: effectiveSession,
+      profile: effectiveSession ? ({ id: 'user-rec-123', user_type: 'consumer' } as unknown as AuthProviderModule.Profile) : null,
       loading: false,
       isPasswordRecovery: false,
       recoveryError: null,
@@ -126,7 +142,7 @@ describe('Password Recovery and Reset Flow Integration', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByLabelText(/^New password$/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Confirm new password$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Update password/i })).toBeInTheDocument();
   });
@@ -142,7 +158,7 @@ describe('Password Recovery and Reset Flow Integration', () => {
       </MemoryRouter>
     );
 
-    const submitBtn = screen.getByRole('button', { name: /Update password/i });
+    const submitBtn = await screen.findByRole('button', { name: /Update password/i });
 
     // 1. Empty password
     fireEvent.click(submitBtn);
@@ -188,7 +204,7 @@ describe('Password Recovery and Reset Flow Integration', () => {
       </MemoryRouter>
     );
 
-    const newPassInput = screen.getByLabelText(/^New password$/i);
+    const newPassInput = await screen.findByLabelText(/^New password$/i);
     const confirmInput = screen.getByLabelText(/^Confirm new password$/i);
     const submitBtn = screen.getByRole('button', { name: /Update password/i });
 
@@ -219,7 +235,7 @@ describe('Password Recovery and Reset Flow Integration', () => {
       </MemoryRouter>
     );
 
-    const newPassInput = screen.getByLabelText(/^New password$/i);
+    const newPassInput = await screen.findByLabelText(/^New password$/i);
     const confirmInput = screen.getByLabelText(/^Confirm new password$/i);
     const submitBtn = screen.getByRole('button', { name: /Update password/i });
 
@@ -448,6 +464,326 @@ describe('Password Recovery and Reset Flow Integration', () => {
       expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('test.real@example.com', {
         redirectTo: `${getSiteUrl()}/reset-password`,
       });
+    });
+  });
+
+  describe('URL Parameter and Session Establishment Lifecycle', () => {
+    it('establishes session via setSession when URL contains access_token and refresh_token', async () => {
+      const mockSession = { user: { id: 'rec-user-1', email: 'user@example.com' } } as Session;
+      vi.mocked(supabase.auth.setSession).mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user },
+        error: null,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password#access_token=token123&refresh_token=refresh123&type=recovery']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(supabase.auth.setSession).toHaveBeenCalledWith({
+          access_token: 'token123',
+          refresh_token: 'refresh123',
+        });
+      });
+
+      expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
+      expect(sessionStorage.getItem('irookee_recovery_active')).toBe('true');
+    });
+
+    it('exchanges code for session when URL contains PKCE code', async () => {
+      const mockSession = { user: { id: 'pkce-user-1', email: 'pkce@example.com' } } as Session;
+      vi.mocked(supabase.auth.exchangeCodeForSession).mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user },
+        error: null,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password?code=valid-pkce-code-123']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('valid-pkce-code-123');
+      });
+
+      expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
+      expect(sessionStorage.getItem('irookee_recovery_active')).toBe('true');
+    });
+
+    it('verifies OTP when URL contains token_hash and type=recovery', async () => {
+      const mockSession = { user: { id: 'otp-user-1', email: 'otp@example.com' } } as Session;
+      vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user },
+        error: null,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password?token_hash=valid-otp-hash&type=recovery']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+          token_hash: 'valid-otp-hash',
+          type: 'recovery',
+        });
+      });
+
+      expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
+    });
+
+    it('preserves recovery state across simulated page reload via sessionStorage', async () => {
+      sessionStorage.setItem('irookee_recovery_active', 'true');
+      setupAuthMock({
+        isPasswordRecovery: false,
+        session: { user: { id: 'reloaded-user' } } as unknown as Session,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
+      sessionStorage.removeItem('irookee_recovery_active');
+    });
+
+    it('shows security settings guidance for normal signed-in user visiting /reset-password directly', async () => {
+      sessionStorage.removeItem('irookee_recovery_active');
+      const normalUser = { id: 'normal-user', email: 'normal@example.com' } as unknown as User;
+      const normalSession = { user: normalUser } as unknown as Session;
+
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: normalSession },
+        error: null,
+      });
+
+      setupAuthMock({
+        isPasswordRecovery: false,
+        user: normalUser,
+        session: normalSession,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByText(/You are currently signed in/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Go to Security Settings/i })).toHaveAttribute(
+        'href',
+        '/settings?tab=security'
+      );
+    });
+
+    it('blocks password update if session is unexpectedly missing during submission', async () => {
+      const initialSession = { user: { id: 'u1', email: 'test@example.com' } } as unknown as Session;
+      setupAuthMock({ isPasswordRecovery: true, session: initialSession });
+      vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
+        data: { session: initialSession },
+        error: null,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      const newPassInput = await screen.findByLabelText(/^New password$/i);
+      const confirmInput = screen.getByLabelText(/^Confirm new password$/i);
+      const submitBtn = screen.getByRole('button', { name: /Update password/i });
+
+      fireEvent.change(newPassInput, { target: { value: 'NewPassword123' } });
+      fireEvent.change(confirmInput, { target: { value: 'NewPassword123' } });
+
+      // Simulate session lost right before submission
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+      setupAuthMock({ isPasswordRecovery: true, session: null });
+      fireEvent.click(submitBtn);
+
+      expect(await screen.findByText(/Auth session missing! Please request a new password reset link\./i)).toBeInTheDocument();
+      expect(mockUpdatePassword).not.toHaveBeenCalled();
+    });
+
+    it('displays error when token_hash verification fails', async () => {
+      vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+        data: { session: null, user: null },
+        error: new Error('Token has expired or is invalid') as unknown as AuthError,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password?token_hash=expired-hash&type=recovery']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByText(/This reset link is invalid or has expired/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Resend Reset Link/i })).toBeInTheDocument();
+    });
+
+    it('displays error when setSession fails with invalid tokens', async () => {
+      vi.mocked(supabase.auth.setSession).mockResolvedValue({
+        data: { session: null, user: null },
+        error: new Error('Invalid token') as unknown as AuthError,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password#access_token=bad&refresh_token=bad&type=recovery']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByText(/This reset link is invalid or has expired/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Resend Reset Link/i })).toBeInTheDocument();
+    });
+
+    it('displays error when PKCE exchangeCodeForSession fails and no background session exists', async () => {
+      vi.mocked(supabase.auth.exchangeCodeForSession).mockResolvedValue({
+        data: { session: null, user: null },
+        error: new Error('invalid_grant: code expired') as unknown as AuthError,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password?code=expired-code-123']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByText(/This reset link could not be verified or has expired/i)).toBeInTheDocument();
+    });
+
+    it('recognizes session established by Supabase SDK initialization before manual exchange, preventing duplicate exchange', async () => {
+      const mockSession = { user: { id: 'pre-init-user', email: 'pre@example.com' } } as Session;
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false, session: mockSession });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password?code=already-exchanged-by-sdk']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
+      // Should NOT have attempted to exchange code again because session was already confirmed
+      expect(supabase.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+    });
+
+    it('detects PASSWORD_RECOVERY delivered through onAuthStateChange', async () => {
+      let authStateListener: Parameters<typeof supabase.auth.onAuthStateChange>[0] | undefined;
+      vi.mocked(supabase.auth.onAuthStateChange).mockImplementation((cb) => {
+        authStateListener = cb;
+        return {
+          data: {
+            subscription: {
+              id: 'mock-sub',
+              callback: cb,
+              unsubscribe: vi.fn(),
+            },
+          },
+        };
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      render(
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      const mockRecoverySession = { user: { id: 'stream-user', email: 'stream@example.com' } } as Session;
+      await act(async () => {
+        await authStateListener?.('PASSWORD_RECOVERY', mockRecoverySession);
+      });
+
+      expect(await screen.findByLabelText(/^New password$/i)).toBeInTheDocument();
+      expect(sessionStorage.getItem('irookee_recovery_active')).toBe('true');
+    });
+
+    it('prevents exchanging the same PKCE code twice across component remounts / Strict Mode', async () => {
+      const mockSession = { user: { id: 'strict-user', email: 'strict@example.com' } } as Session;
+      vi.mocked(supabase.auth.exchangeCodeForSession).mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user },
+        error: null,
+      });
+
+      setupAuthMock({ isPasswordRecovery: false });
+
+      const { unmount } = render(
+        <MemoryRouter initialEntries={['/reset-password?code=strict-mode-code']}>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('strict-mode-code');
+      });
+
+      // Strict mode unmount and immediate remount
+      unmount();
+
+      await act(async () => {
+        render(
+          <MemoryRouter initialEntries={['/reset-password?code=strict-mode-code']}>
+            <Routes>
+              <Route path="/reset-password" element={<ResetPassword />} />
+            </Routes>
+          </MemoryRouter>
+        );
+      });
+
+      // Verify exchangeCodeForSession was called only once for this code
+      expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledTimes(1);
     });
   });
 });
