@@ -83,8 +83,11 @@ export default function Settings() {
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences)
   const [isAdmin, setIsAdmin] = useState(false)
 
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [updatingPassword, setUpdatingPassword] = useState(false)
@@ -499,37 +502,95 @@ export default function Settings() {
     }
   }
 
+  const resetPasswordForm = () => {
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setShowCurrentPassword(false)
+    setShowNewPassword(false)
+    setShowConfirmPassword(false)
+    setPasswordError(null)
+    setPasswordSuccess(false)
+  }
+
+  const handleClosePasswordDialog = () => {
+    if (updatingPassword) return
+    setShowPasswordDialog(false)
+    resetPasswordForm()
+  }
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (updatingPassword) return
     setPasswordError(null)
     setPasswordSuccess(false)
 
-    if (!newPassword) {
+    const trimmedCurrent = currentPassword.trim()
+    const trimmedNew = newPassword.trim()
+    const trimmedConfirm = confirmPassword.trim()
+
+    if (!trimmedCurrent) {
+      setPasswordError('Please enter your current password.')
+      return
+    }
+    if (!trimmedNew) {
       setPasswordError('Please enter a new password.')
       return
     }
-    if (newPassword.length < 8) {
+    if (trimmedNew.length < 8) {
       setPasswordError('Password must be at least 8 characters long.')
       return
     }
-    if (newPassword !== confirmPassword) {
+    if (trimmedNew !== trimmedConfirm) {
       setPasswordError('Passwords do not match.')
+      return
+    }
+    if (trimmedCurrent === trimmedNew) {
+      setPasswordError('New password must be different from your current password.')
+      return
+    }
+
+    const userEmail = user?.email
+    if (!userEmail) {
+      setPasswordError('Unable to identify your account email. Please sign in again.')
       return
     }
 
     setUpdatingPassword(true)
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
+      // Securely verify current password with Supabase
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: trimmedCurrent,
+      })
+
+      if (verifyError) {
+        const isInvalid = /invalid.*cred|invalid_grant|invalid.*pass/i.test(verifyError.message)
+        setPasswordError(
+          isInvalid
+            ? 'Current password is incorrect. Please try again.'
+            : (verifyError.message || 'Current password could not be verified.')
+        )
+        return
+      }
+
+      // Update password via Supabase
+      const { error: updateError } = await supabase.auth.updateUser({ password: trimmedNew })
+      if (updateError) throw updateError
 
       setPasswordSuccess(true)
+      setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
       toast({
         title: 'Password Updated',
         description: 'Your account password has been updated successfully.',
       })
+
+      setTimeout(() => {
+        setShowPasswordDialog(false)
+        resetPasswordForm()
+      }, 1500)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not update password. Please try again.'
       setPasswordError(msg)
@@ -585,7 +646,7 @@ export default function Settings() {
           </TabsList>
 
           {/* Personal Profile Tab */}
-          <TabsContent value="profile">
+          <TabsContent value="profile" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Personal Information</CardTitle>
@@ -664,6 +725,39 @@ export default function Settings() {
                 <Button onClick={saveProfile} disabled={saving}>
                   {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save Profile</>}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Change Password Option in Profile Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" /> Password & Security
+                </CardTitle>
+                <CardDescription>
+                  Manage your account password and security credentials
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border bg-muted/30">
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm">Account Password</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ensure your account remains protected with a strong, updated password.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      resetPasswordForm()
+                      setShowPasswordDialog(true)
+                    }}
+                    className="shrink-0 flex items-center gap-2"
+                  >
+                    <KeyRound className="h-4 w-4" /> Change Password
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -841,7 +935,7 @@ export default function Settings() {
           )}
 
           {/* Security / Password Tab */}
-          <TabsContent value="security">
+          <TabsContent value="security" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -852,82 +946,24 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md" noValidate>
-                  {passwordSuccess && (
-                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-lg p-3 text-sm flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <span>Password changed successfully.</span>
-                    </div>
-                  )}
-
-                  {passwordError && (
-                    <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 text-sm flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-                      <span>{passwordError}</span>
-                    </div>
-                  )}
-
-                  <div>
-                    <Label htmlFor="settings-new-password">New Password</Label>
-                    <div className="relative mt-1">
-                      <Input
-                        id="settings-new-password"
-                        type={showNewPassword ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        className="pr-10"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword((v) => !v)}
-                        aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      >
-                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">At least 8 characters.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border bg-muted/30 max-w-xl">
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm">Account Password</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ensure your account remains protected with a strong, updated password.
+                    </p>
                   </div>
-
-                  <div>
-                    <Label htmlFor="settings-confirm-password">Confirm New Password</Label>
-                    <div className="relative mt-1">
-                      <Input
-                        id="settings-confirm-password"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        className="pr-10"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword((v) => !v)}
-                        aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <Button type="submit" disabled={updatingPassword} className="mt-2">
-                    {updatingPassword ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="h-4 w-4 mr-2" /> Update Password
-                      </>
-                    )}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      resetPasswordForm()
+                      setShowPasswordDialog(true)
+                    }}
+                    className="shrink-0 flex items-center gap-2"
+                  >
+                    <KeyRound className="h-4 w-4" /> Change Password
                   </Button>
-                </form>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -989,6 +1025,142 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Change Password Dialog */}
+      <Dialog
+        open={showPasswordDialog}
+        onOpenChange={(open) => {
+          if (!open) handleClosePasswordDialog()
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <KeyRound className="h-5 w-5 text-primary" /> Change Password
+            </DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new password. It must be at least 8 characters long.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleChangePassword} className="space-y-4 py-2" noValidate>
+            {passwordSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-lg p-3 text-sm flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>Password changed successfully.</span>
+              </div>
+            )}
+
+            {passwordError && (
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="settings-current-password">Current Password</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="settings-current-password"
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="pr-10"
+                  required
+                  disabled={updatingPassword}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                  disabled={updatingPassword}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="settings-new-password">New Password</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="settings-new-password"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  className="pr-10"
+                  required
+                  disabled={updatingPassword}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                  disabled={updatingPassword}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">At least 8 characters.</p>
+            </div>
+
+            <div>
+              <Label htmlFor="settings-confirm-password">Confirm New Password</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="settings-confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  className="pr-10"
+                  required
+                  disabled={updatingPassword}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  disabled={updatingPassword}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClosePasswordDialog}
+                disabled={updatingPassword}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updatingPassword}>
+                {updatingPassword ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" /> Save Changes
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

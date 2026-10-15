@@ -73,9 +73,16 @@ const AuthRecoveryListener = () => {
       location.pathname !== '/reset-password' &&
       location.pathname !== '/auth/reset-password'
     ) {
-      navigate('/reset-password', { replace: true });
+      navigate(
+        {
+          pathname: '/reset-password',
+          search: location.search,
+          hash: location.hash,
+        },
+        { replace: true }
+      );
     }
-  }, [isPasswordRecovery, recoveryError, location.pathname, navigate]);
+  }, [isPasswordRecovery, recoveryError, location.pathname, location.search, location.hash, navigate]);
 
   return null;
 };

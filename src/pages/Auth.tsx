@@ -22,7 +22,14 @@ const Auth = () => {
     let active = true;
 
     if (isPasswordRecovery || recoveryError) {
-      navigate("/reset-password", { replace: true });
+      navigate(
+        {
+          pathname: "/reset-password",
+          search: window.location.search,
+          hash: window.location.hash,
+        },
+        { replace: true }
+      );
       return;
     }
 

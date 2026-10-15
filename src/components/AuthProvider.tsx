@@ -5,6 +5,7 @@ import { identifyUser, resetAnalytics } from '@/lib/analytics';
 import { setGaUser } from '@/lib/googleAnalytics';
 import { getSiteUrl } from '@/lib/siteUrl';
 import { validateEmailInput } from '@/lib/emailValidation';
+import { getSafeSessionItem, setSafeSessionItem, removeSafeSessionItem } from '@/lib/safeStorage';
 
 /**
  * Authentication on native Supabase Auth.
@@ -77,6 +78,18 @@ const checkUrlForRecovery = () => {
 
   const type = hashParams.get('type') || searchParams.get('type');
   if (type === 'recovery') {
+    return { isRecovery: true, error: null };
+  }
+
+  // Tokens present with recovery intent
+  if (hashParams.get('access_token') || searchParams.get('access_token')) {
+    if (type === 'recovery' || hash.includes('type=recovery') || search.includes('type=recovery')) {
+      return { isRecovery: true, error: null };
+    }
+  }
+
+  // Preserve recovery state across page refreshes
+  if (getSafeSessionItem('irookee_recovery_active') === 'true') {
     return { isRecovery: true, error: null };
   }
 
@@ -182,9 +195,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
         setRecoveryError(null);
+        setSafeSessionItem('irookee_recovery_active', 'true');
       } else if (event === 'SIGNED_OUT') {
         setIsPasswordRecovery(false);
         setRecoveryError(null);
+        removeSafeSessionItem('irookee_recovery_active');
       }
       applySession(nextSession);
       setLoading(false);
@@ -261,6 +276,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const signOut = useCallback(async () => {
+    removeSafeSessionItem('irookee_recovery_active');
+    setIsPasswordRecovery(false);
+    setRecoveryError(null);
     const { error } = await supabase.auth.signOut();
     if (error) console.error('Sign out failed:', error);
     // onAuthStateChange clears state; do it here too so the UI updates even if
@@ -306,14 +324,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const clearPasswordRecovery = useCallback(() => {
     setIsPasswordRecovery(false);
     setRecoveryError(null);
+    removeSafeSessionItem('irookee_recovery_active');
   }, []);
 
   const updatePassword = useCallback(async (newPassword: string): Promise<AuthResult> => {
     try {
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!activeSession) {
+        return { error: new Error('Auth session missing! Please request a new password reset link.') };
+      }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       setIsPasswordRecovery(false);
       setRecoveryError(null);
+      removeSafeSessionItem('irookee_recovery_active');
       return { error: null };
     } catch (err) {
       return { error: toError(err, 'Could not update your password.') };
